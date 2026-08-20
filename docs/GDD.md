@@ -263,7 +263,7 @@ Builds combinadas incentivadas ativamente: Guerreiro+Agricultor, Encantado+Pesca
 - Inimigos telegrafam ataques (0,4–0,8s de aviso visual) — combate é sobre leitura e posicionamento, não reflexo puro.
 - Sem combate automático: o jogador sempre controla movimento e timing.
 
-**[Decisão de Design]** O brief original lista 6 ações simultâneas no lado direito da tela (ataque, esquiva, habilidade 1, habilidade 2, especial, item rápido). Em um botão físico isso é tranquilo; em touchscreen, 6 botões fixos competem por espaço com o polegar e tendem a gerar toques acidentais — problema real em jogos mobile de ação. **Solução proposta:** reduzir para **4 botões fixos** (Ataque, Esquiva, Habilidade 1, Habilidade 2) dispostos em leque ao redor do polegar, e mover Habilidade Especial + Item Rápido para um **botão contextual único** que abre uma roda radial ao ser pressionado e segurado (hold-to-radial, comum em Genshin Impact/Diablo Immortal mobile). Isso preserva as 6 ações sem lotar a tela. Ver Seção 35–36.
+**[Decisão de Design — confirmada]** O brief original lista 6 ações simultâneas no lado direito da tela (ataque, esquiva, habilidade 1, habilidade 2, especial, item rápido). Em um botão físico isso é tranquilo; em touchscreen, 6 botões fixos competem por espaço com o polegar e tendem a gerar toques acidentais — problema real em jogos mobile de ação. Solução adotada: **4 botões fixos** (Ataque, Esquiva, Habilidade 1, Habilidade 2) dispostos em leque ao redor do polegar, e Habilidade Especial + Item Rápido movidos para um **botão contextual único** que abre uma roda radial ao ser pressionado e segurado (hold-to-radial, comum em Genshin Impact/Diablo Immortal mobile). Isso preserva as 6 ações sem lotar a tela. Já validado no protótipo jogável (Seção 60-A). Ver Seção 35–36.
 
 **Progressão:** dano/HP escalam com nível e equipamento; inimigos ganham variantes "elite" em áreas avançadas (glow visual + stats +50%).
 
@@ -346,7 +346,7 @@ Tiers: Casa nível 1 (inicial, 1 cômodo) → nível 2 (quarto extra + baú maio
 
 ## 23. Economia
 
-**[Decisão de Design]** O brief sugere "Réis" com ressalva sobre conflito histórico. Optamos por moeda fictícia: **Vintém** (plural **vinténs**) — nome real de moeda histórica brasileira em desuso, então soa autêntico sem representar a moeda nacional atual nem gerar expectativa de conversão real.
+**[Decisão de Design — confirmada]** O brief sugere "Réis" com ressalva sobre conflito histórico. Optamos por moeda fictícia: **Vintém** (plural **vinténs**) — nome real de moeda histórica brasileira em desuso, então soa autêntico sem representar a moeda nacional atual nem gerar expectativa de conversão real. Já implementada no protótipo jogável (Seção 60-A) com ícone de moeda dourada no HUD.
 
 Fontes de renda: agricultura, pesca, mineração, quests, artesanato, culinária, exploração (baús). Nenhuma fonte única domina: preços de venda são calibrados para que a melhor estratégia seja combinar 2–3 atividades, não farmar uma só (ex.: peixe raro vende bem mas é limitado por clima/horário; minério é constante mas de menor valor unitário).
 
@@ -739,6 +739,26 @@ Trilha instrumental com base em violão, viola caipira, percussão leve e sopros
 8. Prototipar a Mina Santa Luzia (greybox) com o `BossController` e o Carcará de Ferro em versão simplificada (1 fase) para validar a diversão do combate central antes de investir em arte final.
 9. Rodar o vertical slice resultante (chegada → tutorial → 1 NPC → mina → boss simplificado) com playtesters externos em dispositivo Android real, medindo especificamente: clareza dos controles touch, legibilidade dos telegraphs, ritmo de sessão de 15–20 minutos.
 10. Só então iniciar produção de arte final e conteúdo completo (Fases 2–4 do roadmap, Seção 43), guiada pelos aprendizados do protótipo.
+
+---
+
+## 60-A. Protótipo jogável de mecânicas (implementado)
+
+Antes mesmo do projeto Godot descrito acima, foi construído um **protótipo web jogável** (`/prototype/web/index.html`) para validar rapidamente, em navegador (desktop e celular, sem instalação), as duas decisões de design mais sensíveis desta seção: o HUD de combate de **4 botões fixos + botão contextual em roda radial** (Seção 14/36) e a moeda **Vintém** (Seção 23).
+
+O que o protótipo cobre:
+- Movimento via joystick virtual (lado esquerdo, aparece onde o polegar toca).
+- 4 botões fixos: Ataque, Esquiva (com invencibilidade breve), Golpe Pesado (habilidade 1, custa Stamina), Rajada (habilidade 2 à distância, custa Mana).
+- Botão central: toque rápido repete a última ação usada; pressionar e segurar abre a roda radial com **Especial** (dano em área, custa Mana) e **Cura** (item consumível com 3 cargas).
+- Barras de HP/ST/MP com regeneração de ST/MP ao longo do tempo.
+- Um inimigo (Rato-do-Mato Corrompido, Seção 27) com IA de patrulha → perseguição → telegraph (aviso visual antes do bicote) → investida, reaparecendo após derrotado.
+- Drop e coleta de **Vintém** ao derrotar inimigos, com contador persistente (`localStorage`) e ícone de moeda dourada no HUD.
+- Ciclo dia/noite comprimido (Seção 32) com indicador de fase (Manhã/Tarde/Noite/Madrugada) e tingimento de tela.
+- Cenário do Sítio (casa, campo plantado, árvores) desenhado proceduralmente em canvas, sem depender de assets externos.
+
+Isto é um protótipo de **mecânica e controles**, não de arte final — os sprites são placeholders geométricos deliberadamente simples. Serve para validar em mãos reais, antes de investir em pixel art e no projeto Godot completo, se o HUD de 4 botões é confortável e se o loop de combate (ataque/esquiva/habilidades/telegraph) é legível e divertido em tela pequena.
+
+Como testar: abrir `prototype/web/index.html` em qualquer navegador (arrastar para mover, tocar os botões à direita para agir).
 
 ---
 
