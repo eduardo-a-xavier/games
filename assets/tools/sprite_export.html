@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Encantaria — exportador de placeholders</title>
+<style>
+  body { background:#16211f; color:#dff0e6; font-family:sans-serif; padding:20px; }
+  h1 { font-size:16px; }
+  .row { display:flex; flex-wrap:wrap; gap:16px; margin-bottom:20px; }
+  .item { background:#0006; border:1px solid #3c5a4b; padding:8px; border-radius:4px; }
+  .item canvas { display:block; background:repeating-conic-gradient(#2a2a2a 0% 25%, #1a1a1a 0% 50%) 50% / 12px 12px; image-rendering: pixelated; }
+  .item span { font-size:11px; color:#9fc2ae; }
+  #status { position:fixed; top:10px; right:10px; font-family:monospace; font-size:12px; }
+</style>
+</head>
+<body>
+<h1>Exportador de placeholders — Encantaria</h1>
+<p>Renderiza os frames diretamente de <code>appearance.js</code> (o mesmo código usado no jogo). Usado pelo Playwright para gerar os PNGs de <code>assets/</code> — ver CHARACTER_STYLE_GUIDE.md Seção 8.</p>
+<div id="sheets" class="row"></div>
+<div id="refs" class="row"></div>
+<div id="status">gerando…</div>
+
+<script src="../../prototype/web/src/appearance.js"></script>
+<script>
+(function () {
+  var FRAME_W = 40, FRAME_H = 56, ANCHOR_X = 20, ANCHOR_Y = 40;
+
+  var STATES = [
+    { name: "idle", frames: 4, period: 2 * Math.PI / 2.2, facing: { x: 0, y: 1 } },
+    { name: "walk", frames: 6, period: 2 * Math.PI / 8, facing: { x: 0, y: 1 } },
+    { name: "run", frames: 6, period: 2 * Math.PI / 13, facing: { x: 0, y: 1 } },
+    { name: "attack", frames: 4, period: null, facing: { x: 1, y: 0 }, chargeSeq: [0.3, 0.6, 0.85, 1.0] },
+    { name: "chargeAttack", frames: 4, period: null, facing: { x: 1, y: 0 }, chargeSeq: [0, 0.33, 0.66, 1.0] },
+    { name: "dodge", frames: 3, period: null, facingSeq: [{ x: -1, y: 0.3 }, { x: 0, y: 1 }, { x: 1, y: 0.3 }] },
+    { name: "hurt", frames: 2, period: null, tSeq: [0, 0.25], facing: { x: 0, y: 1 } },
+    { name: "tool", frames: 4, period: 2 * Math.PI / 6, facing: { x: 1, y: 0 } },
+    { name: "death", frames: 5, period: null, tSeq: [0, 0.2, 0.4, 0.7, 1.0], facing: { x: 0, y: 1 } },
+  ];
+
+  var appearance = EN.Appearance.defaultAppearance();
+  var exports = {}; // filename -> canvas
+
+  function renderFrame(ctx, ox, oy, state, t, facing, chargeProgress) {
+    ctx.save();
+    ctx.translate(ox, oy);
+    EN.Appearance.draw(ctx, ANCHOR_X, ANCHOR_Y, appearance, {
+      state: state,
+      t: t,
+      facing: facing,
+      classId: null,
+      chargeProgress: chargeProgress || 0,
+    });
+    ctx.restore();
+  }
+
+  var sheetsEl = document.getElementById("sheets");
+
+  STATES.forEach(function (s) {
+    var canvas = document.createElement("canvas");
+    canvas.width = FRAME_W * s.frames;
+    canvas.height = FRAME_H;
+    var ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+
+    for (var i = 0; i < s.frames; i++) {
+      var t = s.period ? (s.period * i) / s.frames : s.tSeq ? s.tSeq[i] : 0;
+      var facing = s.facingSeq ? s.facingSeq[i] : s.facing;
+      var charge = s.chargeSeq ? s.chargeSeq[i] : 0;
+      renderFrame(ctx, i * FRAME_W, 0, s.name, t, facing, charge);
+    }
+
+    exports[s.name + ".png"] = canvas;
+
+    var wrap = document.createElement("div");
+    wrap.className = "item";
+    var label = document.createElement("span");
+    label.textContent = s.name + ".png (" + s.frames + " frames, " + FRAME_W + "x" + FRAME_H + " cada)";
+    wrap.appendChild(canvas);
+    wrap.appendChild(label);
+    sheetsEl.appendChild(wrap);
+  });
+
+  // ---------- referências de art_direction ----------
+  var refsEl = document.getElementById("refs");
+
+  function addRef(name, canvas) {
+    exports[name] = canvas;
+    var wrap = document.createElement("div");
+    wrap.className = "item";
+    var label = document.createElement("span");
+    label.textContent = name;
+    wrap.appendChild(canvas);
+    wrap.appendChild(label);
+    refsEl.appendChild(wrap);
+  }
+
+  // player_reference.png — folha de poses (turnaround simplificado)
+  (function () {
+    var poses = [
+      { label: "idle", state: "idle", t: 0.3, facing: { x: 0, y: 1 } },
+      { label: "walk", state: "walk", t: 0.2, facing: { x: 0, y: 1 } },
+      { label: "run", state: "run", t: 0.15, facing: { x: 1, y: 0.3 } },
+      { label: "attack", state: "attack", t: 0, facing: { x: 1, y: 0 }, charge: 1 },
+      { label: "chargeAttack", state: "chargeAttack", t: 0.05, facing: { x: 1, y: 0 }, charge: 0.7 },
+      { label: "dodge", state: "dodge", t: 0, facing: { x: 1, y: 0.2 } },
+      { label: "hurt", state: "hurt", t: 0.05, facing: { x: 0, y: 1 } },
+      { label: "death", state: "death", t: 0.5, facing: { x: 0, y: 1 } },
+    ];
+    var scale = 2.5;
+    var cellW = FRAME_W * scale + 10,
+      cellH = FRAME_H * scale + 26;
+    var cols = 4,
+      rows = Math.ceil(poses.length / cols);
+    var canvas = document.createElement("canvas");
+    canvas.width = cellW * cols;
+    canvas.height = cellH * rows;
+    var ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#1b2e28";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    poses.forEach(function (p, i) {
+      var col = i % cols,
+        row = Math.floor(i / cols);
+      var cx = col * cellW + cellW / 2,
+        cy = row * cellH + 14;
+      ctx.save();
+      ctx.translate(cx - ANCHOR_X * scale, cy);
+      ctx.scale(scale, scale);
+      EN.Appearance.draw(ctx, ANCHOR_X, ANCHOR_Y, appearance, {
+        state: p.state,
+        t: p.t,
+        facing: p.facing,
+        classId: null,
+        chargeProgress: p.charge || 0,
+      });
+      ctx.restore();
+      ctx.fillStyle = "#dff0e6";
+      ctx.font = "11px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(p.label, cx, row * cellH + cellH - 6);
+    });
+    addRef("player_reference.png", canvas);
+  })();
+
+  // proportions_reference.png — régua de medidas sobre o idle
+  (function () {
+    var scale = 6;
+    var canvas = document.createElement("canvas");
+    canvas.width = 260;
+    canvas.height = FRAME_H * scale + 40;
+    var ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#1b2e28";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    var ox = 60,
+      oy = 20;
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.scale(scale, scale);
+    EN.Appearance.draw(ctx, ANCHOR_X, ANCHOR_Y, appearance, { state: "idle", t: 0.3, facing: { x: 0, y: 1 }, classId: null });
+    ctx.restore();
+
+    // grade de referência a cada 8px (escala 1x)
+    ctx.strokeStyle = "rgba(223,240,230,.12)";
+    ctx.lineWidth = 1;
+    for (var gx = 0; gx <= FRAME_W; gx += 8) {
+      ctx.beginPath();
+      ctx.moveTo(ox + gx * scale, oy);
+      ctx.lineTo(ox + gx * scale, oy + FRAME_H * scale);
+      ctx.stroke();
+    }
+    for (var gy = 0; gy <= FRAME_H; gy += 8) {
+      ctx.beginPath();
+      ctx.moveTo(ox, oy + gy * scale);
+      ctx.lineTo(ox + FRAME_W * scale, oy + gy * scale);
+      ctx.stroke();
+    }
+
+    // marcações de medida
+    ctx.strokeStyle = "#f2b705";
+    ctx.fillStyle = "#f2b705";
+    ctx.font = "10px monospace";
+    ctx.lineWidth = 1;
+    function measureH(yTop, yBottom, label, xOff) {
+      var x = ox - xOff;
+      ctx.beginPath();
+      ctx.moveTo(x, oy + yTop * scale);
+      ctx.lineTo(x, oy + yBottom * scale);
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(x - 4, oy + ((yTop + yBottom) / 2) * scale);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = "center";
+      ctx.fillText(label, 0, 0);
+      ctx.restore();
+    }
+    // cabeça: y-34.5 a y-25 (topo a base do queixo, aprox) relativo à âncora (ANCHOR_Y)
+    measureH(ANCHOR_Y - 34.5, ANCHOR_Y - 15.5, "cabeça ~19px", 14);
+    measureH(ANCHOR_Y - 16, ANCHOR_Y - 1, "torso 15px", 28);
+    measureH(ANCHOR_Y - 3, ANCHOR_Y + 13, "pernas 12px", 42);
+    measureH(ANCHOR_Y - 34.5, ANCHOR_Y + 13, "altura total ~48px", 56);
+
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#dff0e6";
+    ctx.fillText("grade = 8px @ escala 1x | frame " + FRAME_W + "x" + FRAME_H + ", ancora (" + ANCHOR_X + "," + ANCHOR_Y + ")", 10, canvas.height - 8);
+
+    addRef("proportions_reference.png", canvas);
+  })();
+
+  // palette_reference.png — tokens de cor do jogo (CSS + appearance.js)
+  (function () {
+    var groups = [
+      { title: "UI / mundo (styles.css)", colors: [
+        ["--sky-dusk", "#16211f"], ["--ipe", "#f2b705"], ["--ipe-dim", "#b8890a"],
+        ["--mata", "#2d5a3d"], ["--terracotta", "#b5603f"], ["--mist", "#dff0e6"],
+        ["--hp", "#c94b3f"], ["--st", "#e0b23a"], ["--mp", "#3f8fc9"], ["--danger", "#e0483a"],
+      ]},
+      { title: "Tons de pele", colors: EN.Appearance.skins.map(function (s) { return [s.name, s.hex]; }) },
+      { title: "Cores de cabelo", colors: EN.Appearance.hairColors.map(function (h) { return [h.id, h.hex]; }) },
+      { title: "Roupas (camisa)", colors: EN.Appearance.outfits.map(function (o) { return [o.name, o.shirt]; }) },
+    ];
+    var swatch = 26, gap = 6, rowH = swatch + 16, colW = 150;
+    var maxRows = Math.max.apply(null, groups.map(function (g) { return g.colors.length; }));
+    var canvas = document.createElement("canvas");
+    canvas.width = colW * groups.length + 20;
+    canvas.height = rowH * (maxRows + 1) + 20;
+    var ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#1b2e28";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = "11px monospace";
+
+    groups.forEach(function (g, gi) {
+      var x = 10 + gi * colW;
+      ctx.fillStyle = "#f2b705";
+      ctx.fillText(g.title, x, 16);
+      g.colors.forEach(function (c, ci) {
+        var y = 26 + ci * rowH;
+        ctx.fillStyle = c[1];
+        ctx.fillRect(x, y, swatch, swatch);
+        ctx.strokeStyle = "#0006";
+        ctx.strokeRect(x, y, swatch, swatch);
+        ctx.fillStyle = "#dff0e6";
+        ctx.fillText(c[0] + " " + c[1], x + swatch + 6, y + swatch / 2 + 4);
+      });
+    });
+
+    addRef("palette_reference.png", canvas);
+  })();
+
+  window.__EXPORTS_READY__ = true;
+  window.__EXPORTS__ = exports;
+  document.getElementById("status").textContent = "pronto: " + Object.keys(exports).length + " arquivos";
+})();
+</script>
+</body>
+</html>

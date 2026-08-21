@@ -1,5 +1,11 @@
 # Placeholders de arte — o que substituir depois
 
+> A estrutura de pastas onde a arte definitiva deve entrar, o guia de
+> estilo completo e as referências de proporção/paleta/pose vivem em
+> `/assets/` (raiz do repositório) — ver `/assets/README.md` e
+> `/assets/art_direction/CHARACTER_STYLE_GUIDE.md`. Este arquivo continua
+> sendo o contrato rápido, específico do código deste protótipo.
+
 Nada neste protótipo usa arte de terceiros. Todo personagem, inimigo e
 cenário é desenhado por primitivas de canvas (retângulos/círculos/curvas)
 em runtime — ver `src/appearance.js`, `src/enemy.js` e `src/world.js`. Isso
@@ -9,8 +15,9 @@ lançamento. Esta lista é o contrato de substituição.
 
 ## Personagem do jogador (`src/appearance.js`)
 
-- **Formato alvo**: spritesheet 32×48px por frame, ancorado nos pés
-  (centro-x, base-y), fundo transparente.
+- **Formato alvo**: spritesheet 40×56px por frame, ancorado em (20,40)
+  (centro-x, próximo da base — ver `/assets/art_direction/proportions_reference.png`),
+  fundo transparente.
 - **Camadas** (na ordem em que já são desenhadas — manter a ordem ao trocar
   por sprites reais): sombra → pernas/pants → torso/shirt → arma (se
   ataque) → cabeça/pele → olhos → cabelo → chapéu → arma (se idle).
@@ -32,9 +39,12 @@ lançamento. Esta lista é o contrato de substituição.
 
 - Implementados com desenho próprio (não sprite): Rato-do-Mato Corrompido,
   Cipó Vivo. Mesmo contrato de ancoragem que o jogador.
-- As outras 17 entradas do bestiário (`src/bestiary.js`) têm dados
-  completos (habitat, comportamento, ataques, lore etc.) mas **nenhuma arte
-  ou IA ainda** — ver campo `implemented: false` em cada uma.
+- Saci é parcial: só ponto de interação narrativo (`implemented: "interactable"`),
+  sem combate/sprite de ação.
+- As outras 15 entradas do bestiário (`src/bestiary.js`, 18 no total —
+  ver também `/assets/creatures/`, uma pasta por criatura com README
+  próprio) têm dados completos (habitat, comportamento, ataques, lore
+  etc.) mas **nenhuma arte ou IA ainda** — campo `implemented: false`.
 
 ## Cenário (`src/world.js`, `src/arena.js`)
 
