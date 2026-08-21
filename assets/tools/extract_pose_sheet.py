@@ -34,8 +34,20 @@ Como funciona:
      senão uma espada esticada pro lado empurraria o corpo e a animação
      tremeria.
 
+LIMITE CONHECIDO e como contornar: a detecção automática das faixas falha
+quando a planilha encosta o cabeçalho na primeira fileira de poses, ou
+quando uma figura em pé atravessa as duas fileiras de uma direção (aí as
+duas viram uma faixa só e o recorte empilha duas poses num frame). Nesses
+casos passe as faixas na mão com --sections; o formato é
+
+    "y0-y1,y0-y1;y0-y1,y0-y1;..."
+
+onde `;` separa as direções (down, left, right, up nesta ordem) e `,`
+separa as fileiras dentro de uma direção. Sempre confira o resultado num
+contato sobre fundo verde antes de aceitar.
+
 Uso:
-  python3 extract_pose_sheet.py <planilha.jpg> <pasta_saida> <prefixo>
+  python3 extract_pose_sheet.py <planilha.jpg> <pasta_saida> <prefixo> [--sections "..."]
 """
 import sys
 from collections import deque
@@ -96,8 +108,15 @@ def col_blocks(px, W, y0, y1, thresh=0.07, min_w=25, join=14):
     return [tuple(b) for b in merged]
 
 
-def tight_rows(px, x0, x1, y0, y1, thresh=0.02):
-    """extremos verticais reais da pose dentro do bloco"""
+def tight_rows(px, x0, x1, y0, y1, thresh=0.08):
+    """
+    Extremos verticais reais da pose dentro do bloco.
+
+    O limiar precisa ficar acima do ruído do xadrez: a folha é JPEG, e numa
+    linha completamente vazia ainda sobram ~3-4% de pixels que escapam do
+    teste de fundo. Com limiar menor que isso o detector enxerga conteúdo em
+    todas as linhas e topo/base deixam de significar qualquer coisa.
+    """
     top, bot = None, None
     span = max(1, (x1 - x0 + 1))
     for y in range(y0, y1):
@@ -109,7 +128,21 @@ def tight_rows(px, x0, x1, y0, y1, thresh=0.02):
     return top, bot
 
 
-def strip_enclosed_bg(im, min_area=60):
+def spills(px, x0, x1, top, bot, y0, y1, look=1, thresh=0.08):
+    """a pose continua para fora da faixa? (ou seja, foi cortada por ela)"""
+    span = max(1, x1 - x0 + 1)
+
+    def busy(y):
+        return sum(0 if is_bg(px[x, y]) else 1 for x in range(x0, x1 + 1)) / span > thresh
+
+    if top <= y0 + 1 and any(busy(y) for y in range(max(0, y0 - look), y0)):
+        return True
+    if bot >= y1 - 1 and any(busy(y) for y in range(y1 + 1, y1 + 1 + look)):
+        return True
+    return False
+
+
+def strip_enclosed_bg(im, min_area=40):
     """remove xadrez preso dentro da silhueta (o flood fill de borda não chega lá)"""
     W, H = im.size
     px = im.load()
@@ -278,31 +311,71 @@ def anchor_of(im):
     return cx, bottom
 
 
-def extract(src_path, out_dir, prefix):
+def parse_sections(spec):
+    """
+    "y0-y1,y0-y1;..." com janela horizontal opcional por fileira:
+    "y0-y1@x0-x1". A janela existe para descartar figuras que atravessam as
+    duas fileiras de uma direção — nessas planilhas elas ficam sempre nas
+    pontas, então limitar o x às colunas do meio resolve sem heurística.
+    """
+    groups = []
+    for chunk in spec.split(";"):
+        rows = []
+        for part in chunk.split(","):
+            part = part.strip()
+            win = None
+            if "@" in part:
+                part, wspec = part.split("@")
+                wa, wb = wspec.split("-")
+                win = (int(wa), int(wb))
+            a, b = part.split("-")
+            rows.append((int(a), int(b), win))
+        groups.append(rows)
+    return groups
+
+
+def extract(src_path, out_dir, prefix, sections=None, drop_spilled=False):
     im = Image.open(src_path).convert("RGB")
     W, H = im.size
     n_rules = erase_frame_rules(im)
     print(f"  moldura da grade: {n_rules} traços apagados na fonte")
     px = im.load()
 
-    bands = [b for b in find_bands(px, W, H) if b[1] - b[0] >= 40]
-    # a primeira faixa alta e muito densa é a barra de título do arquivo
-    if bands and bands[0][0] < 10:
-        bands = bands[1:]
+    if sections:
+        groups = sections
+    else:
+        bands = [b for b in find_bands(px, W, H) if b[1] - b[0] >= 40]
+        # a primeira faixa alta e muito densa é a barra de título do arquivo
+        if bands and bands[0][0] < 10:
+            bands = bands[1:]
 
-    # agrupa as faixas em 4 direções pela ordem vertical
-    groups, per = [], max(1, len(bands) // 4)
-    for i in range(0, len(bands), per):
-        groups.append(bands[i : i + per])
-    groups = groups[:4]
+        # agrupa as faixas em 4 direções pela ordem vertical
+        groups, per = [], max(1, len(bands) // 4)
+        for i in range(0, len(bands), per):
+            groups.append(bands[i : i + per])
+        groups = groups[:4]
 
     all_poses = {}
     for di, d in enumerate(DIRS):
         poses = []
-        for (y0, y1) in groups[di]:
+        for row in groups[di]:
+            y0, y1 = row[0], row[1]
+            win = row[2] if len(row) > 2 else None
             for (x0, x1) in col_blocks(px, W, y0, y1 + 1):
+                # bloco precisa caber INTEIRO na janela: se ele vaza, ou é uma
+                # figura que atravessa fileiras, ou são duas poses que o
+                # detector fundiu — nos dois casos o recorte sairia errado
+                if win and (x0 < win[0] or x1 > win[1]):
+                    continue
                 top, bot = tight_rows(px, x0, x1, y0, y1 + 1)
                 if top is None or bot - top < 40:
+                    continue
+                # Descarte de pose cortada pela divisão de fileiras (--drop-spilled).
+                # Fica desligado por padrão: em folha onde o cabeçalho da seção
+                # encosta no topo das poses, o teste confunde o texto com corpo
+                # cortado e joga fora a fileira inteira. Preferir a janela em X
+                # das seções, que resolve o mesmo caso sem ambiguidade.
+                if drop_spilled and spills(px, x0, x1, top, bot, y0, y1):
                     continue
                 pad = 8
                 box = (max(0, x0 - pad), max(0, top - pad), min(W, x1 + 1 + pad), min(H, bot + 1 + pad))
@@ -342,8 +415,11 @@ def extract(src_path, out_dir, prefix):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
+    if len(sys.argv) < 4:
         print(__doc__)
         sys.exit(1)
-    counts = extract(sys.argv[1], sys.argv[2], sys.argv[3])
+    sections = None
+    if "--sections" in sys.argv:
+        sections = parse_sections(sys.argv[sys.argv.index("--sections") + 1])
+    counts = extract(sys.argv[1], sys.argv[2], sys.argv[3], sections, "--drop-spilled" in sys.argv)
     print("frames por direção:", counts)

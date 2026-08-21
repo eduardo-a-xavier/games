@@ -11,7 +11,7 @@ window.EN = window.EN || {};
  * arena de teste) sem duplicar a lógica de input — ver arena.js.
  */
 EN.Controls = (function () {
-  var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0, mag: 0, maxR: 44 };
+  var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0, mag: 0, maxR: 32 };
   var ctx = null; // { player, enemies, dealDamage, spawnProjectile, isArena }
   var chargeHoldTimer = null;
   var holdStartT = 0;
@@ -63,17 +63,32 @@ EN.Controls = (function () {
     wireButtons();
   }
 
-  // O joystick escuta pointermove/pointerup no `document`, não na zona
-  // pequena onde o toque começou. `setPointerCapture` deveria bastar
-  // sozinho, mas alguns WebViews embutidos (ex.: visualizador de artefato
-  // dentro de um app) não repassam o capture de forma confiável, e o dedo
-  // "sai" da zona de 200px muito fácil — o resultado percebido é o
-  // joystick "travando"/parando de responder no meio do arrasto. Rastrear
-  // por `pointerId` no documento inteiro é o padrão robusto usado por
-  // joysticks virtuais em geral e não depende de capture funcionar.
+  /*
+   * Joystick FIXO. A base mora sempre no mesmo canto e o centro dela é a
+   * referência da direção — antes a base nascia onde o dedo encostasse, o
+   * que obriga a olhar pro canto da tela antes de andar. Fixa, o polegar
+   * decora o lugar.
+   *
+   * Continua analógico apesar das setas: a direção vem do vetor entre o
+   * centro da base e o dedo, então encostar direto numa seta já anda
+   * naquele sentido, e arrastar dá as diagonais e a diferença entre andar
+   * e correr — coisas que um D-pad de quatro botões não daria.
+   *
+   * O joystick escuta pointermove/pointerup no `document`, não na zona
+   * pequena onde o toque começou. `setPointerCapture` deveria bastar
+   * sozinho, mas alguns WebViews embutidos (ex.: visualizador de artefato
+   * dentro de um app) não repassam o capture de forma confiável, e o dedo
+   * "sai" da zona muito fácil — o resultado percebido é o joystick
+   * "travando" no meio do arrasto. Rastrear por `pointerId` no documento
+   * inteiro é o padrão robusto e não depende de capture funcionar.
+   */
   function wireJoystick() {
     var zone = els["joy-zone"];
-    var watchdog = null;
+
+    function baseCenter() {
+      var r = els["joy-base"].getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
 
     zone.addEventListener(
       "pointerdown",
@@ -83,50 +98,77 @@ EN.Controls = (function () {
         joy.active = true;
         joy.id = e.pointerId;
         joy.lastMoveT = performance.now();
-        var rect = zone.getBoundingClientRect();
-        joy.cx = e.clientX;
-        joy.cy = e.clientY;
-        els["joy-base"].style.left = e.clientX - rect.left - 50 + "px";
-        els["joy-base"].style.bottom = rect.bottom - e.clientY - 50 + "px";
+        var c = baseCenter();
+        joy.cx = c.x;
+        joy.cy = c.y;
         els["joy-base"].classList.add("active");
+        applyVector(e.clientX, e.clientY);
         document.addEventListener("pointermove", onJoyMove, { passive: false });
         document.addEventListener("pointerup", forceEnd);
         document.addEventListener("pointercancel", forceEnd);
         window.addEventListener("blur", forceEnd);
         document.addEventListener("visibilitychange", forceEnd);
-        // watchdog: se por algum motivo nenhum evento de soltar chegar
-        // (alguns WebViews embutidos trocam/perdem o pointerId no meio do
-        // gesto), o joystick nunca pode ficar "preso andando sozinho" —
-        // sem movimento novo por meio segundo, soltamos sozinhos.
-        watchdog = setInterval(function () {
-          if (joy.active && performance.now() - joy.lastMoveT > 500) forceEnd();
-        }, 200);
+        document.addEventListener("lostpointercapture", forceEnd);
       },
       { passive: false }
     );
+
+    function applyVector(clientX, clientY) {
+      var dx = clientX - joy.cx,
+        dy = clientY - joy.cy;
+      var d = Math.hypot(dx, dy);
+      var m = Math.min(d, joy.maxR);
+      var ang = Math.atan2(dy, dx);
+      els["joy-knob"].style.transform = "translate(" + Math.cos(ang) * m + "px," + Math.sin(ang) * m + "px)";
+      joy.dx = d > 0 ? dx / d : 0;
+      joy.dy = d > 0 ? dy / d : 0;
+      // uma zona morta pequena evita que encostar no centro da base já
+      // faça o personagem sair andando de leve pra algum lado
+      joy.mag = d < 8 ? 0 : m / joy.maxR;
+      litArrows();
+    }
+
+    function litArrows() {
+      var lit = { up: false, down: false, left: false, right: false };
+      if (joy.mag > 0.2) {
+        if (Math.abs(joy.dx) > 0.38) lit[joy.dx < 0 ? "left" : "right"] = true;
+        if (Math.abs(joy.dy) > 0.38) lit[joy.dy < 0 ? "up" : "down"] = true;
+      }
+      arrowEls.forEach(function (el) {
+        el.classList.toggle("lit", !!lit[el.dataset.dir]);
+      });
+    }
+
+    var arrowEls = [];
+    ["up", "down", "left", "right"].forEach(function (dir) {
+      var el = els["joy-base"].querySelector(".joy-arrow." + dir);
+      if (el) {
+        el.dataset.dir = dir;
+        arrowEls.push(el);
+      }
+    });
 
     function onJoyMove(e) {
       if (!joy.active || e.pointerId !== joy.id) return;
       e.preventDefault();
       joy.lastMoveT = performance.now();
-      var dx = e.clientX - joy.cx,
-        dy = e.clientY - joy.cy;
-      var d = Math.hypot(dx, dy);
-      var m = Math.min(d, joy.maxR);
-      var ang = Math.atan2(dy, dx);
-      var kx = Math.cos(ang) * m,
-        ky = Math.sin(ang) * m;
-      els["joy-knob"].style.transform = "translate(" + (kx - 22) + "px," + (ky - 22) + "px)";
-      joy.dx = d > 0 ? dx / d : 0;
-      joy.dy = d > 0 ? dy / d : 0;
-      joy.mag = m / joy.maxR;
+      applyVector(e.clientX, e.clientY);
     }
 
-    // Não exigimos mais o mesmo pointerId pra ENCERRAR o toque (só pra
-    // movê-lo) — só existe um joystick ativo por vez de qualquer forma, e
-    // um WebView que troca o id do dedo no meio do gesto não pode deixar
-    // o personagem andando sozinho pra sempre. Preferimos soltar cedo
-    // demais (raríssimo) a nunca soltar (péssimo).
+    /*
+     * Não exigimos o mesmo pointerId pra ENCERRAR o toque (só pra movê-lo):
+     * só existe um joystick ativo por vez, e um WebView que troca o id do
+     * dedo no meio do gesto não pode deixar o personagem andando sozinho
+     * pra sempre. Era esse o bug do "joystick andando sozinho", e é essa
+     * aceitação de qualquer sinal de soltura que o corrige.
+     *
+     * Existia também um watchdog que soltava o joystick após meio segundo
+     * sem movimento. Ele foi removido junto com a mudança pra base fixa:
+     * com joystick flutuante ninguém segura o dedo imóvel, mas com base
+     * fixa segurar parado numa seta é o uso NORMAL — o timer cortaria a
+     * caminhada a cada meio segundo. O papel dele fica com os eventos de
+     * soltura acima, incluindo lostpointercapture.
+     */
     function forceEnd() {
       if (!joy.active) return;
       joy.active = false;
@@ -135,13 +177,16 @@ EN.Controls = (function () {
       joy.dy = 0;
       joy.mag = 0;
       els["joy-base"].classList.remove("active");
-      els["joy-knob"].style.transform = "translate(-50%,-50%)";
-      clearInterval(watchdog);
+      els["joy-knob"].style.transform = "translate(0,0)";
+      arrowEls.forEach(function (el) {
+        el.classList.remove("lit");
+      });
       document.removeEventListener("pointermove", onJoyMove);
       document.removeEventListener("pointerup", forceEnd);
       document.removeEventListener("pointercancel", forceEnd);
       window.removeEventListener("blur", forceEnd);
       document.removeEventListener("visibilitychange", forceEnd);
+      document.removeEventListener("lostpointercapture", forceEnd);
     }
   }
 

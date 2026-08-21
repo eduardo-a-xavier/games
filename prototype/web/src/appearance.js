@@ -114,6 +114,7 @@ EN.Appearance = (function () {
   // false se não houver arte pro estado (ou pra classe, no caso de
   // ataque) -- quem chamou cai pro desenho procedural nesse caso
   var HEAVY_SWING_DUR = 0.34;
+  var DODGE_DUR = 0.28;
 
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
@@ -125,6 +126,11 @@ EN.Appearance = (function () {
     }
     if (state === "run" && SA.ready("run")) {
       return SA.drawDirectional(ctx, "run", 0, 15, facing, (t * 13) / (2 * Math.PI), 52);
+    }
+    // o rolamento dura DODGE_DUR em player.js; a sequência inteira é
+    // percorrida uma vez nesse intervalo, sem repetir
+    if (state === "dodge" && SA.ready("dodge")) {
+      return SA.drawDirectional(ctx, "dodge", 0, 15, facing, Math.min(0.999, t / DODGE_DUR), 52);
     }
     if (state === "hurt" && SA.ready("hurt")) {
       return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);

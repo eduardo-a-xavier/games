@@ -4,8 +4,8 @@ window.EN = window.EN || {};
  * Carregador de spritesheets reais (substitui o desenho procedural quando
  * disponível). Cobre hoje: idle, walk, run, hurt (universais, 4 direções),
  * attack (uma variante por classe — guerreiro/mateiro/encantado, arte
- * combina com a arma de cada um), heavy (golpe carregado com facão) e
- * defeat (sequência única, sem direção).
+ * combina com a arma de cada um), heavy (golpe carregado com facão),
+ * dodge (rolamento) e defeat (sequência única, sem direção).
  * Fonte: assets/characters/player/base/ (cópia local em
  * prototype/web/assets/player/ pro jogo carregar sem depender da raiz do
  * repositório) — ver assets/art_direction/CHARACTER_STYLE_GUIDE.md.
@@ -71,6 +71,9 @@ EN.SpriteAtlas = (function () {
   // golpe carregado: contagem irregular porque a planilha-fonte tinha
   // número de poses diferente por direção (ver extract_pose_sheet.py)
   loadDirectional("heavy", { down: 8, left: 9, right: 9, up: 12 });
+  // rolamento: só as poses de rolagem da planilha (as figuras em pé das
+  // pontas atravessavam as duas fileiras e saíam cortadas)
+  loadDirectional("dodge", { down: 4, left: 3, right: 4, up: 4 });
   loadSingle("defeat", 4);
 
   function ready(key) {

@@ -37,8 +37,15 @@ lançamento. Esta lista é o contrato de substituição.
   mostra o facão, que é a arma do Guerreiro — Mateiro e Encantado seguem
   com a arte da própria arma ao carregar, senão o arqueiro sacaria um
   facão do nada.
-- **Ainda placeholder procedural**: `dodge` e `tool`, sem referência
-  recebida ainda; e o `chargeAttack` das classes que não são Guerreiro.
+- **`dodge` (rolamento) também usa arte real**:
+  `assets/player/dodge_{down,left,right,up}.png`, com 4/3/4/4 frames. Só as
+  poses de rolagem entraram — na planilha-fonte as figuras em pé ficam nas
+  pontas e atravessam as duas fileiras da mesma direção, então sairiam
+  cortadas ao meio. A sequência inteira é percorrida uma vez durante os
+  0,28s do rolamento, sem repetir.
+- **Ainda placeholder procedural**: `tool` (uso de ferramenta), sem
+  referência recebida ainda; e o `chargeAttack` das classes que não são
+  Guerreiro.
 - **Formato alvo do placeholder procedural**: spritesheet 40×56px por
   frame, ancorado em (20,40) (centro-x, próximo da base — ver
   `/assets/art_direction/proportions_reference.png`), fundo transparente.

@@ -7,7 +7,7 @@
 
 ## Sumário
 
-1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história) · 60-C. Protótipo jogável (v4: áudio e talentos)
+1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história) · 60-C. Protótipo jogável (v4: áudio e talentos) · 60-D. Protótipo jogável (v5: controles fixos e animação completa)
 
 ---
 
@@ -856,6 +856,28 @@ O Contra-Ataque é o par natural da esquiva perfeita: os dois recompensam ler o 
 
 - As telas sobrepostas de **talento e morte** não tinham fundo próprio: o mundo aparecia atrás e o texto ficava ilegível.
 - **Subir de nível no meio da luta** preservava a vida proporcional, mas a barreira/aparo exigiram separar de vez dano bruto, redução por defesa e absorção — agora nessa ordem, num ponto só.
+
+---
+
+---
+
+## 60-D. Protótipo jogável — v5: controles fixos e animação completa
+
+### Joystick fixo com setas (revisa a Seção 36)
+
+O joystick flutuava: a base nascia onde o dedo encostasse. Isso obriga o jogador a olhar pro canto da tela antes de andar, e em combate isso é tempo que ele não tem. Agora a base é **fixa** no canto inferior esquerdo, sempre visível, com as quatro setas marcando as direções.
+
+Continua **analógico**, apesar das setas: a direção vem do vetor entre o centro da base e o dedo. Encostar direto numa seta já anda naquele sentido (comportamento de D-pad), e arrastar dá as diagonais e a diferença entre andar e correr — coisas que quatro botões separados não dariam. A seta correspondente acende conforme a direção.
+
+**Efeito colateral que precisou ser corrigido junto**: existia um watchdog que soltava o joystick após meio segundo sem evento de movimento — parte da correção do bug do "joystick andando sozinho". Com base flutuante ninguém segura o dedo imóvel, mas com base fixa segurar parado numa seta é o uso normal, e o timer cortaria a caminhada a cada meio segundo. Ele foi removido; a correção original continua valendo porque o que de fato resolvia o bug era aceitar qualquer sinal de soltura (não exigir o mesmo `pointerId`), e isso permanece, agora com `lostpointercapture` somado à lista.
+
+### Animação de esquiva
+
+O rolamento passou a usar arte real (4/3/4/4 frames por direção), percorrida uma vez ao longo dos 0,28s da esquiva. Com isso a única animação do jogador ainda procedural é `tool` (uso de ferramenta), que nunca teve referência.
+
+### Ferramenta de extração — aprendizados registrados
+
+O extrator de planilhas (`assets/tools/extract_pose_sheet.py`) ganhou faixas explícitas por linha de comando e janela horizontal por fileira, porque as planilhas geradas variam de layout entre si e entre direções da mesma folha. Duas armadilhas foram medidas e estão documentadas em `CHARACTER_STYLE_GUIDE.md` Seção 8: o limiar de densidade precisa ficar acima do ruído do JPEG (3–4% numa linha vazia), e "pose encostada na borda" não é sinal de corte — o sinal é o desenho continuar do outro lado dela.
 
 ---
 
