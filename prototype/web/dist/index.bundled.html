@@ -1251,6 +1251,30 @@ EN.Appearance = (function () {
     roundRect(ctx, -9, y - 3, 18, 9, 2.5);
     fillStroke(ctx, vGrad(ctx, 0, y - 3, 0, y + 6, pants, 18, -22));
 
+    // ângulos de balanço dos braços -- ombro esquerdo/direito, em fase
+    // oposta às pernas (marcha natural), com poses distintas por estado
+    var armL = 0.12,
+      armR = -0.12; // idle: leve abertura de repouso
+    if (state === "walk" || state === "run") {
+      var swing = (legSwing / 4.5) * (state === "run" ? 0.9 : 0.6);
+      armL = 0.15 - swing;
+      armR = -0.15 - swing;
+    } else if (state === "dodge") {
+      armL = 0.55;
+      armR = -0.55;
+    } else if (state === "hurt") {
+      armL = 0.9;
+      armR = -0.75;
+    } else if (state === "death") {
+      armL = 1.3;
+      armR = -1.1;
+    } else if (state === "tool") {
+      armR = -0.9 + Math.sin(t * 6) * 0.4;
+    }
+
+    // braço "de trás" (o que não segura arma): desenhado antes do tronco
+    drawArm(ctx, -1, armL, y, shirt, skinHex);
+
     // camisa/torso
     roundRect(ctx, -11, y - 16, 22, 15, 3.5);
     fillStroke(ctx, vGrad(ctx, 0, y - 16, 0, y - 1, shirt, 26, -18));
@@ -1265,7 +1289,11 @@ EN.Appearance = (function () {
     // braço com arma (desenhado antes da cabeça p/ ficar atrás em idle, na frente durante ataque)
     var weaponId = WEAPON_BY_CLASS[anim.classId] || null;
     if (weaponId && (state === "attack" || state === "chargeAttack")) {
-      drawWeaponSwing(ctx, weaponId, facing, state === "chargeAttack" ? anim.chargeProgress || 0 : 1, y);
+      var swingProgress = state === "chargeAttack" ? anim.chargeProgress || 0 : 1;
+      drawArmSwing(ctx, facing, swingProgress, y, shirt, skinHex);
+      drawWeaponSwing(ctx, weaponId, facing, swingProgress, y);
+    } else {
+      drawArm(ctx, 1, armR, y, shirt, skinHex);
     }
 
     // cabeça (gradiente radial: luz vindo de cima-esquerda)
@@ -1369,6 +1397,36 @@ EN.Appearance = (function () {
       return;
     }
     ctx.rect(x, y, w, h);
+  }
+
+  // braço "de repouso": pende do ombro e balança em torno dele (ângulo em
+  // radianos, 0 = pra baixo). side: -1 esquerdo, 1 direito.
+  function drawArm(ctx, side, angle, y, sleeveHex, skinHex) {
+    ctx.save();
+    ctx.translate(side * 9.5, y - 14);
+    ctx.rotate(angle * side);
+    roundRect(ctx, -2.6, 0, 5.2, 9, 2.4);
+    fillStroke(ctx, vGrad(ctx, 0, 0, 0, 9, sleeveHex, 10, -20), 0.9);
+    ctx.beginPath();
+    ctx.arc(0, 10.5, 2.6, 0, Math.PI * 2);
+    fillStroke(ctx, shade(skinHex, -6), 0.9);
+    ctx.restore();
+  }
+
+  // braço esticado na direção do golpe, acompanhando o mesmo ângulo da
+  // arma (ver drawWeaponSwing) -- é o que faltava pra "segurar" a arma em
+  // vez dela flutuar sozinha
+  function drawArmSwing(ctx, facing, progress, y, sleeveHex, skinHex) {
+    var fa = Math.atan2(facing.y, facing.x);
+    ctx.save();
+    ctx.translate(0, y - 8);
+    ctx.rotate(fa - 0.9 + progress * 1.7);
+    roundRect(ctx, 0, -2.6, 13, 5.2, 2.4);
+    fillStroke(ctx, vGrad(ctx, 0, -2.6, 0, 2.6, sleeveHex, 12, -18), 0.9);
+    ctx.beginPath();
+    ctx.arc(14, 0, 2.8, 0, Math.PI * 2);
+    fillStroke(ctx, shade(skinHex, -6), 0.9);
+    ctx.restore();
   }
 
   function drawWeaponIdle(ctx, weaponId, facing, y) {
@@ -1815,7 +1873,16 @@ window.EN = window.EN || {};
  * principal ou arena de teste).
  */
 EN.Player = (function () {
-  function create(appearance, classId, x, y) {
+  // bônus fixo por nível (progressão simples pro protótipo -- não é a
+  // curva completa de talentos do GDD, só o suficiente pra "subir de
+  // nível" ser sentido de verdade numa sessão de teste curta)
+  var PER_LEVEL = { hp: 6, st: 3, mp: 2, atk: 1, def: 0.4 };
+  function levelBonus(level) {
+    var n = Math.max(0, (level || 1) - 1);
+    return { hp: n * PER_LEVEL.hp, st: n * PER_LEVEL.st, mp: n * PER_LEVEL.mp, atk: n * PER_LEVEL.atk, def: n * PER_LEVEL.def };
+  }
+
+  function create(appearance, classId, x, y, level) {
     var p = {
       appearance: appearance,
       x: x || 300,
@@ -1834,12 +1901,13 @@ EN.Player = (function () {
       cd: { basic: 0, heavy: 0, skill1: 0, dodge: 0 },
       classId: null,
       classDef: null,
+      level: level || 1,
     };
-    applyClass(p, classId, true);
+    applyClass(p, classId, true, level);
     return p;
   }
 
-  function applyClass(p, classId, fullHeal) {
+  function applyClass(p, classId, fullHeal, level) {
     var stats;
     if (classId) {
       p.classDef = EN.Classes.getById(classId);
@@ -1849,11 +1917,13 @@ EN.Player = (function () {
       stats = EN.Classes.classlessDefaults.baseStats;
     }
     p.classId = classId;
-    p.hpMax = stats.hpMax;
-    p.stMax = stats.stMax;
-    p.mpMax = stats.mpMax;
-    p.atk = stats.atk;
-    p.def = stats.def;
+    p.level = level || p.level || 1;
+    var bonus = levelBonus(p.level);
+    p.hpMax = stats.hpMax + bonus.hp;
+    p.stMax = stats.stMax + bonus.st;
+    p.mpMax = stats.mpMax + bonus.mp;
+    p.atk = stats.atk + bonus.atk;
+    p.def = stats.def + bonus.def;
     p.speed = stats.speed;
     if (fullHeal || p.hp === undefined) {
       p.hp = p.hpMax;
@@ -1947,7 +2017,7 @@ EN.Player = (function () {
     var dmg = full ? ab.damage : Math.round(ab.damage * 0.55);
     var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 1.7, enemies);
     hits.forEach(function (e) {
-      dealDamage(e, dmg);
+      dealDamage(e, dmg, true);
     });
     return { type: "melee_heavy", full: full, hitCount: hits.length };
   }
@@ -1971,7 +2041,7 @@ EN.Player = (function () {
       var halfAngle = ab.type === "melee_heavy" ? Math.PI / 1.6 : Math.PI / 2.1;
       var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, halfAngle, enemies);
       hits.forEach(function (e) {
-        dealDamage(e, ab.damage);
+        dealDamage(e, ab.damage, ab.type === "melee_heavy");
       });
       return { type: ab.type, ability: ab, hitCount: hits.length };
     }
@@ -2107,6 +2177,7 @@ window.EN = window.EN || {};
 EN.World = (function () {
   var WORLD_W = 1700,
     WORLD_H = 1100;
+  var INVESTIGATE_POINT = { x: 330, y: 480 };
 
   function rand(seed) {
     var x = Math.sin(seed * 999) * 10000;
@@ -2482,10 +2553,13 @@ EN.World = (function () {
       },
     });
 
-    // ponto de investigação que dispara O Despertar (ver GDD Seção 4/7)
+    // ponto de investigação que dispara O Despertar (ver GDD Seção 4/7).
+    // Fica perto do sítio de propósito (não era assim antes -- ficava a
+    // ~1000px de distância sem nenhuma pista, então praticamente ninguém
+    // achava) e ganha um brilho visível de longe, ver drawDespertarBeacon.
     EN.Interactable.register({
-      x: 1300,
-      y: 700,
+      x: INVESTIGATE_POINT.x,
+      y: INVESTIGATE_POINT.y,
       range: 50,
       icon: "🔍",
       label: "Investigar",
@@ -2578,14 +2652,37 @@ EN.World = (function () {
     }
   }
 
+  // brilho pulsante e visível de longe sobre o ponto do Despertar --
+  // enquanto ele não foi usado, o jogador precisa CONSEGUIR ver pra onde
+  // ir, não só topar com ele por acaso andando no escuro
+  function drawDespertarBeacon(ctx, camX, camY, t) {
+    var x = INVESTIGATE_POINT.x - camX,
+      y = INVESTIGATE_POINT.y - camY;
+    var pulse = 0.6 + Math.sin(t * 2.4) * 0.4;
+    var g = ctx.createRadialGradient(x, y, 2, x, y, 46 + pulse * 10);
+    g.addColorStop(0, "rgba(180,140,255," + (0.55 * pulse + 0.15) + ")");
+    g.addColorStop(0.5, "rgba(120,90,220," + (0.25 * pulse) + ")");
+    g.addColorStop(1, "rgba(120,90,220,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, 46 + pulse * 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(230,210,255," + (0.5 + pulse * 0.5) + ")";
+    ctx.beginPath();
+    ctx.arc(x, y - 6, 3 + pulse * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   return {
     WORLD_W: WORLD_W,
     WORLD_H: WORLD_H,
+    INVESTIGATE_POINT: INVESTIGATE_POINT,
     bake: bake,
     populate: populate,
     spawnInitialEnemies: spawnInitialEnemies,
     currentPhase: currentPhase,
     drawAtmosphere: drawAtmosphere,
+    drawDespertarBeacon: drawDespertarBeacon,
   };
 })();
 
@@ -2731,6 +2828,8 @@ EN.Controls = (function () {
   // joysticks virtuais em geral e não depende de capture funcionar.
   function wireJoystick() {
     var zone = els["joy-zone"];
+    var watchdog = null;
+
     zone.addEventListener(
       "pointerdown",
       function (e) {
@@ -2738,15 +2837,25 @@ EN.Controls = (function () {
         e.preventDefault();
         joy.active = true;
         joy.id = e.pointerId;
+        joy.lastMoveT = performance.now();
         var rect = zone.getBoundingClientRect();
         joy.cx = e.clientX;
         joy.cy = e.clientY;
         els["joy-base"].style.left = e.clientX - rect.left - 50 + "px";
         els["joy-base"].style.bottom = rect.bottom - e.clientY - 50 + "px";
         els["joy-base"].classList.add("active");
-        document.addEventListener("pointermove", onJoyMove);
-        document.addEventListener("pointerup", onJoyEnd);
-        document.addEventListener("pointercancel", onJoyEnd);
+        document.addEventListener("pointermove", onJoyMove, { passive: false });
+        document.addEventListener("pointerup", forceEnd);
+        document.addEventListener("pointercancel", forceEnd);
+        window.addEventListener("blur", forceEnd);
+        document.addEventListener("visibilitychange", forceEnd);
+        // watchdog: se por algum motivo nenhum evento de soltar chegar
+        // (alguns WebViews embutidos trocam/perdem o pointerId no meio do
+        // gesto), o joystick nunca pode ficar "preso andando sozinho" —
+        // sem movimento novo por meio segundo, soltamos sozinhos.
+        watchdog = setInterval(function () {
+          if (joy.active && performance.now() - joy.lastMoveT > 500) forceEnd();
+        }, 200);
       },
       { passive: false }
     );
@@ -2754,6 +2863,7 @@ EN.Controls = (function () {
     function onJoyMove(e) {
       if (!joy.active || e.pointerId !== joy.id) return;
       e.preventDefault();
+      joy.lastMoveT = performance.now();
       var dx = e.clientX - joy.cx,
         dy = e.clientY - joy.cy;
       var d = Math.hypot(dx, dy);
@@ -2767,8 +2877,13 @@ EN.Controls = (function () {
       joy.mag = m / joy.maxR;
     }
 
-    function onJoyEnd(e) {
-      if (e.pointerId !== joy.id) return;
+    // Não exigimos mais o mesmo pointerId pra ENCERRAR o toque (só pra
+    // movê-lo) — só existe um joystick ativo por vez de qualquer forma, e
+    // um WebView que troca o id do dedo no meio do gesto não pode deixar
+    // o personagem andando sozinho pra sempre. Preferimos soltar cedo
+    // demais (raríssimo) a nunca soltar (péssimo).
+    function forceEnd() {
+      if (!joy.active) return;
       joy.active = false;
       joy.id = null;
       joy.dx = 0;
@@ -2776,9 +2891,12 @@ EN.Controls = (function () {
       joy.mag = 0;
       els["joy-base"].classList.remove("active");
       els["joy-knob"].style.transform = "translate(-50%,-50%)";
+      clearInterval(watchdog);
       document.removeEventListener("pointermove", onJoyMove);
-      document.removeEventListener("pointerup", onJoyEnd);
-      document.removeEventListener("pointercancel", onJoyEnd);
+      document.removeEventListener("pointerup", forceEnd);
+      document.removeEventListener("pointercancel", forceEnd);
+      window.removeEventListener("blur", forceEnd);
+      document.removeEventListener("visibilitychange", forceEnd);
     }
   }
 
@@ -2799,12 +2917,13 @@ EN.Controls = (function () {
   // ataque carregado que nunca solta por falta do evento de soltar.
   function wireButtons() {
     var atk = els["btn-attack"];
-    var atkPointerId = null;
+    var atkDown = false;
     atk.addEventListener(
       "pointerdown",
       function (e) {
         e.preventDefault();
-        atkPointerId = e.pointerId;
+        if (atkDown) return;
+        atkDown = true;
         holdStartT = performance.now();
         clearTimeout(chargeHoldTimer);
         chargeHoldTimer = setTimeout(function () {
@@ -2814,23 +2933,41 @@ EN.Controls = (function () {
         }, 150);
         document.addEventListener("pointerup", onAtkEnd);
         document.addEventListener("pointercancel", onAtkEnd);
+        window.addEventListener("blur", onAtkEnd);
+        document.addEventListener("visibilitychange", onAtkEnd);
       },
       { passive: false }
     );
-    function onAtkEnd(e) {
-      if (e.pointerId !== atkPointerId) return;
+    // igual ao joystick: qualquer sinal de "soltou" encerra, sem exigir o
+    // mesmo pointerId -- um ataque carregado que trava pra sempre é o pior
+    // resultado possível aqui
+    function onAtkEnd() {
+      if (!atkDown) return;
+      atkDown = false;
       document.removeEventListener("pointerup", onAtkEnd);
       document.removeEventListener("pointercancel", onAtkEnd);
+      window.removeEventListener("blur", onAtkEnd);
+      document.removeEventListener("visibilitychange", onAtkEnd);
       clearTimeout(chargeHoldTimer);
       if (!ctx) return;
       var held = performance.now() - holdStartT;
       atk.classList.remove("charging");
+      var res;
       if (ctx.player.charging) {
-        EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
+        res = EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, true);
       } else if (held < 500) {
-        EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
+        res = EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, false);
       }
       pressFx(atk);
+    }
+
+    // arco de espada visível todo golpe -- acertando ou não -- pra sempre
+    // ficar claro que o toque de ataque realmente executou
+    function spawnSlash(player, heavy) {
+      if (!ctx.spawnFx) return;
+      ctx.spawnFx("slash", { x: player.x, y: player.y, fx: player.facing.x, fy: player.facing.y, heavy: heavy });
     }
 
     els["btn-dodge"].addEventListener(
@@ -2851,6 +2988,7 @@ EN.Controls = (function () {
         if (!ctx) return;
         var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
         if (res && res.projectile) ctx.spawnProjectile(res.projectile);
+        if (res && (res.type === "melee" || res.type === "melee_heavy")) spawnSlash(ctx.player, res.type === "melee_heavy");
         pressFx(els["btn-skill1"]);
       },
       { passive: false }
@@ -3211,7 +3349,7 @@ EN.Arena = (function () {
     savedInteractables = EN.Interactable.snapshot();
     EN.Interactable.unregisterAll();
 
-    var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140);
+    var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140, EN.State.data.progress.level);
 
     var enemies = [
       EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
@@ -3293,7 +3431,7 @@ EN.Main = (function () {
     ctx = canvas.getContext("2d");
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     resize();
-    window.addEventListener("resize", resize);
+    wireResize();
 
     EN.Controls.init();
     wireToast();
@@ -3336,6 +3474,36 @@ EN.Main = (function () {
     );
   }
 
+  // Alguns navegadores/WebViews não disparam 'resize' de forma confiável
+  // ao girar o aparelho (ou disparam com as dimensões ainda desatualizadas
+  // por um instante) -- era isso que deixava o jogo "preso num
+  // quadradinho" depois de virar pra paisagem. Escutamos todo evento
+  // plausível, com uma segunda checagem atrasada depois de girar, e ainda
+  // mantemos um relógio de segurança comparando o tamanho real da janela
+  // contra o que o canvas acha que é, corrigindo sozinho se ficarem
+  // diferentes por qualquer motivo.
+  function wireResize() {
+    window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", function () {
+      resize();
+      setTimeout(resize, 120);
+      setTimeout(resize, 400);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", resize);
+    }
+    if (screen.orientation && screen.orientation.addEventListener) {
+      screen.orientation.addEventListener("change", function () {
+        setTimeout(resize, 60);
+      });
+    }
+    setInterval(function () {
+      if (canvas.width !== Math.round(window.innerWidth * dpr) || canvas.height !== Math.round(window.innerHeight * dpr)) {
+        resize();
+      }
+    }, 500);
+  }
+
   function resize() {
     vw = window.innerWidth;
     vh = window.innerHeight;
@@ -3352,7 +3520,7 @@ EN.Main = (function () {
     document.getElementById("screen-game").classList.add("active");
     var save = EN.State.data;
     var appearance = save.profile.appearance;
-    var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y);
+    var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y, save.progress.level);
     player.healCharges = save.world.inventory.curas;
 
     var session = {
@@ -3378,6 +3546,10 @@ EN.Main = (function () {
     // segurança), reabre a seleção direto, sem repetir a narrativa
     if (save.progress.despertarSeen && !save.progress.classId) {
       openClassSelect();
+    } else if (!save.progress.despertarSeen) {
+      setTimeout(function () {
+        toast("Uma luz estranha pulsa não muito longe daqui...");
+      }, 1200);
     }
   }
 
@@ -3446,7 +3618,7 @@ EN.Main = (function () {
     EN.State.persist();
     document.getElementById("screen-classselect").classList.remove("active");
     document.getElementById("screen-game").classList.add("active");
-    EN.Player.applyClass(mainSession.player, classId, true);
+    EN.Player.applyClass(mainSession.player, classId, true, EN.State.data.progress.level);
     toast("Você agora é " + EN.Classes.getById(classId).name + "!");
     setSession(mainSession);
   }
@@ -3462,6 +3634,44 @@ EN.Main = (function () {
     setSession(mainSession);
   }
 
+  // Único funil de dano a inimigo: aplica o dano E o feedback visual
+  // (número flutuante + estouro de impacto) no mesmo lugar, pra nenhum
+  // caminho de dano (corpo-a-corpo, projétil, especial) esquecer o
+  // feedback -- essa era exatamente a reclamação de "não sei se acertei".
+  function applyDamage(session, enemy, dmg, heavy) {
+    var wasDead = enemy.dead;
+    EN.Enemy.damage(enemy, dmg, function (killed) {
+      if (!session.isArena) {
+        session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
+        grantXP(killed.def && killed.def.category === "territorial" ? 12 : 8);
+      }
+    });
+    session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy });
+    if (!wasDead) session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+  }
+
+  var XP_PER_LEVEL_BASE = 18,
+    XP_PER_LEVEL_STEP = 10;
+  function xpForLevel(level) {
+    return XP_PER_LEVEL_BASE + (level - 1) * XP_PER_LEVEL_STEP;
+  }
+  function grantXP(amount) {
+    var pr = EN.State.data.progress;
+    if (pr.level >= 30) return;
+    pr.xp += amount;
+    var leveled = false;
+    while (pr.level < 30 && pr.xp >= xpForLevel(pr.level)) {
+      pr.xp -= xpForLevel(pr.level);
+      pr.level++;
+      leveled = true;
+    }
+    if (leveled) {
+      EN.Player.applyClass(mainSession.player, mainSession.player.classId, true, pr.level);
+      toast("✦ Subiu para o nível " + pr.level + "!");
+    }
+    EN.State.persist();
+  }
+
   // ---------- sessão ativa (mundo OU arena) ----------
   function setSession(session) {
     currentSession = session;
@@ -3470,16 +3680,17 @@ EN.Main = (function () {
     EN.Controls.bind({
       player: session.player,
       enemies: session.enemies,
-      dealDamage: function (enemy, dmg) {
-        EN.Enemy.damage(enemy, dmg, function (killed) {
-          if (!session.isArena) {
-            session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
-          }
-        });
+      dealDamage: function (enemy, dmg, heavy) {
+        applyDamage(session, enemy, dmg, heavy);
       },
       spawnProjectile: function (desc) {
         desc.life = 1.1;
         session.projectiles.push(desc);
+      },
+      spawnFx: function (kind, data) {
+        data.kind = kind;
+        data.t = 0;
+        session.fx.push(data);
       },
     });
   }
@@ -3525,9 +3736,7 @@ EN.Main = (function () {
       s.enemies.forEach(function (e) {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
-          EN.Enemy.damage(e, proj.dmg, function (killed) {
-            if (!s.isArena) s.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
-          });
+          applyDamage(s, e, proj.dmg, false);
           proj.hit = true;
         }
       });
@@ -3559,6 +3768,7 @@ EN.Main = (function () {
       if (s.meta.dayT < 0.02) s.meta.day++;
       s.meta.x = p.x;
       s.meta.y = p.y;
+      s.meta.level = EN.State.data.progress.level; // espelho só pra exibição no HUD
       s.meta.inventory.curas = p.healCharges;
       persistThrottled();
       if (s.enemies.length < 2 && Math.random() > 0.997) {
@@ -3603,9 +3813,18 @@ EN.Main = (function () {
       ctx.beginPath();
       ctx.arc(pr.x - origin.x, pr.y - origin.y, pr.r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = pr.magic ? "#7c4fd1" : "#2f8f75";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    s.fx.forEach(function (f) {
+      drawFx(f, origin.x, origin.y);
     });
 
     if (!s.isArena) {
+      if (!EN.State.data.progress.despertarSeen) {
+        EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
+      }
       EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
     }
     ctx.restore();
@@ -3627,6 +3846,60 @@ EN.Main = (function () {
     ctx.arc(-2, -2, 2.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  // Feedback de combate: número de dano flutuante (confirma "eu acertei"),
+  // estouro de impacto no alvo, e o arco de espada (confirma "eu ataquei",
+  // acertando ou não) -- as três coisas que faltavam pro jogador conseguir
+  // ler o próprio combate.
+  function drawFx(f, camX, camY) {
+    var x = f.x - camX,
+      y = f.y - camY;
+    if (f.kind === "dmgnum") {
+      var t = Math.min(1, f.t / 0.7);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - t * 1.1);
+      ctx.font = (f.heavy ? "bold 13px" : "bold 11px") + " 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = f.heavy ? "#f2b705" : "#fff3e0";
+      ctx.strokeStyle = "#1c1210";
+      ctx.lineWidth = 3;
+      var ny = y - 16 - t * 18;
+      ctx.strokeText(String(f.value), x, ny);
+      ctx.fillText(String(f.value), x, ny);
+      ctx.restore();
+    } else if (f.kind === "hit") {
+      var ht = f.t / 0.22;
+      if (ht > 1) return;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - ht);
+      ctx.strokeStyle = "#fff3e0";
+      ctx.lineWidth = 2;
+      for (var i = 0; i < 4; i++) {
+        var ang = (i / 4) * Math.PI * 2 + 0.4;
+        var r0 = 4 + ht * 4,
+          r1 = 8 + ht * 12;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0);
+        ctx.lineTo(x + Math.cos(ang) * r1, y + Math.sin(ang) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (f.kind === "slash") {
+      var st = f.t / 0.22;
+      if (st > 1) return;
+      var fa = Math.atan2(f.fy, f.fx);
+      var range = f.heavy ? 40 : 30;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - st) * 0.95;
+      ctx.strokeStyle = f.heavy ? "#f2b705" : "#eef7f0";
+      ctx.lineWidth = f.heavy ? 4 : 3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(x, y - 8, range * (0.5 + st * 0.6), fa - (f.heavy ? 1.1 : 0.75), fa + (f.heavy ? 1.1 : 0.75));
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // ---------- toast ----------

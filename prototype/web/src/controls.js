@@ -59,6 +59,8 @@ EN.Controls = (function () {
   // joysticks virtuais em geral e não depende de capture funcionar.
   function wireJoystick() {
     var zone = els["joy-zone"];
+    var watchdog = null;
+
     zone.addEventListener(
       "pointerdown",
       function (e) {
@@ -66,15 +68,25 @@ EN.Controls = (function () {
         e.preventDefault();
         joy.active = true;
         joy.id = e.pointerId;
+        joy.lastMoveT = performance.now();
         var rect = zone.getBoundingClientRect();
         joy.cx = e.clientX;
         joy.cy = e.clientY;
         els["joy-base"].style.left = e.clientX - rect.left - 50 + "px";
         els["joy-base"].style.bottom = rect.bottom - e.clientY - 50 + "px";
         els["joy-base"].classList.add("active");
-        document.addEventListener("pointermove", onJoyMove);
-        document.addEventListener("pointerup", onJoyEnd);
-        document.addEventListener("pointercancel", onJoyEnd);
+        document.addEventListener("pointermove", onJoyMove, { passive: false });
+        document.addEventListener("pointerup", forceEnd);
+        document.addEventListener("pointercancel", forceEnd);
+        window.addEventListener("blur", forceEnd);
+        document.addEventListener("visibilitychange", forceEnd);
+        // watchdog: se por algum motivo nenhum evento de soltar chegar
+        // (alguns WebViews embutidos trocam/perdem o pointerId no meio do
+        // gesto), o joystick nunca pode ficar "preso andando sozinho" —
+        // sem movimento novo por meio segundo, soltamos sozinhos.
+        watchdog = setInterval(function () {
+          if (joy.active && performance.now() - joy.lastMoveT > 500) forceEnd();
+        }, 200);
       },
       { passive: false }
     );
@@ -82,6 +94,7 @@ EN.Controls = (function () {
     function onJoyMove(e) {
       if (!joy.active || e.pointerId !== joy.id) return;
       e.preventDefault();
+      joy.lastMoveT = performance.now();
       var dx = e.clientX - joy.cx,
         dy = e.clientY - joy.cy;
       var d = Math.hypot(dx, dy);
@@ -95,8 +108,13 @@ EN.Controls = (function () {
       joy.mag = m / joy.maxR;
     }
 
-    function onJoyEnd(e) {
-      if (e.pointerId !== joy.id) return;
+    // Não exigimos mais o mesmo pointerId pra ENCERRAR o toque (só pra
+    // movê-lo) — só existe um joystick ativo por vez de qualquer forma, e
+    // um WebView que troca o id do dedo no meio do gesto não pode deixar
+    // o personagem andando sozinho pra sempre. Preferimos soltar cedo
+    // demais (raríssimo) a nunca soltar (péssimo).
+    function forceEnd() {
+      if (!joy.active) return;
       joy.active = false;
       joy.id = null;
       joy.dx = 0;
@@ -104,9 +122,12 @@ EN.Controls = (function () {
       joy.mag = 0;
       els["joy-base"].classList.remove("active");
       els["joy-knob"].style.transform = "translate(-50%,-50%)";
+      clearInterval(watchdog);
       document.removeEventListener("pointermove", onJoyMove);
-      document.removeEventListener("pointerup", onJoyEnd);
-      document.removeEventListener("pointercancel", onJoyEnd);
+      document.removeEventListener("pointerup", forceEnd);
+      document.removeEventListener("pointercancel", forceEnd);
+      window.removeEventListener("blur", forceEnd);
+      document.removeEventListener("visibilitychange", forceEnd);
     }
   }
 
@@ -127,12 +148,13 @@ EN.Controls = (function () {
   // ataque carregado que nunca solta por falta do evento de soltar.
   function wireButtons() {
     var atk = els["btn-attack"];
-    var atkPointerId = null;
+    var atkDown = false;
     atk.addEventListener(
       "pointerdown",
       function (e) {
         e.preventDefault();
-        atkPointerId = e.pointerId;
+        if (atkDown) return;
+        atkDown = true;
         holdStartT = performance.now();
         clearTimeout(chargeHoldTimer);
         chargeHoldTimer = setTimeout(function () {
@@ -142,23 +164,41 @@ EN.Controls = (function () {
         }, 150);
         document.addEventListener("pointerup", onAtkEnd);
         document.addEventListener("pointercancel", onAtkEnd);
+        window.addEventListener("blur", onAtkEnd);
+        document.addEventListener("visibilitychange", onAtkEnd);
       },
       { passive: false }
     );
-    function onAtkEnd(e) {
-      if (e.pointerId !== atkPointerId) return;
+    // igual ao joystick: qualquer sinal de "soltou" encerra, sem exigir o
+    // mesmo pointerId -- um ataque carregado que trava pra sempre é o pior
+    // resultado possível aqui
+    function onAtkEnd() {
+      if (!atkDown) return;
+      atkDown = false;
       document.removeEventListener("pointerup", onAtkEnd);
       document.removeEventListener("pointercancel", onAtkEnd);
+      window.removeEventListener("blur", onAtkEnd);
+      document.removeEventListener("visibilitychange", onAtkEnd);
       clearTimeout(chargeHoldTimer);
       if (!ctx) return;
       var held = performance.now() - holdStartT;
       atk.classList.remove("charging");
+      var res;
       if (ctx.player.charging) {
-        EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
+        res = EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, true);
       } else if (held < 500) {
-        EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
+        res = EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, false);
       }
       pressFx(atk);
+    }
+
+    // arco de espada visível todo golpe -- acertando ou não -- pra sempre
+    // ficar claro que o toque de ataque realmente executou
+    function spawnSlash(player, heavy) {
+      if (!ctx.spawnFx) return;
+      ctx.spawnFx("slash", { x: player.x, y: player.y, fx: player.facing.x, fy: player.facing.y, heavy: heavy });
     }
 
     els["btn-dodge"].addEventListener(
@@ -179,6 +219,7 @@ EN.Controls = (function () {
         if (!ctx) return;
         var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
         if (res && res.projectile) ctx.spawnProjectile(res.projectile);
+        if (res && (res.type === "melee" || res.type === "melee_heavy")) spawnSlash(ctx.player, res.type === "melee_heavy");
         pressFx(els["btn-skill1"]);
       },
       { passive: false }

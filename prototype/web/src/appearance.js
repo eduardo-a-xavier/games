@@ -179,6 +179,30 @@ EN.Appearance = (function () {
     roundRect(ctx, -9, y - 3, 18, 9, 2.5);
     fillStroke(ctx, vGrad(ctx, 0, y - 3, 0, y + 6, pants, 18, -22));
 
+    // ângulos de balanço dos braços -- ombro esquerdo/direito, em fase
+    // oposta às pernas (marcha natural), com poses distintas por estado
+    var armL = 0.12,
+      armR = -0.12; // idle: leve abertura de repouso
+    if (state === "walk" || state === "run") {
+      var swing = (legSwing / 4.5) * (state === "run" ? 0.9 : 0.6);
+      armL = 0.15 - swing;
+      armR = -0.15 - swing;
+    } else if (state === "dodge") {
+      armL = 0.55;
+      armR = -0.55;
+    } else if (state === "hurt") {
+      armL = 0.9;
+      armR = -0.75;
+    } else if (state === "death") {
+      armL = 1.3;
+      armR = -1.1;
+    } else if (state === "tool") {
+      armR = -0.9 + Math.sin(t * 6) * 0.4;
+    }
+
+    // braço "de trás" (o que não segura arma): desenhado antes do tronco
+    drawArm(ctx, -1, armL, y, shirt, skinHex);
+
     // camisa/torso
     roundRect(ctx, -11, y - 16, 22, 15, 3.5);
     fillStroke(ctx, vGrad(ctx, 0, y - 16, 0, y - 1, shirt, 26, -18));
@@ -193,7 +217,11 @@ EN.Appearance = (function () {
     // braço com arma (desenhado antes da cabeça p/ ficar atrás em idle, na frente durante ataque)
     var weaponId = WEAPON_BY_CLASS[anim.classId] || null;
     if (weaponId && (state === "attack" || state === "chargeAttack")) {
-      drawWeaponSwing(ctx, weaponId, facing, state === "chargeAttack" ? anim.chargeProgress || 0 : 1, y);
+      var swingProgress = state === "chargeAttack" ? anim.chargeProgress || 0 : 1;
+      drawArmSwing(ctx, facing, swingProgress, y, shirt, skinHex);
+      drawWeaponSwing(ctx, weaponId, facing, swingProgress, y);
+    } else {
+      drawArm(ctx, 1, armR, y, shirt, skinHex);
     }
 
     // cabeça (gradiente radial: luz vindo de cima-esquerda)
@@ -297,6 +325,36 @@ EN.Appearance = (function () {
       return;
     }
     ctx.rect(x, y, w, h);
+  }
+
+  // braço "de repouso": pende do ombro e balança em torno dele (ângulo em
+  // radianos, 0 = pra baixo). side: -1 esquerdo, 1 direito.
+  function drawArm(ctx, side, angle, y, sleeveHex, skinHex) {
+    ctx.save();
+    ctx.translate(side * 9.5, y - 14);
+    ctx.rotate(angle * side);
+    roundRect(ctx, -2.6, 0, 5.2, 9, 2.4);
+    fillStroke(ctx, vGrad(ctx, 0, 0, 0, 9, sleeveHex, 10, -20), 0.9);
+    ctx.beginPath();
+    ctx.arc(0, 10.5, 2.6, 0, Math.PI * 2);
+    fillStroke(ctx, shade(skinHex, -6), 0.9);
+    ctx.restore();
+  }
+
+  // braço esticado na direção do golpe, acompanhando o mesmo ângulo da
+  // arma (ver drawWeaponSwing) -- é o que faltava pra "segurar" a arma em
+  // vez dela flutuar sozinha
+  function drawArmSwing(ctx, facing, progress, y, sleeveHex, skinHex) {
+    var fa = Math.atan2(facing.y, facing.x);
+    ctx.save();
+    ctx.translate(0, y - 8);
+    ctx.rotate(fa - 0.9 + progress * 1.7);
+    roundRect(ctx, 0, -2.6, 13, 5.2, 2.4);
+    fillStroke(ctx, vGrad(ctx, 0, -2.6, 0, 2.6, sleeveHex, 12, -18), 0.9);
+    ctx.beginPath();
+    ctx.arc(14, 0, 2.8, 0, Math.PI * 2);
+    fillStroke(ctx, shade(skinHex, -6), 0.9);
+    ctx.restore();
   }
 
   function drawWeaponIdle(ctx, weaponId, facing, y) {

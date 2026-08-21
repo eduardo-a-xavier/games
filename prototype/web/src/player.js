@@ -10,7 +10,16 @@ window.EN = window.EN || {};
  * principal ou arena de teste).
  */
 EN.Player = (function () {
-  function create(appearance, classId, x, y) {
+  // bônus fixo por nível (progressão simples pro protótipo -- não é a
+  // curva completa de talentos do GDD, só o suficiente pra "subir de
+  // nível" ser sentido de verdade numa sessão de teste curta)
+  var PER_LEVEL = { hp: 6, st: 3, mp: 2, atk: 1, def: 0.4 };
+  function levelBonus(level) {
+    var n = Math.max(0, (level || 1) - 1);
+    return { hp: n * PER_LEVEL.hp, st: n * PER_LEVEL.st, mp: n * PER_LEVEL.mp, atk: n * PER_LEVEL.atk, def: n * PER_LEVEL.def };
+  }
+
+  function create(appearance, classId, x, y, level) {
     var p = {
       appearance: appearance,
       x: x || 300,
@@ -29,12 +38,13 @@ EN.Player = (function () {
       cd: { basic: 0, heavy: 0, skill1: 0, dodge: 0 },
       classId: null,
       classDef: null,
+      level: level || 1,
     };
-    applyClass(p, classId, true);
+    applyClass(p, classId, true, level);
     return p;
   }
 
-  function applyClass(p, classId, fullHeal) {
+  function applyClass(p, classId, fullHeal, level) {
     var stats;
     if (classId) {
       p.classDef = EN.Classes.getById(classId);
@@ -44,11 +54,13 @@ EN.Player = (function () {
       stats = EN.Classes.classlessDefaults.baseStats;
     }
     p.classId = classId;
-    p.hpMax = stats.hpMax;
-    p.stMax = stats.stMax;
-    p.mpMax = stats.mpMax;
-    p.atk = stats.atk;
-    p.def = stats.def;
+    p.level = level || p.level || 1;
+    var bonus = levelBonus(p.level);
+    p.hpMax = stats.hpMax + bonus.hp;
+    p.stMax = stats.stMax + bonus.st;
+    p.mpMax = stats.mpMax + bonus.mp;
+    p.atk = stats.atk + bonus.atk;
+    p.def = stats.def + bonus.def;
     p.speed = stats.speed;
     if (fullHeal || p.hp === undefined) {
       p.hp = p.hpMax;
@@ -142,7 +154,7 @@ EN.Player = (function () {
     var dmg = full ? ab.damage : Math.round(ab.damage * 0.55);
     var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 1.7, enemies);
     hits.forEach(function (e) {
-      dealDamage(e, dmg);
+      dealDamage(e, dmg, true);
     });
     return { type: "melee_heavy", full: full, hitCount: hits.length };
   }
@@ -166,7 +178,7 @@ EN.Player = (function () {
       var halfAngle = ab.type === "melee_heavy" ? Math.PI / 1.6 : Math.PI / 2.1;
       var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, halfAngle, enemies);
       hits.forEach(function (e) {
-        dealDamage(e, ab.damage);
+        dealDamage(e, ab.damage, ab.type === "melee_heavy");
       });
       return { type: ab.type, ability: ab, hitCount: hits.length };
     }

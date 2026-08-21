@@ -47,7 +47,7 @@ EN.Arena = (function () {
     savedInteractables = EN.Interactable.snapshot();
     EN.Interactable.unregisterAll();
 
-    var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140);
+    var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140, EN.State.data.progress.level);
 
     var enemies = [
       EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),

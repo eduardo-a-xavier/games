@@ -18,7 +18,7 @@ EN.Main = (function () {
     ctx = canvas.getContext("2d");
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     resize();
-    window.addEventListener("resize", resize);
+    wireResize();
 
     EN.Controls.init();
     wireToast();
@@ -61,6 +61,36 @@ EN.Main = (function () {
     );
   }
 
+  // Alguns navegadores/WebViews não disparam 'resize' de forma confiável
+  // ao girar o aparelho (ou disparam com as dimensões ainda desatualizadas
+  // por um instante) -- era isso que deixava o jogo "preso num
+  // quadradinho" depois de virar pra paisagem. Escutamos todo evento
+  // plausível, com uma segunda checagem atrasada depois de girar, e ainda
+  // mantemos um relógio de segurança comparando o tamanho real da janela
+  // contra o que o canvas acha que é, corrigindo sozinho se ficarem
+  // diferentes por qualquer motivo.
+  function wireResize() {
+    window.addEventListener("resize", resize);
+    window.addEventListener("orientationchange", function () {
+      resize();
+      setTimeout(resize, 120);
+      setTimeout(resize, 400);
+    });
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", resize);
+    }
+    if (screen.orientation && screen.orientation.addEventListener) {
+      screen.orientation.addEventListener("change", function () {
+        setTimeout(resize, 60);
+      });
+    }
+    setInterval(function () {
+      if (canvas.width !== Math.round(window.innerWidth * dpr) || canvas.height !== Math.round(window.innerHeight * dpr)) {
+        resize();
+      }
+    }, 500);
+  }
+
   function resize() {
     vw = window.innerWidth;
     vh = window.innerHeight;
@@ -77,7 +107,7 @@ EN.Main = (function () {
     document.getElementById("screen-game").classList.add("active");
     var save = EN.State.data;
     var appearance = save.profile.appearance;
-    var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y);
+    var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y, save.progress.level);
     player.healCharges = save.world.inventory.curas;
 
     var session = {
@@ -103,6 +133,10 @@ EN.Main = (function () {
     // segurança), reabre a seleção direto, sem repetir a narrativa
     if (save.progress.despertarSeen && !save.progress.classId) {
       openClassSelect();
+    } else if (!save.progress.despertarSeen) {
+      setTimeout(function () {
+        toast("Uma luz estranha pulsa não muito longe daqui...");
+      }, 1200);
     }
   }
 
@@ -171,7 +205,7 @@ EN.Main = (function () {
     EN.State.persist();
     document.getElementById("screen-classselect").classList.remove("active");
     document.getElementById("screen-game").classList.add("active");
-    EN.Player.applyClass(mainSession.player, classId, true);
+    EN.Player.applyClass(mainSession.player, classId, true, EN.State.data.progress.level);
     toast("Você agora é " + EN.Classes.getById(classId).name + "!");
     setSession(mainSession);
   }
@@ -187,6 +221,44 @@ EN.Main = (function () {
     setSession(mainSession);
   }
 
+  // Único funil de dano a inimigo: aplica o dano E o feedback visual
+  // (número flutuante + estouro de impacto) no mesmo lugar, pra nenhum
+  // caminho de dano (corpo-a-corpo, projétil, especial) esquecer o
+  // feedback -- essa era exatamente a reclamação de "não sei se acertei".
+  function applyDamage(session, enemy, dmg, heavy) {
+    var wasDead = enemy.dead;
+    EN.Enemy.damage(enemy, dmg, function (killed) {
+      if (!session.isArena) {
+        session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
+        grantXP(killed.def && killed.def.category === "territorial" ? 12 : 8);
+      }
+    });
+    session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy });
+    if (!wasDead) session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+  }
+
+  var XP_PER_LEVEL_BASE = 18,
+    XP_PER_LEVEL_STEP = 10;
+  function xpForLevel(level) {
+    return XP_PER_LEVEL_BASE + (level - 1) * XP_PER_LEVEL_STEP;
+  }
+  function grantXP(amount) {
+    var pr = EN.State.data.progress;
+    if (pr.level >= 30) return;
+    pr.xp += amount;
+    var leveled = false;
+    while (pr.level < 30 && pr.xp >= xpForLevel(pr.level)) {
+      pr.xp -= xpForLevel(pr.level);
+      pr.level++;
+      leveled = true;
+    }
+    if (leveled) {
+      EN.Player.applyClass(mainSession.player, mainSession.player.classId, true, pr.level);
+      toast("✦ Subiu para o nível " + pr.level + "!");
+    }
+    EN.State.persist();
+  }
+
   // ---------- sessão ativa (mundo OU arena) ----------
   function setSession(session) {
     currentSession = session;
@@ -195,16 +267,17 @@ EN.Main = (function () {
     EN.Controls.bind({
       player: session.player,
       enemies: session.enemies,
-      dealDamage: function (enemy, dmg) {
-        EN.Enemy.damage(enemy, dmg, function (killed) {
-          if (!session.isArena) {
-            session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
-          }
-        });
+      dealDamage: function (enemy, dmg, heavy) {
+        applyDamage(session, enemy, dmg, heavy);
       },
       spawnProjectile: function (desc) {
         desc.life = 1.1;
         session.projectiles.push(desc);
+      },
+      spawnFx: function (kind, data) {
+        data.kind = kind;
+        data.t = 0;
+        session.fx.push(data);
       },
     });
   }
@@ -250,9 +323,7 @@ EN.Main = (function () {
       s.enemies.forEach(function (e) {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
-          EN.Enemy.damage(e, proj.dmg, function (killed) {
-            if (!s.isArena) s.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
-          });
+          applyDamage(s, e, proj.dmg, false);
           proj.hit = true;
         }
       });
@@ -284,6 +355,7 @@ EN.Main = (function () {
       if (s.meta.dayT < 0.02) s.meta.day++;
       s.meta.x = p.x;
       s.meta.y = p.y;
+      s.meta.level = EN.State.data.progress.level; // espelho só pra exibição no HUD
       s.meta.inventory.curas = p.healCharges;
       persistThrottled();
       if (s.enemies.length < 2 && Math.random() > 0.997) {
@@ -328,9 +400,18 @@ EN.Main = (function () {
       ctx.beginPath();
       ctx.arc(pr.x - origin.x, pr.y - origin.y, pr.r, 0, Math.PI * 2);
       ctx.fill();
+      ctx.strokeStyle = pr.magic ? "#7c4fd1" : "#2f8f75";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    s.fx.forEach(function (f) {
+      drawFx(f, origin.x, origin.y);
     });
 
     if (!s.isArena) {
+      if (!EN.State.data.progress.despertarSeen) {
+        EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
+      }
       EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
     }
     ctx.restore();
@@ -352,6 +433,60 @@ EN.Main = (function () {
     ctx.arc(-2, -2, 2.4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
+  }
+
+  // Feedback de combate: número de dano flutuante (confirma "eu acertei"),
+  // estouro de impacto no alvo, e o arco de espada (confirma "eu ataquei",
+  // acertando ou não) -- as três coisas que faltavam pro jogador conseguir
+  // ler o próprio combate.
+  function drawFx(f, camX, camY) {
+    var x = f.x - camX,
+      y = f.y - camY;
+    if (f.kind === "dmgnum") {
+      var t = Math.min(1, f.t / 0.7);
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - t * 1.1);
+      ctx.font = (f.heavy ? "bold 13px" : "bold 11px") + " 'Silkscreen', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = f.heavy ? "#f2b705" : "#fff3e0";
+      ctx.strokeStyle = "#1c1210";
+      ctx.lineWidth = 3;
+      var ny = y - 16 - t * 18;
+      ctx.strokeText(String(f.value), x, ny);
+      ctx.fillText(String(f.value), x, ny);
+      ctx.restore();
+    } else if (f.kind === "hit") {
+      var ht = f.t / 0.22;
+      if (ht > 1) return;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - ht);
+      ctx.strokeStyle = "#fff3e0";
+      ctx.lineWidth = 2;
+      for (var i = 0; i < 4; i++) {
+        var ang = (i / 4) * Math.PI * 2 + 0.4;
+        var r0 = 4 + ht * 4,
+          r1 = 8 + ht * 12;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(ang) * r0, y + Math.sin(ang) * r0);
+        ctx.lineTo(x + Math.cos(ang) * r1, y + Math.sin(ang) * r1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (f.kind === "slash") {
+      var st = f.t / 0.22;
+      if (st > 1) return;
+      var fa = Math.atan2(f.fy, f.fx);
+      var range = f.heavy ? 40 : 30;
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, 1 - st) * 0.95;
+      ctx.strokeStyle = f.heavy ? "#f2b705" : "#eef7f0";
+      ctx.lineWidth = f.heavy ? 4 : 3;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(x, y - 8, range * (0.5 + st * 0.6), fa - (f.heavy ? 1.1 : 0.75), fa + (f.heavy ? 1.1 : 0.75));
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   // ---------- toast ----------

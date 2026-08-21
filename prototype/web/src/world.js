@@ -10,6 +10,7 @@ window.EN = window.EN || {};
 EN.World = (function () {
   var WORLD_W = 1700,
     WORLD_H = 1100;
+  var INVESTIGATE_POINT = { x: 330, y: 480 };
 
   function rand(seed) {
     var x = Math.sin(seed * 999) * 10000;
@@ -385,10 +386,13 @@ EN.World = (function () {
       },
     });
 
-    // ponto de investigação que dispara O Despertar (ver GDD Seção 4/7)
+    // ponto de investigação que dispara O Despertar (ver GDD Seção 4/7).
+    // Fica perto do sítio de propósito (não era assim antes -- ficava a
+    // ~1000px de distância sem nenhuma pista, então praticamente ninguém
+    // achava) e ganha um brilho visível de longe, ver drawDespertarBeacon.
     EN.Interactable.register({
-      x: 1300,
-      y: 700,
+      x: INVESTIGATE_POINT.x,
+      y: INVESTIGATE_POINT.y,
       range: 50,
       icon: "🔍",
       label: "Investigar",
@@ -481,13 +485,36 @@ EN.World = (function () {
     }
   }
 
+  // brilho pulsante e visível de longe sobre o ponto do Despertar --
+  // enquanto ele não foi usado, o jogador precisa CONSEGUIR ver pra onde
+  // ir, não só topar com ele por acaso andando no escuro
+  function drawDespertarBeacon(ctx, camX, camY, t) {
+    var x = INVESTIGATE_POINT.x - camX,
+      y = INVESTIGATE_POINT.y - camY;
+    var pulse = 0.6 + Math.sin(t * 2.4) * 0.4;
+    var g = ctx.createRadialGradient(x, y, 2, x, y, 46 + pulse * 10);
+    g.addColorStop(0, "rgba(180,140,255," + (0.55 * pulse + 0.15) + ")");
+    g.addColorStop(0.5, "rgba(120,90,220," + (0.25 * pulse) + ")");
+    g.addColorStop(1, "rgba(120,90,220,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, 46 + pulse * 10, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(230,210,255," + (0.5 + pulse * 0.5) + ")";
+    ctx.beginPath();
+    ctx.arc(x, y - 6, 3 + pulse * 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   return {
     WORLD_W: WORLD_W,
     WORLD_H: WORLD_H,
+    INVESTIGATE_POINT: INVESTIGATE_POINT,
     bake: bake,
     populate: populate,
     spawnInitialEnemies: spawnInitialEnemies,
     currentPhase: currentPhase,
     drawAtmosphere: drawAtmosphere,
+    drawDespertarBeacon: drawDespertarBeacon,
   };
 })();
