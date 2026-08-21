@@ -25,12 +25,37 @@ EN.World = (function () {
 
     c.fillStyle = "#274a35";
     c.fillRect(0, 0, WORLD_W, WORLD_H);
-    for (var i = 0; i < 2600; i++) {
+
+    // manchas grandes e suaves (variação de cor em escala de "canteiro",
+    // não de pixel) -- é isso que tira a cara de ruído estático e dá
+    // sensação de grama pintada em vez de TV sem sinal
+    for (var b = 0; b < 70; b++) {
+      var bx = rand(b * 12.7) * WORLD_W,
+        by = rand(b * 5.3) * WORLD_H;
+      var br = 60 + rand(b * 2.1) * 90;
+      var lighter = rand(b * 8.8) > 0.5;
+      var bg = c.createRadialGradient(bx, by, 0, bx, by, br);
+      bg.addColorStop(0, lighter ? "rgba(64,110,79,.16)" : "rgba(20,40,28,.16)");
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      c.fillStyle = bg;
+      c.beginPath();
+      c.arc(bx, by, br, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    // micro-textura fina por cima, bem mais discreta que antes
+    for (var i = 0; i < 3200; i++) {
       var x = rand(i * 3.1) * WORLD_W,
         y = rand(i * 7.7) * WORLD_H;
       var g = rand(i * 1.3);
-      c.fillStyle = g > 0.6 ? "#2f5a40" : g > 0.3 ? "#23432f" : "#1c3527";
-      c.fillRect(x | 0, y | 0, 3, 3);
+      c.fillStyle = g > 0.6 ? "rgba(60,110,80,.5)" : g > 0.3 ? "rgba(20,50,32,.5)" : "rgba(14,28,20,.5)";
+      c.fillRect(x | 0, y | 0, 2, 2);
+    }
+
+    // tufos finos de grama espalhados por toda a base (não só na
+    // decoração perto do caminho) -- ver drawTuft mais abaixo
+    for (var tf = 0; tf < 140; tf++) {
+      drawTuft(c, rand(tf * 6.6 + 3) * WORLD_W, rand(tf * 9.9 + 3) * WORLD_H);
     }
 
     drawPath(c);
@@ -106,26 +131,75 @@ EN.World = (function () {
   }
 
   function drawHouse(c, x, y) {
-    c.fillStyle = "#c9a15f";
+    // sombra projetada no chão, pra casa não flutuar sobre a grama
+    var sh = c.createRadialGradient(x + 75, y + 135, 10, x + 75, y + 135, 110);
+    sh.addColorStop(0, "rgba(0,0,0,.28)");
+    sh.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = sh;
+    c.beginPath();
+    c.ellipse(x + 75, y + 135, 110, 30, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // paredes com leve gradiente (luz vindo da esquerda)
+    var wallG = c.createLinearGradient(x, 0, x + 150, 0);
+    wallG.addColorStop(0, shadeHex("#c9a15f", 14));
+    wallG.addColorStop(1, shadeHex("#c9a15f", -18));
+    c.fillStyle = wallG;
     c.fillRect(x, y + 40, 150, 90);
+    c.strokeStyle = "rgba(20,14,8,.4)";
+    c.lineWidth = 1.5;
+    c.strokeRect(x, y + 40, 150, 90);
+
     c.fillStyle = "#8a6a45";
     c.fillRect(x, y + 40, 150, 10);
-    c.fillStyle = "#a5432f";
+
+    // telhado com gradiente + contorno
+    var roofG = c.createLinearGradient(x - 16, y - 30, x + 166, y + 42);
+    roofG.addColorStop(0, shadeHex("#a5432f", 18));
+    roofG.addColorStop(1, shadeHex("#a5432f", -22));
     c.beginPath();
     c.moveTo(x - 16, y + 42);
     c.lineTo(x + 75, y - 30);
     c.lineTo(x + 166, y + 42);
     c.closePath();
+    c.fillStyle = roofG;
     c.fill();
-    c.fillStyle = "#5a3a22";
+    c.strokeStyle = "rgba(20,14,8,.45)";
+    c.lineWidth = 2;
+    c.stroke();
+    // ripas do telhado, só pra quebrar a chapa de cor
+    c.strokeStyle = "rgba(0,0,0,.14)";
+    c.lineWidth = 1;
+    for (var s = 1; s < 5; s++) {
+      c.beginPath();
+      c.moveTo(x - 16 + (91 * s) / 5, y + 42 - (72 * s) / 5);
+      c.lineTo(x + 75 + (91 * s) / 5, y - 30 + (72 * s) / 5);
+      c.stroke();
+    }
+
+    c.fillStyle = "#4a2e18";
     c.fillRect(x + 62, y + 80, 30, 50);
-    c.fillStyle = "#e8d9a8";
+    c.strokeStyle = "rgba(20,14,8,.4)";
+    c.lineWidth = 1.2;
+    c.strokeRect(x + 62, y + 80, 30, 50);
+
+    var winG = c.createLinearGradient(0, y + 60, 0, y + 84);
+    winG.addColorStop(0, "#f5e8bc");
+    winG.addColorStop(1, "#d9c48a");
+    c.fillStyle = winG;
     c.fillRect(x + 20, y + 60, 24, 24);
     c.fillRect(x + 108, y + 60, 24, 24);
     c.strokeStyle = "#5a3a22";
     c.lineWidth = 2;
     c.strokeRect(x + 20, y + 60, 24, 24);
     c.strokeRect(x + 108, y + 60, 24, 24);
+    c.beginPath();
+    c.moveTo(x + 32, y + 60);
+    c.lineTo(x + 32, y + 84);
+    c.moveTo(x + 120, y + 60);
+    c.lineTo(x + 120, y + 84);
+    c.lineWidth = 1.5;
+    c.stroke();
   }
 
   function drawField(c, x, y, w, h) {
@@ -150,31 +224,56 @@ EN.World = (function () {
     }
   }
 
+  function lobe(c, x, y, r, hex) {
+    var g = c.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.15, x, y, r);
+    g.addColorStop(0, shadeHex(hex, 26));
+    g.addColorStop(0.65, hex);
+    g.addColorStop(1, shadeHex(hex, -20));
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fillStyle = g;
+    c.fill();
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.4;
+    c.stroke();
+  }
+
+  function shadeHex(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function drawTree(c, x, y) {
-    c.fillStyle = "#4a3320";
-    c.fillRect(x - 6, y, 12, 34);
-    c.fillStyle = "#1f4a30";
-    c.beginPath();
-    c.arc(x, y - 10, 32, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = "#2f6a42";
-    c.beginPath();
-    c.arc(x - 10, y - 18, 22, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(x + 14, y - 14, 20, 0, Math.PI * 2);
-    c.fill();
+    var trunkG = c.createLinearGradient(x - 6, y, x + 6, y);
+    trunkG.addColorStop(0, "#3a2818");
+    trunkG.addColorStop(1, "#5a4028");
+    c.fillStyle = trunkG;
+    c.fillRect(x - 5, y, 10, 34);
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.2;
+    c.strokeRect(x - 5, y, 10, 34);
+
+    lobe(c, x, y - 10, 32, "#1f4a30");
+    lobe(c, x - 12, y - 20, 22, "#2f6a42");
+    lobe(c, x + 15, y - 15, 20, "#2a6039");
+    lobe(c, x, y - 30, 17, "#3a7a4c");
   }
 
   function drawRock(c, x, y, r) {
-    c.fillStyle = "#5a5850";
+    var g = c.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+    g.addColorStop(0, "#838072");
+    g.addColorStop(0.6, "#5a5850");
+    g.addColorStop(1, "#3f3d37");
     c.beginPath();
     c.ellipse(x, y, r, r * 0.72, 0, 0, Math.PI * 2);
+    c.fillStyle = g;
     c.fill();
-    c.fillStyle = "#6f6c62";
-    c.beginPath();
-    c.ellipse(x - r * 0.25, y - r * 0.25, r * 0.4, r * 0.28, 0, 0, Math.PI * 2);
-    c.fill();
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.2;
+    c.stroke();
   }
 
   function drawTuft(c, x, y) {

@@ -124,7 +124,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 
 /* joystick: anel fino sempre visível em repouso (referência de ARPGs
    mobile comuns), acende e ganha uma base preenchida ao ser tocado */
-#joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; }
+#joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; touch-action: none; }
 #joy-base {
   position: absolute; width: 100px; height: 100px; border-radius: 50%;
   border: 3px solid var(--panel-line); background: radial-gradient(circle, #0004, transparent 70%);
@@ -146,7 +146,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 #action-cluster { position: absolute; right: 0; bottom: 0; width: 250px; height: 236px; }
 .icon-btn {
   --accent: var(--ipe-dim);
-  position: absolute; border-radius: 50%;
+  position: absolute; border-radius: 50%; touch-action: none;
   border: 2.5px solid var(--panel-line);
   background: radial-gradient(circle at 34% 28%, #2a3e35, #0d1512 78%);
   color: var(--mist);
@@ -183,7 +183,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 /* botão contextual: flutua bem acima do cluster de ação (nunca sobre outro
    botão), só aparece quando há algo interativo por perto */
 .context-btn {
-  position: absolute; right: 40px; bottom: 254px;
+  position: absolute; right: 40px; bottom: 254px; touch-action: none;
   width: 46px; height: 46px; border-radius: 50%;
   border: 2px solid var(--ipe-dim); background: var(--panel); color: var(--ipe);
   display: flex; align-items: center; justify-content: center; font-size: 19px;
@@ -1129,6 +1129,51 @@ EN.Appearance = (function () {
     return list[0][key];
   }
 
+  // clareia/escurece uma cor hex em `amt` (positivo clareia, negativo
+  // escurece) -- usado pra tirar as camadas do visual "clipart chapado" e
+  // dar um sombreamento simples e barato (gradiente + contorno) sem exigir
+  // sprite desenhado à mão
+  function shade(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  function vGrad(ctx, x0, y0, x1, y1, hex, lightAmt, darkAmt) {
+    var g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, shade(hex, lightAmt));
+    g.addColorStop(1, shade(hex, darkAmt));
+    return g;
+  }
+
+  var OUTLINE = "rgba(24,17,12,.55)";
+
+  function roundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    var rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function fillStroke(ctx, fillStyle, lineWidth) {
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = lineWidth || 1.1;
+    ctx.stroke();
+  }
+
   var WEAPON_BY_CLASS = {
     guerreiro: "facao",
     mateiro: "arco",
@@ -1185,24 +1230,37 @@ EN.Appearance = (function () {
     if (rot) ctx.rotate(rot);
     ctx.scale(scaleX, scaleY);
 
-    // sombra
-    ctx.fillStyle = "rgba(0,0,0,.28)";
+    // sombra (gradiente radial em vez de elipse chapada)
+    var shadowG = ctx.createRadialGradient(0, 15, 1, 0, 15, 12);
+    shadowG.addColorStop(0, "rgba(0,0,0,.38)");
+    shadowG.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = shadowG;
     ctx.beginPath();
     ctx.ellipse(0, 15, 12, 4.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
     var y = -bob;
 
-    // pernas
-    ctx.fillStyle = "#2c2118";
-    ctx.fillRect(-8, y + 1 + legSwing * 0.3, 6, 12);
-    ctx.fillRect(2, y + 1 - legSwing * 0.3, 6, 12);
-    ctx.fillStyle = pants;
-    ctx.fillRect(-9, y - 3, 18, 9);
+    // pernas (cantos arredondados + sombreado leve)
+    roundRect(ctx, -8, y + 1 + legSwing * 0.3, 6, 12, 2);
+    fillStroke(ctx, vGrad(ctx, 0, y, 0, y + 13, "#2c2118", 14, -10), 1);
+    roundRect(ctx, 2, y + 1 - legSwing * 0.3, 6, 12, 2);
+    fillStroke(ctx, vGrad(ctx, 0, y, 0, y + 13, "#2c2118", 6, -16), 1);
+
+    // calça/saia (banda na cintura)
+    roundRect(ctx, -9, y - 3, 18, 9, 2.5);
+    fillStroke(ctx, vGrad(ctx, 0, y - 3, 0, y + 6, pants, 18, -22));
 
     // camisa/torso
-    ctx.fillStyle = shirt;
-    ctx.fillRect(-11, y - 16, 22, 15);
+    roundRect(ctx, -11, y - 16, 22, 15, 3.5);
+    fillStroke(ctx, vGrad(ctx, 0, y - 16, 0, y - 1, shirt, 26, -18));
+    // dobra central sutil, só pra quebrar a chapa de cor
+    ctx.strokeStyle = "rgba(0,0,0,.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y - 15);
+    ctx.lineTo(0, y - 2);
+    ctx.stroke();
 
     // braço com arma (desenhado antes da cabeça p/ ficar atrás em idle, na frente durante ataque)
     var weaponId = WEAPON_BY_CLASS[anim.classId] || null;
@@ -1210,18 +1268,33 @@ EN.Appearance = (function () {
       drawWeaponSwing(ctx, weaponId, facing, state === "chargeAttack" ? anim.chargeProgress || 0 : 1, y);
     }
 
-    // cabeça
-    ctx.fillStyle = skinHex;
+    // cabeça (gradiente radial: luz vindo de cima-esquerda)
+    var headG = ctx.createRadialGradient(-3, y - 28, 1, 0, y - 25, 11);
+    headG.addColorStop(0, shade(skinHex, 30));
+    headG.addColorStop(0.6, skinHex);
+    headG.addColorStop(1, shade(skinHex, -22));
     ctx.beginPath();
     ctx.arc(0, y - 25, 9.5, 0, Math.PI * 2);
+    fillStroke(ctx, headG, 1.2);
+
+    // bochecha/nariz sutil pro rosto não ficar uma bola lisa
+    ctx.fillStyle = shade(skinHex, -14);
+    ctx.beginPath();
+    ctx.ellipse(facing.x >= 0 ? 4 : -4, y - 23, 2.2, 1.6, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // olhos (indicam direção)
     ctx.fillStyle = "#231913";
-    var ex = facing.x * 3.4,
-      ey = facing.y * 2;
+    var ex = facing.x * 3.6,
+      ey = facing.y * 2.2;
     ctx.beginPath();
-    ctx.arc(ex, y - 25 + ey, 1.5, 0, Math.PI * 2);
+    ctx.arc(ex - 1.6, y - 25 + ey, 1.3, 0, Math.PI * 2);
+    ctx.arc(ex + 1.6, y - 25 + ey, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.7)";
+    ctx.beginPath();
+    ctx.arc(ex - 1.9, y - 25.6 + ey, 0.5, 0, Math.PI * 2);
+    ctx.arc(ex + 1.3, y - 25.6 + ey, 0.5, 0, Math.PI * 2);
     ctx.fill();
 
     // cabelo
@@ -1229,16 +1302,15 @@ EN.Appearance = (function () {
 
     // chapéu (opcional)
     if (appearance.hat === "palha") {
-      ctx.fillStyle = "#d8b872";
       ctx.beginPath();
       ctx.ellipse(0, y - 33, 15, 4.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 0, y - 37, 0, y - 29, "#d8b872", 18, -16));
       ctx.beginPath();
       ctx.moveTo(-7, y - 33);
       ctx.lineTo(7, y - 33);
       ctx.lineTo(0, y - 42);
       ctx.closePath();
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 0, y - 42, 0, y - 33, "#d8b872", 10, -20));
     }
 
     if (weaponId && state !== "attack" && state !== "chargeAttack") {
@@ -1257,35 +1329,46 @@ EN.Appearance = (function () {
   }
 
   function drawHair(ctx, style, hex, headY) {
-    ctx.fillStyle = hex;
+    var fill = vGrad(ctx, 0, headY - 16, 0, headY - 2, hex, 22, -14);
     if (style === "curto") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 10, Math.PI, 0);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     } else if (style === "cacheado") {
       for (var i = -1; i <= 1; i++) {
         ctx.beginPath();
         ctx.arc(i * 6, headY - 6, 5, 0, Math.PI * 2);
-        ctx.fill();
+        fillStroke(ctx, fill, 1);
       }
     } else if (style === "longo") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 10, Math.PI, 0);
-      ctx.fill();
-      ctx.fillRect(-9, headY - 2, 5, 16);
-      ctx.fillRect(4, headY - 2, 5, 16);
+      roundRectAppend(ctx, -9, headY - 2, 5, 16, 2);
+      roundRectAppend(ctx, 4, headY - 2, 5, 16, 2);
+      fillStroke(ctx, fill, 1);
     } else if (style === "coque") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 9.5, Math.PI, 0);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
       ctx.beginPath();
       ctx.arc(0, headY - 14, 4, 0, Math.PI * 2);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     } else if (style === "raspado") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 9.6, Math.PI * 0.95, Math.PI * 0.05);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     }
+  }
+
+  // acrescenta um retângulo arredondado ao path corrente (sem beginPath),
+  // pra poder combinar formas num único fill+stroke coerente (ex.: cabelo
+  // longo = touca + duas mechas, tudo com o mesmo contorno)
+  function roundRectAppend(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    ctx.rect(x, y, w, h);
   }
 
   function drawWeaponIdle(ctx, weaponId, facing, y) {
@@ -1313,13 +1396,12 @@ EN.Appearance = (function () {
       ctx.moveTo(-3, 0);
       ctx.lineTo(11, 0);
       ctx.stroke();
-      ctx.fillStyle = "#cfd6da";
       ctx.beginPath();
       ctx.moveTo(2, -2.5);
       ctx.lineTo(14, 0);
       ctx.lineTo(2, 2.5);
       ctx.closePath();
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 2, -2.5, 2, 2.5, "#cfd6da", 20, -30), 0.8);
     } else if (weaponId === "arco") {
       ctx.strokeStyle = "#6b4a2a";
       ctx.lineWidth = 2;
@@ -1616,28 +1698,50 @@ EN.Enemy = (function () {
     ctx.restore();
   }
 
+  var OUTLINE = "rgba(20,14,10,.55)";
+
+  function shadeHex(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function drawRato(ctx, e, x, y) {
-    ctx.fillStyle = "#0004";
+    var shadowG = ctx.createRadialGradient(x, y + 9, 1, x, y + 9, 10);
+    shadowG.addColorStop(0, "rgba(0,0,0,.35)");
+    shadowG.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = shadowG;
     ctx.beginPath();
     ctx.ellipse(x, y + 9, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = e.hitFlash > 0 ? "#f2b0a8" : "#7a6a52";
+
+    var bodyHex = e.hitFlash > 0 ? "#f2b0a8" : "#7a6a52";
+    var bodyG = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 11);
+    bodyG.addColorStop(0, shadeHex(bodyHex, 26));
+    bodyG.addColorStop(1, shadeHex(bodyHex, -18));
     ctx.beginPath();
     ctx.ellipse(x, y, 11, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = bodyG;
     ctx.fill();
-    ctx.fillStyle = "#5a4c38";
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
     ctx.beginPath();
     ctx.moveTo(x - 9, y - 6);
     ctx.lineTo(x - 13, y - 13);
     ctx.lineTo(x - 5, y - 8);
     ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
     ctx.moveTo(x + 9, y - 6);
     ctx.lineTo(x + 13, y - 13);
     ctx.lineTo(x + 5, y - 8);
     ctx.closePath();
+    ctx.fillStyle = shadeHex(bodyHex, -12);
     ctx.fill();
+    ctx.stroke();
+
     // marca de corrupção
     ctx.strokeStyle = "#1c1420";
     ctx.lineWidth = 1;
@@ -1655,14 +1759,30 @@ EN.Enemy = (function () {
   function drawCipoVivo(ctx, e, x, y) {
     ctx.strokeStyle = "#3a5a2c";
     ctx.lineWidth = 4;
+    ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(x, y + 12);
     ctx.quadraticCurveTo(x - 6, y - 2, x, y - 14);
     ctx.stroke();
-    ctx.fillStyle = e.hitFlash > 0 ? "#c9a8a0" : e.state === "gripping" ? "#4a2530" : "#2f5a2e";
+    ctx.strokeStyle = "rgba(90,140,70,.6)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + 10);
+    ctx.quadraticCurveTo(x - 4, y - 2, x + 1, y - 13);
+    ctx.stroke();
+
+    var budHex = e.hitFlash > 0 ? "#c9a8a0" : e.state === "gripping" ? "#4a2530" : "#2f5a2e";
+    var budG = ctx.createRadialGradient(x - 3, y - 19, 1, x, y - 16, 9);
+    budG.addColorStop(0, shadeHex(budHex, 24));
+    budG.addColorStop(1, shadeHex(budHex, -16));
     ctx.beginPath();
     ctx.arc(x, y - 16, 9, 0, Math.PI * 2);
+    ctx.fillStyle = budG;
     ctx.fill();
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
     ctx.strokeStyle = "#1c1420";
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2002,12 +2122,37 @@ EN.World = (function () {
 
     c.fillStyle = "#274a35";
     c.fillRect(0, 0, WORLD_W, WORLD_H);
-    for (var i = 0; i < 2600; i++) {
+
+    // manchas grandes e suaves (variação de cor em escala de "canteiro",
+    // não de pixel) -- é isso que tira a cara de ruído estático e dá
+    // sensação de grama pintada em vez de TV sem sinal
+    for (var b = 0; b < 70; b++) {
+      var bx = rand(b * 12.7) * WORLD_W,
+        by = rand(b * 5.3) * WORLD_H;
+      var br = 60 + rand(b * 2.1) * 90;
+      var lighter = rand(b * 8.8) > 0.5;
+      var bg = c.createRadialGradient(bx, by, 0, bx, by, br);
+      bg.addColorStop(0, lighter ? "rgba(64,110,79,.16)" : "rgba(20,40,28,.16)");
+      bg.addColorStop(1, "rgba(0,0,0,0)");
+      c.fillStyle = bg;
+      c.beginPath();
+      c.arc(bx, by, br, 0, Math.PI * 2);
+      c.fill();
+    }
+
+    // micro-textura fina por cima, bem mais discreta que antes
+    for (var i = 0; i < 3200; i++) {
       var x = rand(i * 3.1) * WORLD_W,
         y = rand(i * 7.7) * WORLD_H;
       var g = rand(i * 1.3);
-      c.fillStyle = g > 0.6 ? "#2f5a40" : g > 0.3 ? "#23432f" : "#1c3527";
-      c.fillRect(x | 0, y | 0, 3, 3);
+      c.fillStyle = g > 0.6 ? "rgba(60,110,80,.5)" : g > 0.3 ? "rgba(20,50,32,.5)" : "rgba(14,28,20,.5)";
+      c.fillRect(x | 0, y | 0, 2, 2);
+    }
+
+    // tufos finos de grama espalhados por toda a base (não só na
+    // decoração perto do caminho) -- ver drawTuft mais abaixo
+    for (var tf = 0; tf < 140; tf++) {
+      drawTuft(c, rand(tf * 6.6 + 3) * WORLD_W, rand(tf * 9.9 + 3) * WORLD_H);
     }
 
     drawPath(c);
@@ -2083,26 +2228,75 @@ EN.World = (function () {
   }
 
   function drawHouse(c, x, y) {
-    c.fillStyle = "#c9a15f";
+    // sombra projetada no chão, pra casa não flutuar sobre a grama
+    var sh = c.createRadialGradient(x + 75, y + 135, 10, x + 75, y + 135, 110);
+    sh.addColorStop(0, "rgba(0,0,0,.28)");
+    sh.addColorStop(1, "rgba(0,0,0,0)");
+    c.fillStyle = sh;
+    c.beginPath();
+    c.ellipse(x + 75, y + 135, 110, 30, 0, 0, Math.PI * 2);
+    c.fill();
+
+    // paredes com leve gradiente (luz vindo da esquerda)
+    var wallG = c.createLinearGradient(x, 0, x + 150, 0);
+    wallG.addColorStop(0, shadeHex("#c9a15f", 14));
+    wallG.addColorStop(1, shadeHex("#c9a15f", -18));
+    c.fillStyle = wallG;
     c.fillRect(x, y + 40, 150, 90);
+    c.strokeStyle = "rgba(20,14,8,.4)";
+    c.lineWidth = 1.5;
+    c.strokeRect(x, y + 40, 150, 90);
+
     c.fillStyle = "#8a6a45";
     c.fillRect(x, y + 40, 150, 10);
-    c.fillStyle = "#a5432f";
+
+    // telhado com gradiente + contorno
+    var roofG = c.createLinearGradient(x - 16, y - 30, x + 166, y + 42);
+    roofG.addColorStop(0, shadeHex("#a5432f", 18));
+    roofG.addColorStop(1, shadeHex("#a5432f", -22));
     c.beginPath();
     c.moveTo(x - 16, y + 42);
     c.lineTo(x + 75, y - 30);
     c.lineTo(x + 166, y + 42);
     c.closePath();
+    c.fillStyle = roofG;
     c.fill();
-    c.fillStyle = "#5a3a22";
+    c.strokeStyle = "rgba(20,14,8,.45)";
+    c.lineWidth = 2;
+    c.stroke();
+    // ripas do telhado, só pra quebrar a chapa de cor
+    c.strokeStyle = "rgba(0,0,0,.14)";
+    c.lineWidth = 1;
+    for (var s = 1; s < 5; s++) {
+      c.beginPath();
+      c.moveTo(x - 16 + (91 * s) / 5, y + 42 - (72 * s) / 5);
+      c.lineTo(x + 75 + (91 * s) / 5, y - 30 + (72 * s) / 5);
+      c.stroke();
+    }
+
+    c.fillStyle = "#4a2e18";
     c.fillRect(x + 62, y + 80, 30, 50);
-    c.fillStyle = "#e8d9a8";
+    c.strokeStyle = "rgba(20,14,8,.4)";
+    c.lineWidth = 1.2;
+    c.strokeRect(x + 62, y + 80, 30, 50);
+
+    var winG = c.createLinearGradient(0, y + 60, 0, y + 84);
+    winG.addColorStop(0, "#f5e8bc");
+    winG.addColorStop(1, "#d9c48a");
+    c.fillStyle = winG;
     c.fillRect(x + 20, y + 60, 24, 24);
     c.fillRect(x + 108, y + 60, 24, 24);
     c.strokeStyle = "#5a3a22";
     c.lineWidth = 2;
     c.strokeRect(x + 20, y + 60, 24, 24);
     c.strokeRect(x + 108, y + 60, 24, 24);
+    c.beginPath();
+    c.moveTo(x + 32, y + 60);
+    c.lineTo(x + 32, y + 84);
+    c.moveTo(x + 120, y + 60);
+    c.lineTo(x + 120, y + 84);
+    c.lineWidth = 1.5;
+    c.stroke();
   }
 
   function drawField(c, x, y, w, h) {
@@ -2127,31 +2321,56 @@ EN.World = (function () {
     }
   }
 
+  function lobe(c, x, y, r, hex) {
+    var g = c.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.15, x, y, r);
+    g.addColorStop(0, shadeHex(hex, 26));
+    g.addColorStop(0.65, hex);
+    g.addColorStop(1, shadeHex(hex, -20));
+    c.beginPath();
+    c.arc(x, y, r, 0, Math.PI * 2);
+    c.fillStyle = g;
+    c.fill();
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.4;
+    c.stroke();
+  }
+
+  function shadeHex(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function drawTree(c, x, y) {
-    c.fillStyle = "#4a3320";
-    c.fillRect(x - 6, y, 12, 34);
-    c.fillStyle = "#1f4a30";
-    c.beginPath();
-    c.arc(x, y - 10, 32, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = "#2f6a42";
-    c.beginPath();
-    c.arc(x - 10, y - 18, 22, 0, Math.PI * 2);
-    c.fill();
-    c.beginPath();
-    c.arc(x + 14, y - 14, 20, 0, Math.PI * 2);
-    c.fill();
+    var trunkG = c.createLinearGradient(x - 6, y, x + 6, y);
+    trunkG.addColorStop(0, "#3a2818");
+    trunkG.addColorStop(1, "#5a4028");
+    c.fillStyle = trunkG;
+    c.fillRect(x - 5, y, 10, 34);
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.2;
+    c.strokeRect(x - 5, y, 10, 34);
+
+    lobe(c, x, y - 10, 32, "#1f4a30");
+    lobe(c, x - 12, y - 20, 22, "#2f6a42");
+    lobe(c, x + 15, y - 15, 20, "#2a6039");
+    lobe(c, x, y - 30, 17, "#3a7a4c");
   }
 
   function drawRock(c, x, y, r) {
-    c.fillStyle = "#5a5850";
+    var g = c.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+    g.addColorStop(0, "#838072");
+    g.addColorStop(0.6, "#5a5850");
+    g.addColorStop(1, "#3f3d37");
     c.beginPath();
     c.ellipse(x, y, r, r * 0.72, 0, 0, Math.PI * 2);
+    c.fillStyle = g;
     c.fill();
-    c.fillStyle = "#6f6c62";
-    c.beginPath();
-    c.ellipse(x - r * 0.25, y - r * 0.25, r * 0.4, r * 0.28, 0, 0, Math.PI * 2);
-    c.fill();
+    c.strokeStyle = "rgba(12,22,15,.4)";
+    c.lineWidth = 1.2;
+    c.stroke();
   }
 
   function drawTuft(c, x, y) {
@@ -2502,22 +2721,39 @@ EN.Controls = (function () {
     wireButtons();
   }
 
+  // O joystick escuta pointermove/pointerup no `document`, não na zona
+  // pequena onde o toque começou. `setPointerCapture` deveria bastar
+  // sozinho, mas alguns WebViews embutidos (ex.: visualizador de artefato
+  // dentro de um app) não repassam o capture de forma confiável, e o dedo
+  // "sai" da zona de 200px muito fácil — o resultado percebido é o
+  // joystick "travando"/parando de responder no meio do arrasto. Rastrear
+  // por `pointerId` no documento inteiro é o padrão robusto usado por
+  // joysticks virtuais em geral e não depende de capture funcionar.
   function wireJoystick() {
     var zone = els["joy-zone"];
-    zone.addEventListener("pointerdown", function (e) {
-      if (joy.active) return;
-      joy.active = true;
-      joy.id = e.pointerId;
-      var rect = zone.getBoundingClientRect();
-      joy.cx = e.clientX;
-      joy.cy = e.clientY;
-      els["joy-base"].style.left = e.clientX - rect.left - 48 + "px";
-      els["joy-base"].style.bottom = rect.bottom - e.clientY - 48 + "px";
-      els["joy-base"].classList.add("active");
-      zone.setPointerCapture && zone.setPointerCapture(e.pointerId);
-    });
-    zone.addEventListener("pointermove", function (e) {
+    zone.addEventListener(
+      "pointerdown",
+      function (e) {
+        if (joy.active) return;
+        e.preventDefault();
+        joy.active = true;
+        joy.id = e.pointerId;
+        var rect = zone.getBoundingClientRect();
+        joy.cx = e.clientX;
+        joy.cy = e.clientY;
+        els["joy-base"].style.left = e.clientX - rect.left - 50 + "px";
+        els["joy-base"].style.bottom = rect.bottom - e.clientY - 50 + "px";
+        els["joy-base"].classList.add("active");
+        document.addEventListener("pointermove", onJoyMove);
+        document.addEventListener("pointerup", onJoyEnd);
+        document.addEventListener("pointercancel", onJoyEnd);
+      },
+      { passive: false }
+    );
+
+    function onJoyMove(e) {
       if (!joy.active || e.pointerId !== joy.id) return;
+      e.preventDefault();
       var dx = e.clientX - joy.cx,
         dy = e.clientY - joy.cy;
       var d = Math.hypot(dx, dy);
@@ -2525,12 +2761,13 @@ EN.Controls = (function () {
       var ang = Math.atan2(dy, dx);
       var kx = Math.cos(ang) * m,
         ky = Math.sin(ang) * m;
-      els["joy-knob"].style.transform = "translate(" + (kx - 21) + "px," + (ky - 21) + "px)";
+      els["joy-knob"].style.transform = "translate(" + (kx - 22) + "px," + (ky - 22) + "px)";
       joy.dx = d > 0 ? dx / d : 0;
       joy.dy = d > 0 ? dy / d : 0;
       joy.mag = m / joy.maxR;
-    });
-    function end(e) {
+    }
+
+    function onJoyEnd(e) {
       if (e.pointerId !== joy.id) return;
       joy.active = false;
       joy.id = null;
@@ -2539,9 +2776,10 @@ EN.Controls = (function () {
       joy.mag = 0;
       els["joy-base"].classList.remove("active");
       els["joy-knob"].style.transform = "translate(-50%,-50%)";
+      document.removeEventListener("pointermove", onJoyMove);
+      document.removeEventListener("pointerup", onJoyEnd);
+      document.removeEventListener("pointercancel", onJoyEnd);
     }
-    zone.addEventListener("pointerup", end);
-    zone.addEventListener("pointercancel", end);
   }
 
   function getMoveVector() {
@@ -2555,19 +2793,34 @@ EN.Controls = (function () {
     }, 140);
   }
 
+  // mesmo raciocínio do joystick: o fim do toque (pointerup/cancel) é
+  // ouvido no `document`, nunca só no botão, porque o dedo pode deslizar
+  // um pouco durante o "segurar para carregar" e não podemos arriscar um
+  // ataque carregado que nunca solta por falta do evento de soltar.
   function wireButtons() {
     var atk = els["btn-attack"];
-    atk.addEventListener("pointerdown", function (e) {
-      atk.setPointerCapture && atk.setPointerCapture(e.pointerId);
-      holdStartT = performance.now();
-      clearTimeout(chargeHoldTimer);
-      chargeHoldTimer = setTimeout(function () {
-        if (!ctx) return;
-        EN.Player.startCharge(ctx.player);
-        atk.classList.add("charging");
-      }, 150);
-    });
-    atk.addEventListener("pointerup", function () {
+    var atkPointerId = null;
+    atk.addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        atkPointerId = e.pointerId;
+        holdStartT = performance.now();
+        clearTimeout(chargeHoldTimer);
+        chargeHoldTimer = setTimeout(function () {
+          if (!ctx) return;
+          EN.Player.startCharge(ctx.player);
+          atk.classList.add("charging");
+        }, 150);
+        document.addEventListener("pointerup", onAtkEnd);
+        document.addEventListener("pointercancel", onAtkEnd);
+      },
+      { passive: false }
+    );
+    function onAtkEnd(e) {
+      if (e.pointerId !== atkPointerId) return;
+      document.removeEventListener("pointerup", onAtkEnd);
+      document.removeEventListener("pointercancel", onAtkEnd);
       clearTimeout(chargeHoldTimer);
       if (!ctx) return;
       var held = performance.now() - holdStartT;
@@ -2578,31 +2831,42 @@ EN.Controls = (function () {
         EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
       }
       pressFx(atk);
-    });
-    atk.addEventListener("pointercancel", function () {
-      clearTimeout(chargeHoldTimer);
-      atk.classList.remove("charging");
-    });
+    }
 
-    els["btn-dodge"].addEventListener("pointerdown", function (e) {
-      if (!ctx) return;
-      EN.Player.dodge(ctx.player);
-      pressFx(els["btn-dodge"]);
-    });
+    els["btn-dodge"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        EN.Player.dodge(ctx.player);
+        pressFx(els["btn-dodge"]);
+      },
+      { passive: false }
+    );
 
-    els["btn-skill1"].addEventListener("pointerdown", function () {
-      if (!ctx) return;
-      var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
-      if (res && res.projectile) ctx.spawnProjectile(res.projectile);
-      pressFx(els["btn-skill1"]);
-    });
+    els["btn-skill1"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res && res.projectile) ctx.spawnProjectile(res.projectile);
+        pressFx(els["btn-skill1"]);
+      },
+      { passive: false }
+    );
 
-    els["btn-context"].addEventListener("pointerdown", function () {
-      if (!ctx) return;
-      var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
-      if (target) target.onInteract(target);
-      pressFx(els["btn-context"]);
-    });
+    els["btn-context"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
+        if (target) target.onInteract(target);
+        pressFx(els["btn-context"]);
+      },
+      { passive: false }
+    );
   }
 
   // cor de destaque por classe, só para dar identidade visual ao botão de

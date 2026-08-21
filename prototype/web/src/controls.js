@@ -49,22 +49,39 @@ EN.Controls = (function () {
     wireButtons();
   }
 
+  // O joystick escuta pointermove/pointerup no `document`, não na zona
+  // pequena onde o toque começou. `setPointerCapture` deveria bastar
+  // sozinho, mas alguns WebViews embutidos (ex.: visualizador de artefato
+  // dentro de um app) não repassam o capture de forma confiável, e o dedo
+  // "sai" da zona de 200px muito fácil — o resultado percebido é o
+  // joystick "travando"/parando de responder no meio do arrasto. Rastrear
+  // por `pointerId` no documento inteiro é o padrão robusto usado por
+  // joysticks virtuais em geral e não depende de capture funcionar.
   function wireJoystick() {
     var zone = els["joy-zone"];
-    zone.addEventListener("pointerdown", function (e) {
-      if (joy.active) return;
-      joy.active = true;
-      joy.id = e.pointerId;
-      var rect = zone.getBoundingClientRect();
-      joy.cx = e.clientX;
-      joy.cy = e.clientY;
-      els["joy-base"].style.left = e.clientX - rect.left - 48 + "px";
-      els["joy-base"].style.bottom = rect.bottom - e.clientY - 48 + "px";
-      els["joy-base"].classList.add("active");
-      zone.setPointerCapture && zone.setPointerCapture(e.pointerId);
-    });
-    zone.addEventListener("pointermove", function (e) {
+    zone.addEventListener(
+      "pointerdown",
+      function (e) {
+        if (joy.active) return;
+        e.preventDefault();
+        joy.active = true;
+        joy.id = e.pointerId;
+        var rect = zone.getBoundingClientRect();
+        joy.cx = e.clientX;
+        joy.cy = e.clientY;
+        els["joy-base"].style.left = e.clientX - rect.left - 50 + "px";
+        els["joy-base"].style.bottom = rect.bottom - e.clientY - 50 + "px";
+        els["joy-base"].classList.add("active");
+        document.addEventListener("pointermove", onJoyMove);
+        document.addEventListener("pointerup", onJoyEnd);
+        document.addEventListener("pointercancel", onJoyEnd);
+      },
+      { passive: false }
+    );
+
+    function onJoyMove(e) {
       if (!joy.active || e.pointerId !== joy.id) return;
+      e.preventDefault();
       var dx = e.clientX - joy.cx,
         dy = e.clientY - joy.cy;
       var d = Math.hypot(dx, dy);
@@ -72,12 +89,13 @@ EN.Controls = (function () {
       var ang = Math.atan2(dy, dx);
       var kx = Math.cos(ang) * m,
         ky = Math.sin(ang) * m;
-      els["joy-knob"].style.transform = "translate(" + (kx - 21) + "px," + (ky - 21) + "px)";
+      els["joy-knob"].style.transform = "translate(" + (kx - 22) + "px," + (ky - 22) + "px)";
       joy.dx = d > 0 ? dx / d : 0;
       joy.dy = d > 0 ? dy / d : 0;
       joy.mag = m / joy.maxR;
-    });
-    function end(e) {
+    }
+
+    function onJoyEnd(e) {
       if (e.pointerId !== joy.id) return;
       joy.active = false;
       joy.id = null;
@@ -86,9 +104,10 @@ EN.Controls = (function () {
       joy.mag = 0;
       els["joy-base"].classList.remove("active");
       els["joy-knob"].style.transform = "translate(-50%,-50%)";
+      document.removeEventListener("pointermove", onJoyMove);
+      document.removeEventListener("pointerup", onJoyEnd);
+      document.removeEventListener("pointercancel", onJoyEnd);
     }
-    zone.addEventListener("pointerup", end);
-    zone.addEventListener("pointercancel", end);
   }
 
   function getMoveVector() {
@@ -102,19 +121,34 @@ EN.Controls = (function () {
     }, 140);
   }
 
+  // mesmo raciocínio do joystick: o fim do toque (pointerup/cancel) é
+  // ouvido no `document`, nunca só no botão, porque o dedo pode deslizar
+  // um pouco durante o "segurar para carregar" e não podemos arriscar um
+  // ataque carregado que nunca solta por falta do evento de soltar.
   function wireButtons() {
     var atk = els["btn-attack"];
-    atk.addEventListener("pointerdown", function (e) {
-      atk.setPointerCapture && atk.setPointerCapture(e.pointerId);
-      holdStartT = performance.now();
-      clearTimeout(chargeHoldTimer);
-      chargeHoldTimer = setTimeout(function () {
-        if (!ctx) return;
-        EN.Player.startCharge(ctx.player);
-        atk.classList.add("charging");
-      }, 150);
-    });
-    atk.addEventListener("pointerup", function () {
+    var atkPointerId = null;
+    atk.addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        atkPointerId = e.pointerId;
+        holdStartT = performance.now();
+        clearTimeout(chargeHoldTimer);
+        chargeHoldTimer = setTimeout(function () {
+          if (!ctx) return;
+          EN.Player.startCharge(ctx.player);
+          atk.classList.add("charging");
+        }, 150);
+        document.addEventListener("pointerup", onAtkEnd);
+        document.addEventListener("pointercancel", onAtkEnd);
+      },
+      { passive: false }
+    );
+    function onAtkEnd(e) {
+      if (e.pointerId !== atkPointerId) return;
+      document.removeEventListener("pointerup", onAtkEnd);
+      document.removeEventListener("pointercancel", onAtkEnd);
       clearTimeout(chargeHoldTimer);
       if (!ctx) return;
       var held = performance.now() - holdStartT;
@@ -125,31 +159,42 @@ EN.Controls = (function () {
         EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
       }
       pressFx(atk);
-    });
-    atk.addEventListener("pointercancel", function () {
-      clearTimeout(chargeHoldTimer);
-      atk.classList.remove("charging");
-    });
+    }
 
-    els["btn-dodge"].addEventListener("pointerdown", function (e) {
-      if (!ctx) return;
-      EN.Player.dodge(ctx.player);
-      pressFx(els["btn-dodge"]);
-    });
+    els["btn-dodge"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        EN.Player.dodge(ctx.player);
+        pressFx(els["btn-dodge"]);
+      },
+      { passive: false }
+    );
 
-    els["btn-skill1"].addEventListener("pointerdown", function () {
-      if (!ctx) return;
-      var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
-      if (res && res.projectile) ctx.spawnProjectile(res.projectile);
-      pressFx(els["btn-skill1"]);
-    });
+    els["btn-skill1"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
+        if (res && res.projectile) ctx.spawnProjectile(res.projectile);
+        pressFx(els["btn-skill1"]);
+      },
+      { passive: false }
+    );
 
-    els["btn-context"].addEventListener("pointerdown", function () {
-      if (!ctx) return;
-      var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
-      if (target) target.onInteract(target);
-      pressFx(els["btn-context"]);
-    });
+    els["btn-context"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
+        if (target) target.onInteract(target);
+        pressFx(els["btn-context"]);
+      },
+      { passive: false }
+    );
   }
 
   // cor de destaque por classe, só para dar identidade visual ao botão de

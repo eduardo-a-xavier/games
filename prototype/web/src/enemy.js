@@ -183,28 +183,50 @@ EN.Enemy = (function () {
     ctx.restore();
   }
 
+  var OUTLINE = "rgba(20,14,10,.55)";
+
+  function shadeHex(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
   function drawRato(ctx, e, x, y) {
-    ctx.fillStyle = "#0004";
+    var shadowG = ctx.createRadialGradient(x, y + 9, 1, x, y + 9, 10);
+    shadowG.addColorStop(0, "rgba(0,0,0,.35)");
+    shadowG.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = shadowG;
     ctx.beginPath();
     ctx.ellipse(x, y + 9, 10, 4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = e.hitFlash > 0 ? "#f2b0a8" : "#7a6a52";
+
+    var bodyHex = e.hitFlash > 0 ? "#f2b0a8" : "#7a6a52";
+    var bodyG = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, 11);
+    bodyG.addColorStop(0, shadeHex(bodyHex, 26));
+    bodyG.addColorStop(1, shadeHex(bodyHex, -18));
     ctx.beginPath();
     ctx.ellipse(x, y, 11, 8, 0, 0, Math.PI * 2);
+    ctx.fillStyle = bodyG;
     ctx.fill();
-    ctx.fillStyle = "#5a4c38";
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
     ctx.beginPath();
     ctx.moveTo(x - 9, y - 6);
     ctx.lineTo(x - 13, y - 13);
     ctx.lineTo(x - 5, y - 8);
     ctx.closePath();
-    ctx.fill();
-    ctx.beginPath();
     ctx.moveTo(x + 9, y - 6);
     ctx.lineTo(x + 13, y - 13);
     ctx.lineTo(x + 5, y - 8);
     ctx.closePath();
+    ctx.fillStyle = shadeHex(bodyHex, -12);
     ctx.fill();
+    ctx.stroke();
+
     // marca de corrupção
     ctx.strokeStyle = "#1c1420";
     ctx.lineWidth = 1;
@@ -222,14 +244,30 @@ EN.Enemy = (function () {
   function drawCipoVivo(ctx, e, x, y) {
     ctx.strokeStyle = "#3a5a2c";
     ctx.lineWidth = 4;
+    ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(x, y + 12);
     ctx.quadraticCurveTo(x - 6, y - 2, x, y - 14);
     ctx.stroke();
-    ctx.fillStyle = e.hitFlash > 0 ? "#c9a8a0" : e.state === "gripping" ? "#4a2530" : "#2f5a2e";
+    ctx.strokeStyle = "rgba(90,140,70,.6)";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(x + 1, y + 10);
+    ctx.quadraticCurveTo(x - 4, y - 2, x + 1, y - 13);
+    ctx.stroke();
+
+    var budHex = e.hitFlash > 0 ? "#c9a8a0" : e.state === "gripping" ? "#4a2530" : "#2f5a2e";
+    var budG = ctx.createRadialGradient(x - 3, y - 19, 1, x, y - 16, 9);
+    budG.addColorStop(0, shadeHex(budHex, 24));
+    budG.addColorStop(1, shadeHex(budHex, -16));
     ctx.beginPath();
     ctx.arc(x, y - 16, 9, 0, Math.PI * 2);
+    ctx.fillStyle = budG;
     ctx.fill();
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = 1.1;
+    ctx.stroke();
+
     ctx.strokeStyle = "#1c1420";
     ctx.lineWidth = 1;
     ctx.beginPath();

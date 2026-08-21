@@ -111,7 +111,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 
 /* joystick: anel fino sempre visível em repouso (referência de ARPGs
    mobile comuns), acende e ganha uma base preenchida ao ser tocado */
-#joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; }
+#joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; touch-action: none; }
 #joy-base {
   position: absolute; width: 100px; height: 100px; border-radius: 50%;
   border: 3px solid var(--panel-line); background: radial-gradient(circle, #0004, transparent 70%);
@@ -133,7 +133,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 #action-cluster { position: absolute; right: 0; bottom: 0; width: 250px; height: 236px; }
 .icon-btn {
   --accent: var(--ipe-dim);
-  position: absolute; border-radius: 50%;
+  position: absolute; border-radius: 50%; touch-action: none;
   border: 2.5px solid var(--panel-line);
   background: radial-gradient(circle at 34% 28%, #2a3e35, #0d1512 78%);
   color: var(--mist);
@@ -170,7 +170,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 /* botão contextual: flutua bem acima do cluster de ação (nunca sobre outro
    botão), só aparece quando há algo interativo por perto */
 .context-btn {
-  position: absolute; right: 40px; bottom: 254px;
+  position: absolute; right: 40px; bottom: 254px; touch-action: none;
   width: 46px; height: 46px; border-radius: 50%;
   border: 2px solid var(--ipe-dim); background: var(--panel); color: var(--ipe);
   display: flex; align-items: center; justify-content: center; font-size: 19px;

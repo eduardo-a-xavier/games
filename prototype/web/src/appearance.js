@@ -57,6 +57,51 @@ EN.Appearance = (function () {
     return list[0][key];
   }
 
+  // clareia/escurece uma cor hex em `amt` (positivo clareia, negativo
+  // escurece) -- usado pra tirar as camadas do visual "clipart chapado" e
+  // dar um sombreamento simples e barato (gradiente + contorno) sem exigir
+  // sprite desenhado à mão
+  function shade(hex, amt) {
+    var num = parseInt(hex.replace("#", ""), 16);
+    var r = Math.min(255, Math.max(0, (num >> 16) + amt));
+    var g = Math.min(255, Math.max(0, ((num >> 8) & 0xff) + amt));
+    var b = Math.min(255, Math.max(0, (num & 0xff) + amt));
+    return "rgb(" + r + "," + g + "," + b + ")";
+  }
+
+  function vGrad(ctx, x0, y0, x1, y1, hex, lightAmt, darkAmt) {
+    var g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, shade(hex, lightAmt));
+    g.addColorStop(1, shade(hex, darkAmt));
+    return g;
+  }
+
+  var OUTLINE = "rgba(24,17,12,.55)";
+
+  function roundRect(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    var rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  function fillStroke(ctx, fillStyle, lineWidth) {
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.strokeStyle = OUTLINE;
+    ctx.lineWidth = lineWidth || 1.1;
+    ctx.stroke();
+  }
+
   var WEAPON_BY_CLASS = {
     guerreiro: "facao",
     mateiro: "arco",
@@ -113,24 +158,37 @@ EN.Appearance = (function () {
     if (rot) ctx.rotate(rot);
     ctx.scale(scaleX, scaleY);
 
-    // sombra
-    ctx.fillStyle = "rgba(0,0,0,.28)";
+    // sombra (gradiente radial em vez de elipse chapada)
+    var shadowG = ctx.createRadialGradient(0, 15, 1, 0, 15, 12);
+    shadowG.addColorStop(0, "rgba(0,0,0,.38)");
+    shadowG.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = shadowG;
     ctx.beginPath();
     ctx.ellipse(0, 15, 12, 4.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
     var y = -bob;
 
-    // pernas
-    ctx.fillStyle = "#2c2118";
-    ctx.fillRect(-8, y + 1 + legSwing * 0.3, 6, 12);
-    ctx.fillRect(2, y + 1 - legSwing * 0.3, 6, 12);
-    ctx.fillStyle = pants;
-    ctx.fillRect(-9, y - 3, 18, 9);
+    // pernas (cantos arredondados + sombreado leve)
+    roundRect(ctx, -8, y + 1 + legSwing * 0.3, 6, 12, 2);
+    fillStroke(ctx, vGrad(ctx, 0, y, 0, y + 13, "#2c2118", 14, -10), 1);
+    roundRect(ctx, 2, y + 1 - legSwing * 0.3, 6, 12, 2);
+    fillStroke(ctx, vGrad(ctx, 0, y, 0, y + 13, "#2c2118", 6, -16), 1);
+
+    // calça/saia (banda na cintura)
+    roundRect(ctx, -9, y - 3, 18, 9, 2.5);
+    fillStroke(ctx, vGrad(ctx, 0, y - 3, 0, y + 6, pants, 18, -22));
 
     // camisa/torso
-    ctx.fillStyle = shirt;
-    ctx.fillRect(-11, y - 16, 22, 15);
+    roundRect(ctx, -11, y - 16, 22, 15, 3.5);
+    fillStroke(ctx, vGrad(ctx, 0, y - 16, 0, y - 1, shirt, 26, -18));
+    // dobra central sutil, só pra quebrar a chapa de cor
+    ctx.strokeStyle = "rgba(0,0,0,.14)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y - 15);
+    ctx.lineTo(0, y - 2);
+    ctx.stroke();
 
     // braço com arma (desenhado antes da cabeça p/ ficar atrás em idle, na frente durante ataque)
     var weaponId = WEAPON_BY_CLASS[anim.classId] || null;
@@ -138,18 +196,33 @@ EN.Appearance = (function () {
       drawWeaponSwing(ctx, weaponId, facing, state === "chargeAttack" ? anim.chargeProgress || 0 : 1, y);
     }
 
-    // cabeça
-    ctx.fillStyle = skinHex;
+    // cabeça (gradiente radial: luz vindo de cima-esquerda)
+    var headG = ctx.createRadialGradient(-3, y - 28, 1, 0, y - 25, 11);
+    headG.addColorStop(0, shade(skinHex, 30));
+    headG.addColorStop(0.6, skinHex);
+    headG.addColorStop(1, shade(skinHex, -22));
     ctx.beginPath();
     ctx.arc(0, y - 25, 9.5, 0, Math.PI * 2);
+    fillStroke(ctx, headG, 1.2);
+
+    // bochecha/nariz sutil pro rosto não ficar uma bola lisa
+    ctx.fillStyle = shade(skinHex, -14);
+    ctx.beginPath();
+    ctx.ellipse(facing.x >= 0 ? 4 : -4, y - 23, 2.2, 1.6, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // olhos (indicam direção)
     ctx.fillStyle = "#231913";
-    var ex = facing.x * 3.4,
-      ey = facing.y * 2;
+    var ex = facing.x * 3.6,
+      ey = facing.y * 2.2;
     ctx.beginPath();
-    ctx.arc(ex, y - 25 + ey, 1.5, 0, Math.PI * 2);
+    ctx.arc(ex - 1.6, y - 25 + ey, 1.3, 0, Math.PI * 2);
+    ctx.arc(ex + 1.6, y - 25 + ey, 1.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.7)";
+    ctx.beginPath();
+    ctx.arc(ex - 1.9, y - 25.6 + ey, 0.5, 0, Math.PI * 2);
+    ctx.arc(ex + 1.3, y - 25.6 + ey, 0.5, 0, Math.PI * 2);
     ctx.fill();
 
     // cabelo
@@ -157,16 +230,15 @@ EN.Appearance = (function () {
 
     // chapéu (opcional)
     if (appearance.hat === "palha") {
-      ctx.fillStyle = "#d8b872";
       ctx.beginPath();
       ctx.ellipse(0, y - 33, 15, 4.5, 0, 0, Math.PI * 2);
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 0, y - 37, 0, y - 29, "#d8b872", 18, -16));
       ctx.beginPath();
       ctx.moveTo(-7, y - 33);
       ctx.lineTo(7, y - 33);
       ctx.lineTo(0, y - 42);
       ctx.closePath();
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 0, y - 42, 0, y - 33, "#d8b872", 10, -20));
     }
 
     if (weaponId && state !== "attack" && state !== "chargeAttack") {
@@ -185,35 +257,46 @@ EN.Appearance = (function () {
   }
 
   function drawHair(ctx, style, hex, headY) {
-    ctx.fillStyle = hex;
+    var fill = vGrad(ctx, 0, headY - 16, 0, headY - 2, hex, 22, -14);
     if (style === "curto") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 10, Math.PI, 0);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     } else if (style === "cacheado") {
       for (var i = -1; i <= 1; i++) {
         ctx.beginPath();
         ctx.arc(i * 6, headY - 6, 5, 0, Math.PI * 2);
-        ctx.fill();
+        fillStroke(ctx, fill, 1);
       }
     } else if (style === "longo") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 10, Math.PI, 0);
-      ctx.fill();
-      ctx.fillRect(-9, headY - 2, 5, 16);
-      ctx.fillRect(4, headY - 2, 5, 16);
+      roundRectAppend(ctx, -9, headY - 2, 5, 16, 2);
+      roundRectAppend(ctx, 4, headY - 2, 5, 16, 2);
+      fillStroke(ctx, fill, 1);
     } else if (style === "coque") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 9.5, Math.PI, 0);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
       ctx.beginPath();
       ctx.arc(0, headY - 14, 4, 0, Math.PI * 2);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     } else if (style === "raspado") {
       ctx.beginPath();
       ctx.arc(0, headY - 2, 9.6, Math.PI * 0.95, Math.PI * 0.05);
-      ctx.fill();
+      fillStroke(ctx, fill, 1);
     }
+  }
+
+  // acrescenta um retângulo arredondado ao path corrente (sem beginPath),
+  // pra poder combinar formas num único fill+stroke coerente (ex.: cabelo
+  // longo = touca + duas mechas, tudo com o mesmo contorno)
+  function roundRectAppend(ctx, x, y, w, h, r) {
+    if (ctx.roundRect) {
+      ctx.roundRect(x, y, w, h, r);
+      return;
+    }
+    ctx.rect(x, y, w, h);
   }
 
   function drawWeaponIdle(ctx, weaponId, facing, y) {
@@ -241,13 +324,12 @@ EN.Appearance = (function () {
       ctx.moveTo(-3, 0);
       ctx.lineTo(11, 0);
       ctx.stroke();
-      ctx.fillStyle = "#cfd6da";
       ctx.beginPath();
       ctx.moveTo(2, -2.5);
       ctx.lineTo(14, 0);
       ctx.lineTo(2, 2.5);
       ctx.closePath();
-      ctx.fill();
+      fillStroke(ctx, vGrad(ctx, 2, -2.5, 2, 2.5, "#cfd6da", 20, -30), 0.8);
     } else if (weaponId === "arco") {
       ctx.strokeStyle = "#6b4a2a";
       ctx.lineWidth = 2;
