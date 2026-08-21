@@ -20,10 +20,9 @@ EN.SpriteAtlas = (function () {
   var directional = {};
   var single = {};
 
-  // flat spritesheet (player_sheet.png) — one image, all animations as rows.
-  // SHEET_IDLE_H is the idle row height: used as the scale reference so the
-  // robot renders at ~52px regardless of each row's actual pixel height.
-  var sheet = null;
+  // flat spritesheets por classe — mesma grade de linhas para todos.
+  // "default" é o fallback; sheets específicos carregam quando o arquivo existe.
+  var sheets = {};
   // Dados verificados pixel a pixel (ver análise PIL acima).
   // Cada linha: { y, h, frames, x0, fw, stride }
   var SHEET_ROWS = {
@@ -94,23 +93,28 @@ EN.SpriteAtlas = (function () {
   loadDirectional("dodge", { down: 4, left: 3, right: 4, up: 4 });
   loadSingle("defeat", 4);
 
-  function loadPlayerSheet() {
+  function loadSheet(key, name) {
     var img = new Image();
-    sheet = { img: img, loaded: false, failed: false };
-    img.onload = function () { sheet.loaded = true; };
-    img.onerror = function () { sheet.failed = true; };
-    img.src = resolveSrc("player_sheet");
+    var s = { img: img, loaded: false, failed: false };
+    sheets[key] = s;
+    img.onload = function () { s.loaded = true; };
+    img.onerror = function () { s.failed = true; };
+    img.src = resolveSrc(name);
   }
 
-  function sheetReady() {
-    return sheet !== null && sheet.loaded;
+  function sheetReady(classId) {
+    var s = sheets[classId] || sheets["default"];
+    return s !== undefined && s.loaded;
   }
 
   // draws one frame from the flat spritesheet, anchored at feet (cx, cy).
+  // picks class-specific sheet when loaded, falls back to default.
   // mirrors horizontally for the left direction so the sprite faces the right way.
-  function drawSheetAnim(ctx, rowKey, cx, cy, cyclePhase, facing, drawHeight) {
+  function drawSheetAnim(ctx, rowKey, cx, cy, cyclePhase, facing, drawHeight, classId) {
     var r = SHEET_ROWS[rowKey];
-    if (!r || !sheet || !sheet.loaded) return false;
+    if (!r) return false;
+    var s = (classId && sheets[classId] && sheets[classId].loaded) ? sheets[classId] : sheets["default"];
+    if (!s || !s.loaded) return false;
     var frac = cyclePhase - Math.floor(cyclePhase);
     var frameIndex = Math.min(r.frames - 1, Math.floor(frac * r.frames));
     var scale = drawHeight / SHEET_IDLE_H;
@@ -120,12 +124,15 @@ EN.SpriteAtlas = (function () {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (pickDirection(facing) === "left") ctx.scale(-1, 1);
-    ctx.drawImage(sheet.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
+    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
     ctx.restore();
     return true;
   }
 
-  loadPlayerSheet();
+  loadSheet("default",   "player_sheet");
+  loadSheet("guerreiro", "guerreiro_sheet");
+  loadSheet("mateiro",   "mateiro_sheet");
+  loadSheet("encantado", "encantado_sheet");
 
   function ready(key) {
     if (single[key]) return single[key].loaded;
