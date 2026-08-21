@@ -37,6 +37,16 @@ jobs:
           node --test prototype/web/tests/*.test.js
           python3 -m unittest discover -s prototype/web/tests -p 'test_*.py'
 
+      - name: Gerar HTML autocontido
+        run: python3 prototype/web/build_bundle.py
+
+      - name: Publicar HTML autocontido
+        uses: actions/upload-artifact@v4
+        with:
+          name: encantaria-html
+          path: prototype/web/dist/index.bundled.html
+          if-no-files-found: error
+
       - name: Permissão de execução no wrapper
         run: chmod +x android/gradlew
 

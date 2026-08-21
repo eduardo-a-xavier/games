@@ -17,3 +17,7 @@ prototype/web/assets/player/*_right.png
 prototype/web/assets/player/*_up.png
 prototype/web/assets/player/defeat.png
 prototype/web/assets/npcs/*.png
+
+# Bundle autocontido é saída de build; o workflow Android o publica como
+# artefato para download sem manter 9 MB gerados dentro do histórico Git.
+prototype/web/dist/
