@@ -1,15 +1,19 @@
 pluginManagement {
   repositories {
-    google()
     mavenCentral()
+    maven { url "https://maven.google.com/" }
     gradlePluginPortal()
+    maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+    maven { url "https://repo1.maven.org/maven2/" }
   }
 }
 dependencyResolutionManagement {
   repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
   repositories {
-    google()
     mavenCentral()
+    maven { url "https://maven.google.com/" }
+    maven { url "https://oss.sonatype.org/content/repositories/releases/" }
+    maven { url "https://repo1.maven.org/maven2/" }
   }
 }
 rootProject.name = "Encantaria"
