@@ -29,15 +29,16 @@ lançamento. Esta lista é o contrato de substituição.
   não houver spritesheet própria — hoje `run` tem sprite própria. Ver
   `/assets/art_direction/CHARACTER_STYLE_GUIDE.md` Seção 3-A para o
   design de referência completo.
-- **Ainda placeholder procedural**: `chargeAttack` (Golpe Poderoso, o
-  ataque carregado/finisher) e `dodge`. O material de referência recebido
-  para `heavy_attack` teve problemas de recorte (cabeça/pés cortados nas
-  poses de giro largo, ou vazamento de texto do cabeçalho do sheet) que
-  não foram resolvidos com confiança suficiente para substituir o
-  placeholder sem introduzir defeitos visuais — decisão consciente de
-  manter o desenho procedural até haver uma fonte de arte mais limpa para
-  esse estado específico. `tool` (interação com ferramentas) também seguem
-  procedural, sem referência recebida ainda.
+- **`chargeAttack` (golpe carregado) também usa arte real**, mas só para o
+  Guerreiro: `assets/player/heavy_{down,left,right,up}.png`, com 8/9/9/12
+  frames (a planilha-fonte tinha número de poses diferente por direção —
+  `spriteAtlas.js` suporta isso). A sequência é dividida em duas metades:
+  a primeira acompanha a carga do botão, a segunda toca na soltada. A arte
+  mostra o facão, que é a arma do Guerreiro — Mateiro e Encantado seguem
+  com a arte da própria arma ao carregar, senão o arqueiro sacaria um
+  facão do nada.
+- **Ainda placeholder procedural**: `dodge` e `tool`, sem referência
+  recebida ainda; e o `chargeAttack` das classes que não são Guerreiro.
 - **Formato alvo do placeholder procedural**: spritesheet 40×56px por
   frame, ancorado em (20,40) (centro-x, próximo da base — ver
   `/assets/art_direction/proportions_reference.png`), fundo transparente.

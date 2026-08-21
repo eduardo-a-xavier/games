@@ -113,6 +113,8 @@ EN.Appearance = (function () {
   // tenta desenhar o estado atual a partir de spritesheets reais; devolve
   // false se não houver arte pro estado (ou pra classe, no caso de
   // ataque) -- quem chamou cai pro desenho procedural nesse caso
+  var HEAVY_SWING_DUR = 0.34;
+
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
     if (state === "idle" && SA.ready("idle")) {
@@ -127,6 +129,28 @@ EN.Appearance = (function () {
     if (state === "hurt" && SA.ready("hurt")) {
       return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);
     }
+    /*
+     * Golpe carregado com facão. A arte é do protagonista com o facão, que
+     * é a arma do Guerreiro — por isso só ele usa esse conjunto; Mateiro e
+     * Encantado continuam com a arte da própria arma, senão o arqueiro
+     * sacaria um facão do nada ao carregar.
+     *
+     * A sequência é dividida em duas metades: a primeira acompanha a
+     * CARGA (quanto mais segura, mais o braço sobe) e a segunda toca
+     * sozinha na SOLTADA. Sem isso o jogador nunca veria os frames do
+     * golpe em si, porque o estado vira "attack" assim que solta.
+     */
+    if (anim.classId === "guerreiro" && SA.ready("heavy")) {
+      if (state === "chargeAttack") {
+        var charge = Math.min(1, anim.chargeProgress || 0);
+        return SA.drawDirectional(ctx, "heavy", 0, 15, facing, charge * 0.5, 52);
+      }
+      if (state === "attack" && anim.heavySwing > 0) {
+        var swing = 1 - Math.min(1, anim.heavySwing / HEAVY_SWING_DUR);
+        return SA.drawDirectional(ctx, "heavy", 0, 15, facing, 0.5 + swing * 0.499, 52);
+      }
+    }
+
     if ((state === "attack" || state === "chargeAttack") && anim.classId && ATTACK_ART_CLASSES[anim.classId]) {
       var key = "attack_" + anim.classId;
       if (!SA.ready(key)) return false;

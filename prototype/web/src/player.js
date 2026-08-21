@@ -75,6 +75,7 @@ EN.Player = (function () {
       attackLock: 0,
       riposte: 0,
       dodgeT: 0,
+      heavySwing: 0,
       dodgeVX: 0,
       dodgeVY: 0,
       status: {},
@@ -145,6 +146,7 @@ EN.Player = (function () {
     if (p.attackLock > 0) p.attackLock -= dt;
     if (p.riposte > 0) p.riposte -= dt;
     if (p.parryT > 0) p.parryT -= dt;
+    if (p.heavySwing > 0) p.heavySwing -= dt;
     if (p.shieldT > 0) {
       p.shieldT -= dt;
       if (p.shieldT <= 0) p.shield = 0;
@@ -294,6 +296,7 @@ EN.Player = (function () {
     p.st -= cost;
     p.cd.heavy = ab.cooldown;
     p.attackLock = full ? 0.34 : 0.24;
+    p.heavySwing = 0.34;
     setState(p, "attack");
     var cfg = {
       range: full ? 68 : 56,
@@ -443,6 +446,7 @@ EN.Player = (function () {
     if (ab.type === "melee_heavy" || ab.type === "melee") {
       var heavy = ab.type === "melee_heavy";
       p.attackLock = heavy ? 0.36 : 0.24;
+      if (heavy) p.heavySwing = 0.34;
       var cfg = {
         range: ab.range,
         halfAngle: heavy ? Math.PI / 1.8 : Math.PI / 3.2,
@@ -608,6 +612,7 @@ EN.Player = (function () {
       facing: p.facing,
       classId: p.classId,
       chargeProgress: p.chargeT,
+      heavySwing: p.heavySwing,
     };
     var x = p.x - camX,
       y = p.y - camY;

@@ -1,6 +1,6 @@
 # Guia de Estilo — Personagens de Encantaria
 
-> Referência para quem for produzir a arte definitiva dos personagens. **O ciclo de caminhada do jogador já usa arte real** (Seção 3-A) — o resto (idle, ataque, esquiva, criaturas) ainda usa o renderizador procedural do protótipo como placeholder, ver `proportions_reference.png` e `palette_reference.png` nesta pasta (geradas a partir de `prototype/web/src/appearance.js`, não desenhadas à mão).
+> Referência para quem for produzir a arte definitiva dos personagens. **A maior parte da animação do jogador já usa arte real** (Seção 3-A: idle, caminhada, corrida, dano, ataque por classe, golpe carregado e derrota) — o que falta (esquiva, uso de ferramenta, criaturas, NPCs) ainda usa o renderizador procedural do protótipo como placeholder, ver `proportions_reference.png` e `palette_reference.png` nesta pasta (geradas a partir de `prototype/web/src/appearance.js`, não desenhadas à mão).
 
 ---
 
@@ -51,14 +51,15 @@ Referências completas nesta pasta: `player_concept_turnaround.jpg` (down/left/u
 - `attack_mateiro_{down,left,right,up}.png` — 8 frames cada, ataque de arco. `EN.SpriteAtlas`/`appearance.js` escolhem o conjunto `attack_<classe>` certo a partir da classe atual do jogador; sem classe (`Sem classe`), cai no placeholder procedural de "mãos vazias".
 - `attack_encantado_{down,left,right,up}.png` — 6 frames em `down/left/right`, 4 em `up` (contagem de frame por direção não precisa ser igual — `spriteAtlas.js` suporta isso).
 - `defeat.png` — 4 frames, sequência única sem direção, usada no estado `death` (a queda já está desenhada nos frames, o código não aplica mais rotação por cima quando esse sprite está disponível).
+- `heavy_{down,left,right,up}.png` — golpe carregado com facão, **8/9/9/12 frames** (contagem irregular de propósito: a planilha-fonte trazia número de poses diferente por direção, e `spriteAtlas.js` aceita isso sem precisar descartar pose boa). Usado só pelo Guerreiro (a arte mostra o facão, que é a arma dele).
 
 `right` **não** é o espelho de `left` em nenhum desses conjuntos — cada direção é um frame desenhado à parte.
 
-**O que ainda falta pra esse design**: `chargeAttack` (Golpe Poderoso) e `dodge` continuam no placeholder procedural da Seção 3-B. A referência recebida para `heavy_attack` teve problemas de recorte (cabeça/pés cortados em poses de giro largo, ou vazamento de cabeçalho do sheet) que não foram resolvidos com segurança suficiente para publicar sem defeito visível — decisão consciente de manter o placeholder até haver fonte de arte mais limpa. `tool` também segue procedural, sem referência recebida.
+**O que ainda falta pra esse design**: `dodge` e `tool` continuam no placeholder procedural da Seção 3-B, sem referência recebida ainda. O `chargeAttack` só tem arte real para o Guerreiro — a planilha mostra o facão, e dar esse mesmo golpe ao Mateiro e ao Encantado faria o arqueiro sacar um facão do nada, então essas duas classes seguem com a arte da própria arma ao carregar.
 
 ## 3-B. Estados de animação (contrato geral / placeholder procedural)
 
-Todos já existem como estados de máquina no código (`player.js`/`appearance.js`) — a arte final só precisa de frames para eles, a lógica de transição já funciona. `idle`, `walk`, `run`, `attack`, `hurt` e `death` já usam arte real (Seção 3-A); `chargeAttack` e `dodge` ainda são o placeholder procedural descrito abaixo:
+Todos já existem como estados de máquina no código (`player.js`/`appearance.js`) — a arte final só precisa de frames para eles, a lógica de transição já funciona. `idle`, `walk`, `run`, `attack`, `hurt` e `death` já usam arte real (Seção 3-A), e `chargeAttack` também para o Guerreiro; `dodge` e `tool` ainda são o placeholder procedural descrito abaixo:
 
 | Estado | Uso | Frames sugeridos |
 |---|---|---|
@@ -122,4 +123,16 @@ Criaturas afetadas pela corrupção do Encantado (ver `corruptionVisual` em cada
 
 **Arte real de `idle`, `run`, `hurt`, `attack_guerreiro`, `attack_mateiro`, `attack_encantado` e `defeat`**: mesma técnica de *flood fill* a partir das bordas, aplicada planilha por planilha a referências fornecidas em lotes (cada uma com seu próprio layout de fundo — xadrez ou cinza-chapado, com ou sem barra de título, com ou sem borda de grade preta entre frames). Cada planilha precisou de calibração própria de faixa de conteúdo (varredura de densidade de pixel-de-fundo por linha/coluna pra achar onde cada frame começa/termina, já que os layouts não são consistentes entre lotes) — não existe um script único reaproveitável como o do walk cycle porque cada fonte tinha um template diferente; o processo foi feito sob demanda por recorte via Pillow. `attack_guerreiro` (facão), `attack_mateiro` (arco) e `attack_encantado` (foco/magia) vieram de três planilhas de ataque distintas, uma por classe, escolhidas em runtime pela classe do jogador (Seção 3-A).
 
-**Pendência conhecida — `heavy_attack`**: a planilha de referência para o golpe carregado (Golpe Poderoso / `chargeAttack`) teve duas tentativas de calibração, ambas com defeitos residuais (cabeça/pés cortados nas poses de giro largo/agachado, ou vazamento de texto de cabeçalho, ou resíduo de xadrez em alguns frames) — não foi integrada ao jogo por decisão consciente de não publicar arte com defeito visível. `chargeAttack` continua no placeholder procedural até uma fonte mais limpa estar disponível.
+**Arte real do `heavy` (golpe carregado)**: `player_concept_heavy_attack_source.jpg`, extraída por `assets/tools/extract_pose_sheet.py`.
+
+Essa planilha derrubou três tentativas anteriores de recorte por grade, e a razão vale registrar porque vai se repetir: **ela não tem grade consistente**. DOWN traz 8 poses em 4 colunas, LEFT e RIGHT trazem 9, e UP traz 12 em 6 colunas mais estreitas; várias poses estouram a célula (facão erguido acima da cabeça, personagem ajoelhado). Recortar por grade fixa corta cabeça e pé exatamente nas poses mais dramáticas — que são justamente as que importam num golpe pesado.
+
+A ferramenta nova recorta **por conteúdo**: acha cada pose pelo bloco de pixels que ela ocupa, seja qual for a largura, e depois reancora todas num canvas único com os pés na mesma linha. O eixo horizontal vem do centro de massa do terço inferior da pose (pernas e botas), não da caixa inteira — se viesse da caixa, um facão esticado pro lado empurraria o corpo e a animação tremeria a cada frame.
+
+A limpeza tem quatro passadas, cada uma resolvendo um defeito real observado:
+1. Flood fill a partir das bordas remove o xadrez ligado à borda.
+2. Manchas de xadrez **presas** dentro da silhueta (entre as pernas, sob as botas) somem por área: medido na fonte, mancha presa tem ~485px enquanto respingo legítimo de anti-aliasing tem ~10px. A lâmina do facão fica a 31+ de distância da paleta do xadrez, fora da tolerância de 30 — ou seja, a arma nunca corre risco de ser confundida com fundo.
+3. Componentes soltos pequenos e linhas finas são descartados: é o que elimina o texto de cabeçalho ("UP HEAVY ATTACK") que vazava para dentro dos recortes.
+4. A moldura da grade é apagada **na fonte**, antes de qualquer recorte, procurando corridas escuras de 100px ou mais — tamanho que nenhuma parte do personagem alcança (ele tem ~90px de largura e a arma é cinza-clara). Tentar essa limpeza depois, dentro do recorte de cada pose, foi testado e é perigoso: lá uma fileira de cabelo escuro de costas passa pelos mesmos critérios e vira um rasgo no meio da cabeça.
+
+**Limite conhecido da ferramenta**: ela depende de haver espaço vazio entre as poses. Na planilha `player_attack`, onde as poses ficam quase encostadas, o detector funde vizinhas e devolve 2–3 poses em vez de 6 — por isso o `attack_*` continua vindo do recorte por grade, que funciona bem naquele layout.
