@@ -30,7 +30,7 @@ Proporção cabeça:corpo ≈ 1:2.7 — mais "boneco" que realista, deliberadame
 
 ## 3-A. Design definitivo do personagem principal (arte real)
 
-O design abaixo já está em produção e substitui o placeholder procedural para o estado `walk`/`run` — é a referência que qualquer arte nova do protagonista deve seguir:
+O design abaixo já está em produção e substitui o placeholder procedural para os estados `idle`, `walk`, `run`, `hurt`, `attack` (por classe) e `defeat` — é a referência que qualquer arte nova do protagonista deve seguir:
 
 - **Cabelo:** castanho, cacheado/volumoso.
 - **Pele:** tom médio.
@@ -41,13 +41,24 @@ O design abaixo já está em produção e substitui o placeholder procedural par
 
 Referências completas nesta pasta: `player_concept_turnaround.jpg` (down/left/up + poses duplicadas), `player_concept_sheet.jpg` (frente/costas/lados + grid de proporção + close-up de rosto + demonstração em escala de jogo), `player_concept_walkcycles_source.jpg` (a planilha-fonte de onde os frames reais foram recortados — 4 direções × 5 frames, fundo em xadrez removido por chroma-key de borda).
 
-**Arquivos já em uso no jogo** (`prototype/web/src/spriteAtlas.js` + `assets/characters/player/base/`, cópia local em `prototype/web/assets/player/`): `walk_down.png`, `walk_left.png`, `walk_right.png`, `walk_up.png` — cada um um spritesheet horizontal de 5 frames, ~137×306px por frame, fundo transparente. `right` **não** é o espelho de `left` — é um frame desenhado à parte (a planilha-fonte já trazia as 4 direções separadas).
+**Arquivos já em uso no jogo** (`prototype/web/src/spriteAtlas.js` + `assets/characters/player/base/`, cópia local em `prototype/web/assets/player/`), todos spritesheet horizontal, 4 direções (`_down/_left/_right/_up`) exceto `defeat` que não tem direção, fundo transparente:
 
-**O que ainda falta pra esse design** (todos os outros estados da Seção 3-B continuam no placeholder procedural até existir arte equivalente): `idle`, `attack`, `chargeAttack`, `dodge`, `hurt`, `tool`, `death`. `run` hoje reaproveita os mesmos frames de `walk` tocados mais rápido — não é uma animação de corrida desenhada à parte.
+- `walk_{down,left,right,up}.png` — 5 frames cada, ~137×306px por frame.
+- `idle_{down,left,right,up}.png` — 4 frames cada.
+- `run_{down,left,right,up}.png` — 6 frames cada, animação de corrida própria (não é mais `walk` tocado mais rápido).
+- `hurt_{down,left,right,up}.png` — 3 frames cada.
+- `attack_guerreiro_{down,left,right,up}.png` — 6 frames cada, ataque de facão.
+- `attack_mateiro_{down,left,right,up}.png` — 8 frames cada, ataque de arco. `EN.SpriteAtlas`/`appearance.js` escolhem o conjunto `attack_<classe>` certo a partir da classe atual do jogador; sem classe (`Sem classe`), cai no placeholder procedural de "mãos vazias".
+- `attack_encantado_{down,left,right,up}.png` — 6 frames em `down/left/right`, 4 em `up` (contagem de frame por direção não precisa ser igual — `spriteAtlas.js` suporta isso).
+- `defeat.png` — 4 frames, sequência única sem direção, usada no estado `death` (a queda já está desenhada nos frames, o código não aplica mais rotação por cima quando esse sprite está disponível).
+
+`right` **não** é o espelho de `left` em nenhum desses conjuntos — cada direção é um frame desenhado à parte.
+
+**O que ainda falta pra esse design**: `chargeAttack` (Golpe Poderoso) e `dodge` continuam no placeholder procedural da Seção 3-B. A referência recebida para `heavy_attack` teve problemas de recorte (cabeça/pés cortados em poses de giro largo, ou vazamento de cabeçalho do sheet) que não foram resolvidos com segurança suficiente para publicar sem defeito visível — decisão consciente de manter o placeholder até haver fonte de arte mais limpa. `tool` também segue procedural, sem referência recebida.
 
 ## 3-B. Estados de animação (contrato geral / placeholder procedural)
 
-Todos já existem como estados de máquina no código (`player.js`/`appearance.js`) — a arte final só precisa de frames para eles, a lógica de transição já funciona:
+Todos já existem como estados de máquina no código (`player.js`/`appearance.js`) — a arte final só precisa de frames para eles, a lógica de transição já funciona. `idle`, `walk`, `run`, `attack`, `hurt` e `death` já usam arte real (Seção 3-A); `chargeAttack` e `dodge` ainda são o placeholder procedural descrito abaixo:
 
 | Estado | Uso | Frames sugeridos |
 |---|---|---|
@@ -108,3 +119,7 @@ Criaturas afetadas pela corrupção do Encantado (ver `corruptionVisual` em cada
 **Placeholder procedural** (`player_reference.png`, `proportions_reference.png`, `palette_reference.png`, e o conteúdo de `characters/player/base/` que não é `walk_*.png`): exportado automaticamente do renderizador procedural em `prototype/web/src/appearance.js` pela ferramenta `assets/tools/sprite_export.html` (abrir num navegador a partir da raiz do repositório). Rodar essa ferramenta de novo depois de qualquer mudança em `appearance.js` mantém os placeholders honestos com o que está realmente no jogo.
 
 **Arte real do `walk`** (`walk_down.png`, `walk_left.png`, `walk_right.png`, `walk_up.png`): recortada de `player_concept_walkcycles_source.jpg` (fornecida já como planilha de ciclo de caminhada em 4 direções × 5 frames) pela ferramenta `assets/tools/extract_walkcycle_sheet.py` (Python + Pillow). O fundo em xadrez (JPEG, sem canal alfa real) é removido por *flood fill* a partir das bordas da imagem — qualquer pixel alcançável a partir da borda e parecido com uma das cores do xadrez vira transparente, o que preserva bordas anti-aliased do personagem sem review manual. Reaproveitável pra próximas planilhas no mesmo layout (`python3 assets/tools/extract_walkcycle_sheet.py <planilha.jpg> <pasta_saida>`); layouts diferentes precisam recalibrar os parâmetros de seção/coluna do script.
+
+**Arte real de `idle`, `run`, `hurt`, `attack_guerreiro`, `attack_mateiro`, `attack_encantado` e `defeat`**: mesma técnica de *flood fill* a partir das bordas, aplicada planilha por planilha a referências fornecidas em lotes (cada uma com seu próprio layout de fundo — xadrez ou cinza-chapado, com ou sem barra de título, com ou sem borda de grade preta entre frames). Cada planilha precisou de calibração própria de faixa de conteúdo (varredura de densidade de pixel-de-fundo por linha/coluna pra achar onde cada frame começa/termina, já que os layouts não são consistentes entre lotes) — não existe um script único reaproveitável como o do walk cycle porque cada fonte tinha um template diferente; o processo foi feito sob demanda por recorte via Pillow. `attack_guerreiro` (facão), `attack_mateiro` (arco) e `attack_encantado` (foco/magia) vieram de três planilhas de ataque distintas, uma por classe, escolhidas em runtime pela classe do jogador (Seção 3-A).
+
+**Pendência conhecida — `heavy_attack`**: a planilha de referência para o golpe carregado (Golpe Poderoso / `chargeAttack`) teve duas tentativas de calibração, ambas com defeitos residuais (cabeça/pés cortados nas poses de giro largo/agachado, ou vazamento de texto de cabeçalho, ou resíduo de xadrez em alguns frames) — não foi integrada ao jogo por decisão consciente de não publicar arte com defeito visível. `chargeAttack` continua no placeholder procedural até uma fonte mais limpa estar disponível.

@@ -15,15 +15,29 @@ lançamento. Esta lista é o contrato de substituição.
 
 ## Personagem do jogador (`src/appearance.js`, `src/spriteAtlas.js`)
 
-- **`walk`/`run` já usam arte real**, não mais placeholder: 4 spritesheets
-  direcionais (`assets/player/walk_{down,left,right,up}.png`, cópia de
-  `/assets/characters/player/base/`), carregados por `src/spriteAtlas.js`
-  e escolhidos por `EN.SpriteAtlas.pickDirection()` a partir do vetor de
-  direção do jogador. `run` reaproveita os mesmos frames tocados mais
-  rápido. Ver `/assets/art_direction/CHARACTER_STYLE_GUIDE.md` Seção 3-A
-  para o design de referência completo.
-- **Todos os outros estados continuam placeholder procedural**:
-  `idle`, `attack`, `chargeAttack`, `dodge`, `hurt`, `tool`, `death`.
+- **A maioria dos estados já usa arte real**, não mais placeholder:
+  `idle`, `walk`, `run`, `hurt` (4 spritesheets direcionais cada,
+  `assets/player/<estado>_{down,left,right,up}.png`, cópia de
+  `/assets/characters/player/base/`) e `attack` — que agora tem uma
+  variante **por classe** (`attack_guerreiro` = facão, `attack_mateiro` =
+  arco, `attack_encantado` = foco/magia), escolhida em `appearance.js`
+  pela classe atual do jogador. `defeat` é uma sequência única sem
+  direção (`assets/player/defeat.png`), usada no estado `death`. Tudo
+  carregado por `src/spriteAtlas.js` (`EN.SpriteAtlas`) e escolhido por
+  `pickDirection()` a partir do vetor de direção do jogador. `run`
+  reaproveita os mesmos frames de `walk` tocados mais rápido apenas se
+  não houver spritesheet própria — hoje `run` tem sprite própria. Ver
+  `/assets/art_direction/CHARACTER_STYLE_GUIDE.md` Seção 3-A para o
+  design de referência completo.
+- **Ainda placeholder procedural**: `chargeAttack` (Golpe Poderoso, o
+  ataque carregado/finisher) e `dodge`. O material de referência recebido
+  para `heavy_attack` teve problemas de recorte (cabeça/pés cortados nas
+  poses de giro largo, ou vazamento de texto do cabeçalho do sheet) que
+  não foram resolvidos com confiança suficiente para substituir o
+  placeholder sem introduzir defeitos visuais — decisão consciente de
+  manter o desenho procedural até haver uma fonte de arte mais limpa para
+  esse estado específico. `tool` (interação com ferramentas) também seguem
+  procedural, sem referência recebida ainda.
 - **Formato alvo do placeholder procedural**: spritesheet 40×56px por
   frame, ancorado em (20,40) (centro-x, próximo da base — ver
   `/assets/art_direction/proportions_reference.png`), fundo transparente.

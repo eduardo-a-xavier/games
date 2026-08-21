@@ -108,6 +108,37 @@ EN.Appearance = (function () {
     encantado: "foco",
   };
 
+  var ATTACK_ART_CLASSES = { guerreiro: 1, mateiro: 1, encantado: 1 };
+
+  // tenta desenhar o estado atual a partir de spritesheets reais; devolve
+  // false se não houver arte pro estado (ou pra classe, no caso de
+  // ataque) -- quem chamou cai pro desenho procedural nesse caso
+  function drawFromAtlas(ctx, state, t, facing, anim) {
+    var SA = EN.SpriteAtlas;
+    if (state === "idle" && SA.ready("idle")) {
+      return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
+    }
+    if (state === "walk" && SA.ready("walk")) {
+      return SA.drawDirectional(ctx, "walk", 0, 15, facing, (t * 8) / (2 * Math.PI), 52);
+    }
+    if (state === "run" && SA.ready("run")) {
+      return SA.drawDirectional(ctx, "run", 0, 15, facing, (t * 13) / (2 * Math.PI), 52);
+    }
+    if (state === "hurt" && SA.ready("hurt")) {
+      return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);
+    }
+    if ((state === "attack" || state === "chargeAttack") && anim.classId && ATTACK_ART_CLASSES[anim.classId]) {
+      var key = "attack_" + anim.classId;
+      if (!SA.ready(key)) return false;
+      var progress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
+      return SA.drawDirectional(ctx, key, 0, 15, facing, progress, 52);
+    }
+    if (state === "death" && SA.ready("defeat")) {
+      return SA.drawSingle(ctx, "defeat", 0, 15, t / 1.0, 52);
+    }
+    return false;
+  }
+
   // desenha o personagem ancorado nos pés em (cx, cy), em espaço de tela
   function draw(ctx, cx, cy, appearance, anim) {
     var skinHex = findHex(skins, appearance.skin);
@@ -148,7 +179,11 @@ EN.Appearance = (function () {
       bob = Math.sin(t * 6) * 1.2;
       lean = facing.x * 1.5;
     } else if (state === "death") {
-      rot = Math.min(1, t / 0.6) * (Math.PI / 2.2);
+      // a arte real (spritesheet) já mostra a queda frame a frame -- só
+      // gira sinteticamente quando caindo de volta pro desenho procedural
+      if (!(window.EN.SpriteAtlas && EN.SpriteAtlas.ready("defeat"))) {
+        rot = Math.min(1, t / 0.6) * (Math.PI / 2.2);
+      }
       alpha = Math.max(0, 1 - t / 1.1);
     }
 
@@ -168,17 +203,12 @@ EN.Appearance = (function () {
     ctx.fill();
 
     // arte real (spritesheet) tem prioridade sobre o desenho procedural
-    // quando existe e o estado é andar/correr -- ver spriteAtlas.js. Os
-    // outros estados (ataque, esquiva, etc.) ainda não têm arte
-    // correspondente, então continuam procedurais mesmo com o atlas
-    // carregado.
-    if ((state === "walk" || state === "run") && window.EN.SpriteAtlas && EN.SpriteAtlas.ready()) {
-      var freq = state === "run" ? 13 : 8;
-      var cyclePhase = (t * freq) / (2 * Math.PI);
-      if (EN.SpriteAtlas.drawWalk(ctx, 0, 15, facing, cyclePhase, 52)) {
-        ctx.restore();
-        return;
-      }
+    // quando existe pro estado atual -- ver spriteAtlas.js. `dodge`,
+    // `tool` ainda não têm arte correspondente, então continuam
+    // procedurais mesmo com o atlas carregado.
+    if (window.EN.SpriteAtlas && drawFromAtlas(ctx, state, t, facing, anim)) {
+      ctx.restore();
+      return;
     }
 
     var y = -bob;
