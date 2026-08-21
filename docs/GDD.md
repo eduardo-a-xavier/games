@@ -7,7 +7,7 @@
 
 ## Sumário
 
-1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história)
+1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história) · 60-C. Protótipo jogável (v4: áudio e talentos)
 
 ---
 
@@ -820,6 +820,42 @@ Três arquivos novos, deliberadamente separados: `src/dialogue.js` (só apresent
 - **Subir de nível** preserva a vida proporcional em vez de curar tudo — não é mais cura grátis no meio da luta.
 
 Como antes: `python3 prototype/web/build_bundle.py` gera o arquivo único em `prototype/web/dist/index.bundled.html`.
+
+---
+
+---
+
+## 60-C. Protótipo jogável — v4: áudio e talentos
+
+### Áudio (implementa a Seção 59)
+
+Novo arquivo `src/audio.js`. O jogo era completamente mudo; agora tem trilha de ambiente e 17 efeitos — **sem nenhum arquivo de som no projeto**.
+
+Tudo é sintetizado em runtime pela Web Audio API (osciladores + ruído filtrado + envelopes). A razão é a forma de distribuição: o jogo também é entregue como um único HTML autocontido, servido num contexto que bloqueia requisição externa; áudio em `.mp3`/`.ogg` viraria base64 gigante no bundle, enquanto sintetizar custa poucos kB de código e nunca falha por rede. De quebra, cada som é ajustável por parâmetro — melhor para prototipar do que trocar arquivo.
+
+- **Efeitos**: golpe leve/pesado, impacto, crítico, dano recebido, esquiva, esquiva perfeita (acorde brilhante, inconfundível), cura, moeda, subir de nível, missão, tiro, magia, tiro inimigo, baque em área, rugido do chefe, postura quebrada e morte.
+- **Ambiente adaptativo**: acorde grave filtrado que muda com o contexto — aberto de dia, abafado à noite, mais grave e pesado dentro da mina.
+- **Regras do navegador respeitadas**: `AudioContext` só toca depois de um gesto, então a inicialização é preguiçosa (primeiro toque) e tudo antes disso é silêncio, nunca erro. Nenhuma função de áudio pode lançar exceção — som é acessório, e um jogo que quebra porque o áudio falhou é pior do que um jogo mudo.
+- Botão de mudo no HUD, com a preferência salva.
+
+### Talentos de nível 5 (implementa a Seção 11)
+
+O segundo botão de habilidade vivia trancado. Agora, ao chegar ao nível 5, o jogo abre uma escolha entre **duas** habilidades — a decisão que a Seção 11 já previa. O id escolhido fica no save e é reaplicado a cada carregamento.
+
+Quatro tipos de habilidade novos foram criados de propósito para que a escolha mude **como se joga**, não só o número do dano:
+
+| Classe | Opção A | Opção B |
+|---|---|---|
+| Guerreiro | **Golpe Pesado** — arco largo devastador, quebra postura | **Contra-Ataque** — janela de aparo: apanhar dentro dela anula o dano, atordoa quem bateu e devolve o golpe |
+| Mateiro | **Tiro Múltiplo** — 3 flechas em leque, cobre espaço | **Armadilha de Rede** — enraíza quem estiver perto, sem dano nenhum |
+| Encantado | **Rajada Elemental** — projétil pesado que queima | **Barreira Arcana** — converte mana em escudo que absorve dano |
+
+O Contra-Ataque é o par natural da esquiva perfeita: os dois recompensam ler o telegraph, um recuando e o outro avançando.
+
+### Correções
+
+- As telas sobrepostas de **talento e morte** não tinham fundo próprio: o mundo aparecia atrás e o texto ficava ilegível.
+- **Subir de nível no meio da luta** preservava a vida proporcional, mas a barreira/aparo exigiram separar de vez dano bruto, redução por defesa e absorção — agora nessa ordem, num ponto só.
 
 ---
 

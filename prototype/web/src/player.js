@@ -66,7 +66,7 @@ EN.Player = (function () {
       chargeT: 0,
       charging: false,
       healCharges: 3,
-      cd: { basic: 0, heavy: 0, skill1: 0, dodge: 0 },
+      cd: { basic: 0, heavy: 0, skill1: 0, skill2: 0, dodge: 0 },
       classId: null,
       classDef: null,
       level: level || 1,
@@ -79,6 +79,10 @@ EN.Player = (function () {
       dodgeVY: 0,
       status: {},
       lastHitBy: null,
+      parryT: 0,
+      shield: 0,
+      shieldT: 0,
+      skill2Def: null,
     };
     applyClass(p, classId, true, level);
     return p;
@@ -95,6 +99,7 @@ EN.Player = (function () {
     }
     p.classId = classId;
     p.level = level || p.level || 1;
+    applyTalent(p, p.talentId);
     var bonus = levelBonus(p.level);
     p.hpMax = stats.hpMax + bonus.hp;
     p.stMax = stats.stMax + bonus.st;
@@ -113,8 +118,24 @@ EN.Player = (function () {
     }
   }
 
+  /*
+   * Talento de nível 5 (GDD Seção 11): a segunda habilidade não vem de
+   * graça com a classe, é uma ESCOLHA entre duas. Guardar só o id aqui
+   * (e resolver a definição em classes.js) mantém o save pequeno e deixa
+   * rebalancear números sem migrar save antigo.
+   */
+  function applyTalent(p, talentId) {
+    p.talentId = talentId || null;
+    p.skill2Def = talentId && p.classId ? EN.Classes.getTalent(p.classId, talentId) : null;
+  }
+
+  function canChooseTalent(p) {
+    var t = p.classId && EN.Classes.talentsFor(p.classId);
+    return !!(t && !p.talentId && p.level >= t.level);
+  }
+
   var CD_MAX = { dodge: 0.62 };
-  var COOLDOWN_TICK_KEYS = ["basic", "heavy", "skill1", "dodge"];
+  var COOLDOWN_TICK_KEYS = ["basic", "heavy", "skill1", "skill2", "dodge"];
 
   function update(p, dt, moveVec, enemies) {
     COOLDOWN_TICK_KEYS.forEach(function (k) {
@@ -123,6 +144,11 @@ EN.Player = (function () {
     if (p.invuln > 0) p.invuln -= dt;
     if (p.attackLock > 0) p.attackLock -= dt;
     if (p.riposte > 0) p.riposte -= dt;
+    if (p.parryT > 0) p.parryT -= dt;
+    if (p.shieldT > 0) {
+      p.shieldT -= dt;
+      if (p.shieldT <= 0) p.shield = 0;
+    }
     if (p.comboT > 0) {
       p.comboT -= dt;
       if (p.comboT <= 0) p.combo = 0;
@@ -340,6 +366,122 @@ EN.Player = (function () {
   }
 
   /*
+   * Habilidade 2 — o talento escolhido no nível 5. Os quatro tipos novos
+   * existem pra que a escolha mude COMO se joga, não só o número do dano:
+   *   parry            defesa ativa que exige leitura (aparo)
+   *   trap             controle de área, sem dano
+   *   shield           absorção de dano pagando mana
+   *   projectile_multi cobertura de espaço em vez de alvo único
+   */
+  function useSkill2(p, enemies, dealDamage) {
+    var ab = p.skill2Def;
+    if (!ab) return false;
+    if (p.cd.skill2 > 0 || p.hp <= 0 || p.state === "dodge") return false;
+    if (ab.staminaCost && p.st < ab.staminaCost) return false;
+    if (ab.manaCost && p.mp < ab.manaCost) return false;
+
+    p.st -= ab.staminaCost || 0;
+    p.mp -= ab.manaCost || 0;
+    p.cd.skill2 = ab.cooldown;
+    setState(p, ab.animation || "attack");
+    p.combo = 0;
+    p.comboT = 0;
+
+    if (ab.type === "parry") {
+      p.parryT = ab.parryWindow;
+      p.attackLock = 0.12;
+      return { type: "parry", ability: ab };
+    }
+
+    if (ab.type === "shield") {
+      p.shield = ab.shieldAmount;
+      p.shieldT = ab.shieldDuration;
+      p.attackLock = 0.16;
+      return { type: "shield", ability: ab };
+    }
+
+    if (ab.type === "trap") {
+      p.attackLock = 0.22;
+      var caught = 0;
+      (enemies || []).forEach(function (e) {
+        if (e.dead) return;
+        if (Math.hypot(e.x - p.x, e.y - p.y) > ab.range) return;
+        // o Cipó Vivo não se move de qualquer forma; enraizá-lo não faria
+        // diferença nenhuma, então a rede não conta como acerto nele
+        if (e.arch === "zoner") return;
+        EN.Combat.applyStatus(e, "enraizado", ab.rootDuration);
+        e.staggerT = Math.max(e.staggerT, 0.25);
+        caught++;
+      });
+      return { type: "trap", ability: ab, caught: caught, radius: ab.range };
+    }
+
+    if (ab.type === "projectile_multi") {
+      if (enemies && enemies.length) {
+        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
+      }
+      p.attackLock = 0.22;
+      var base = Math.atan2(p.facing.y, p.facing.x);
+      var shots = [];
+      var n = ab.shots || 3;
+      for (var i = 0; i < n; i++) {
+        var a = base + (i - (n - 1) / 2) * ab.spread;
+        shots.push({
+          x: p.x,
+          y: p.y,
+          vx: Math.cos(a) * 380,
+          vy: Math.sin(a) * 380,
+          r: 5,
+          dmg: baseDamageOf(p, ab),
+          magic: false,
+          life: 1.4,
+        });
+      }
+      return { type: "projectile_multi", ability: ab, projectiles: shots };
+    }
+
+    if (ab.type === "melee_heavy" || ab.type === "melee") {
+      var heavy = ab.type === "melee_heavy";
+      p.attackLock = heavy ? 0.36 : 0.24;
+      var cfg = {
+        range: ab.range,
+        halfAngle: heavy ? Math.PI / 1.8 : Math.PI / 3.2,
+        kb: heavy ? 560 : 240,
+        hitstop: heavy ? 0.1 : 0.05,
+        shake: heavy ? 8 : 3,
+      };
+      var hits = resolveMelee(p, enemies, dealDamage, cfg, baseDamageOf(p, ab), heavy);
+      hits.forEach(function (e) {
+        e.poise -= 40;
+      });
+      return { type: ab.type, ability: ab, hitCount: hits.length };
+    }
+
+    if (ab.type === "projectile_magic" || ab.type === "projectile") {
+      if (enemies && enemies.length) {
+        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
+      }
+      p.attackLock = 0.24;
+      return {
+        type: ab.type,
+        ability: ab,
+        projectile: {
+          x: p.x,
+          y: p.y,
+          vx: p.facing.x * 360,
+          vy: p.facing.y * 360,
+          r: 8,
+          dmg: baseDamageOf(p, ab),
+          magic: ab.type === "projectile_magic",
+          burn: !!ab.burn,
+          life: 1.6,
+        },
+      };
+    }
+    return false;
+  }
+
+  /*
    * Rolamento. Devolve "perfect" quando o jogador rolou dentro da janela
    * de aviso de um inimigo prestes a acertar — nesse caso o custo de vigor
    * volta, o tempo desacelera e o próximo golpe sai reforçado.
@@ -403,11 +545,45 @@ EN.Player = (function () {
     return true;
   }
 
-  function takeDamage(p, dmg, sourceX, sourceY) {
+  function takeDamage(p, dmg, sourceX, sourceY, source) {
     if (p.invuln > 0 || p.hp <= 0) return false;
+
+    // APARO: apanhar dentro da janela do Contra-Ataque anula o golpe,
+    // quebra a postura de quem bateu e devolve o contra-ataque. É defesa
+    // ativa — exige prever o golpe, não só sobreviver a ele.
+    if (p.parryT > 0) {
+      p.parryT = 0;
+      p.riposte = 2.5;
+      p.invuln = 0.4;
+      p.st = Math.min(p.stMax, p.st + 14);
+      if (source && !source.dead) {
+        source.staggerT = Math.max(source.staggerT || 0, 0.7);
+        source.poise = 0;
+        source.state = "stagger";
+      }
+      EN.Combat.slowmo(0.32, 0.4);
+      EN.Combat.hitstop(0.09);
+      EN.Combat.shakeCamera(4, 0.25);
+      return { parried: true, damage: 0 };
+    }
+
     // defesa reduz o dano recebido, com piso pra nenhum inimigo virar
     // inofensivo por acúmulo de nível
     var real = Math.max(1, Math.round(dmg - p.def * 0.35));
+
+    // BARREIRA: absorve antes da vida e some quando acaba
+    if (p.shield > 0) {
+      var absorbed = Math.min(p.shield, real);
+      p.shield -= absorbed;
+      real -= absorbed;
+      if (p.shield <= 0) p.shieldT = 0;
+      if (real <= 0) {
+        p.invuln = 0.35;
+        EN.Combat.shakeCamera(2, 0.15);
+        return { shielded: true, damage: 0 };
+      }
+    }
+
     p.hp = Math.max(0, p.hp - real);
     p.invuln = 0.5;
     p.charging = false;
@@ -448,6 +624,34 @@ EN.Player = (function () {
       ctx.restore();
     }
 
+    // barreira arcana: bolha que encolhe conforme absorve
+    if (p.shield > 0) {
+      var frac = Math.max(0.25, p.shield / 55);
+      ctx.save();
+      ctx.globalAlpha = 0.3 + Math.sin(performance.now() / 200) * 0.08;
+      ctx.strokeStyle = "#a97bf2";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 12, 20 * frac + 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(169,123,242,.12)";
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // janela de aparo aberta: precisa ser inconfundível, a janela é curta
+    if (p.parryT > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.strokeStyle = "#ffd66b";
+      ctx.lineWidth = 3;
+      var fa = Math.atan2(p.facing.y, p.facing.x);
+      ctx.beginPath();
+      ctx.arc(x, y - 10, 26, fa - 0.9, fa + 0.9);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (p.invuln > 0 && p.state !== "hurt" && Math.floor(p.invuln * 20) % 2 === 0) {
       ctx.save();
       ctx.globalAlpha = 0.5;
@@ -480,6 +684,9 @@ EN.Player = (function () {
     startCharge: startCharge,
     releaseCharge: releaseCharge,
     useSkill1: useSkill1,
+    useSkill2: useSkill2,
+    applyTalent: applyTalent,
+    canChooseTalent: canChooseTalent,
     dodge: dodge,
     useHeal: useHeal,
     takeDamage: takeDamage,

@@ -43,6 +43,7 @@
           <div id="clock-row"><span id="day-glyph">☀</span><span id="clock-time" class="tnum">08:00</span></div>
           <div id="clock-day" class="tnum">Dia 1</div>
           <div id="coin-row"><span id="coin-icon"></span><span id="coin-count" class="tnum">0</span></div>
+          <button id="btn-mute" class="mute-btn" aria-label="Ligar/desligar som">🔊</button>
         </div>
       </div>
 
@@ -102,6 +103,15 @@
         <p id="dlg-text"></p>
         <div id="dlg-choices"></div>
         <div id="dlg-hint">toque para continuar ▸</div>
+      </div>
+    </div>
+
+    <!-- escolha de talento (nível 5) -->
+    <div id="screen-talent" class="screen overlay">
+      <div class="talent-wrap">
+        <div class="talent-eyebrow">NÍVEL 5 · NOVO CAMINHO</div>
+        <h1 class="talent-title" id="talent-prompt">Escolha seu talento</h1>
+        <div class="talent-cards" id="talent-cards"></div>
       </div>
     </div>
 
@@ -203,6 +213,7 @@
 <script src="src/state.js"></script>
 <script src="src/classes.js"></script>
 <script src="src/bestiary.js"></script>
+<script src="src/audio.js"></script>
 <script src="src/combat.js"></script>
 <script src="src/spriteAtlas.js"></script>
 <script src="src/appearance.js"></script>

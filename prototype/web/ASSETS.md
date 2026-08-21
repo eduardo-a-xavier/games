@@ -104,9 +104,20 @@ lançamento. Esta lista é o contrato de substituição.
   personagem em miniatura — funciona, mas fica melhor com um retrato
   desenhado à mão quando a arte final existir.
 
-## Áudio
+## Áudio (`src/audio.js`)
 
-- Nenhum áudio foi implementado nesta etapa (ver pendências no relatório
-  final). O gancho para eventos de fase do dia (`EN.World.currentPhase`)
-  já existe e pode disparar trilha/ambiente adaptativos quando o áudio for
-  adicionado.
+- **Não é placeholder no sentido de "faltando"**: o áudio é sintetizado em
+  runtime pela Web Audio API, sem nenhum arquivo de som no projeto. São 17
+  efeitos (golpe, impacto, crítico, dano, esquiva, esquiva perfeita, cura,
+  moeda, nível, missão, tiro, magia, baque em área, rugido do chefe,
+  postura quebrada, morte, UI) mais um acorde de ambiente que muda entre
+  dia, noite e mina.
+- A razão de ser sintetizado está no formato de distribuição: o bundle de
+  arquivo único não pode buscar recurso externo, e som em `.mp3`/`.ogg`
+  viraria base64 gigante embutido.
+- **O que ainda falta**: trilha musical composta (melodia, instrumentação
+  regional — ver GDD Seção 59). O sintetizado cobre o *feedback* do
+  combate muito bem, mas não substitui uma trilha autoral. Se um dia
+  entrar áudio gravado, `EN.Audio.play(nome)` já é o único ponto que o
+  resto do jogo chama — trocar a implementação por samples não exige
+  tocar em nenhum outro arquivo.

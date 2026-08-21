@@ -201,7 +201,7 @@ EN.Enemy = (function () {
       e.x += e.lx * s.lungeSpeed * dt;
       e.y += e.ly * s.lungeSpeed * dt;
       if (Math.hypot(player.x - e.x, player.y - e.y) < e.r + player.r + 4) {
-        api.damagePlayer(s.dmg, e.x, e.y);
+        api.damagePlayer(s.dmg, e.x, e.y, e);
         e.state = "chase";
         e.attackCd = 1.1;
       }
@@ -239,7 +239,7 @@ EN.Enemy = (function () {
       e.x += e.lx * s.lungeSpeed * dt;
       e.y += e.ly * s.lungeSpeed * dt;
       if (Math.hypot(player.x - e.x, player.y - e.y) < e.r + player.r + 3) {
-        api.damagePlayer(s.dmg, e.x, e.y);
+        api.damagePlayer(s.dmg, e.x, e.y, e);
         e.state = "chase";
         e.attackCd = 1.4;
       }
@@ -284,6 +284,7 @@ EN.Enemy = (function () {
           kind: "luz",
           life: 2.2,
         });
+        EN.Audio.play("enemyShot");
         e.state = "chase";
         e.attackCd = 2.0;
       }
@@ -317,9 +318,10 @@ EN.Enemy = (function () {
         // golpe em ÁREA ao redor dele: esquivar pro lado não basta, tem
         // que sair do círculo — é o contraponto ao charger
         if (Math.hypot(player.x - e.x, player.y - e.y) < s.slamRadius + player.r) {
-          api.damagePlayer(s.dmg, e.x, e.y);
+          api.damagePlayer(s.dmg, e.x, e.y, e);
         }
         api.spawnFx("shock", { x: e.x, y: e.y, radius: s.slamRadius });
+        EN.Audio.play("slam");
         EN.Combat.shakeCamera(6, 0.3);
         e.state = "chase";
         e.attackCd = 2.2;
@@ -348,7 +350,7 @@ EN.Enemy = (function () {
         e.vineReach = 0;
       } else if (e.tickT <= 0) {
         e.tickT = s.tickEvery;
-        api.damagePlayer(s.dmg, e.x, e.y);
+        api.damagePlayer(s.dmg, e.x, e.y, e);
         EN.Combat.applyStatus(player, "enraizado", 0.7);
       }
     } else {
@@ -379,6 +381,7 @@ EN.Enemy = (function () {
       e.stateT = 1.1;
       e.attackCd = 1.2;
       EN.Combat.shakeCamera(9, 0.7);
+      EN.Audio.play("roar");
       api.spawnFx("shock", { x: e.x, y: e.y, radius: 90 });
       if (api.onBossPhase) api.onBossPhase(newPhase);
       return;
@@ -409,7 +412,7 @@ EN.Enemy = (function () {
       e.x += e.lx * 340 * dt;
       e.y += e.ly * 340 * dt;
       if (Math.hypot(player.x - e.x, player.y - e.y) < e.r + player.r + 6) {
-        api.damagePlayer(s.dmg, e.x, e.y);
+        api.damagePlayer(s.dmg, e.x, e.y, e);
         e.state = "chase";
         e.attackCd = 1.6;
       }
@@ -440,6 +443,7 @@ EN.Enemy = (function () {
           life: 2.4,
         });
       }
+      EN.Audio.play("shot");
       e.state = "chase";
       e.attackCd = 2.1;
       return;
@@ -447,10 +451,11 @@ EN.Enemy = (function () {
     if (e.move === "grito") {
       var reach = 150;
       if (Math.hypot(player.x - e.x, player.y - e.y) < reach) {
-        api.damagePlayer(16, e.x, e.y);
+        api.damagePlayer(16, e.x, e.y, e);
         EN.Combat.applyStatus(player, "enraizado", 1.1);
       }
       api.spawnFx("shock", { x: e.x, y: e.y, radius: reach });
+      EN.Audio.play("roar");
       EN.Combat.shakeCamera(10, 0.5);
       e.state = "chase";
       e.attackCd = 2.6;
@@ -476,6 +481,7 @@ EN.Enemy = (function () {
     // atacar na hora certa é defesa, não só dano
     if (e.poise <= 0 && e.state !== "stagger") {
       e.staggerT = isBoss(e) ? 0.55 : 0.42;
+      EN.Audio.play("stagger");
       e.poise = 0;
       e.state = "stagger";
       e.vineReach = 0;

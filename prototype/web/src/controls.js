@@ -43,6 +43,7 @@ EN.Controls = (function () {
       "cd-attack",
       "cd-dodge",
       "cd-skill1",
+      "cd-skill2",
       "charge-ring",
       "icon-skill1",
       "icon-skill2",
@@ -199,10 +200,16 @@ EN.Controls = (function () {
       var res;
       if (ctx.player.charging) {
         res = EN.Player.releaseCharge(ctx.player, liveEnemies(), ctx.dealDamage);
-        if (res) spawnSlash(ctx.player, true, false);
+        if (res) {
+          spawnSlash(ctx.player, true, false);
+          EN.Audio.play("swingHeavy");
+        }
       } else if (held < 500) {
         res = EN.Player.tapAttack(ctx.player, liveEnemies(), ctx.dealDamage);
-        if (res) spawnSlash(ctx.player, false, res.finisher);
+        if (res) {
+          spawnSlash(ctx.player, false, res.finisher);
+          EN.Audio.play(res.finisher ? "swingHeavy" : "swing");
+        }
       }
       pressFx(atk);
     }
@@ -227,8 +234,9 @@ EN.Controls = (function () {
         e.preventDefault();
         if (!ctx) return;
         var res = EN.Player.dodge(ctx.player, liveEnemies());
-        if (res && res.perfect && ctx.spawnFx) {
-          ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
+        if (res) {
+          EN.Audio.play(res.perfect ? "perfect" : "dodge");
+          if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
         }
         pressFx(els["btn-dodge"]);
       },
@@ -241,6 +249,7 @@ EN.Controls = (function () {
         e.preventDefault();
         if (!ctx) return;
         if (EN.Player.useHeal(ctx.player)) {
+          EN.Audio.play("heal");
           if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
           if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
         } else if (ctx.toast && ctx.player.healCharges <= 0) {
@@ -259,7 +268,30 @@ EN.Controls = (function () {
         var res = EN.Player.useSkill1(ctx.player, liveEnemies(), ctx.dealDamage);
         if (res && res.projectile) ctx.spawnProjectile(res.projectile);
         if (res && (res.type === "melee" || res.type === "melee_heavy")) spawnSlash(ctx.player, res.type === "melee_heavy");
+        if (res) EN.Audio.play(res.type === "projectile_magic" ? "magic" : res.type === "projectile" ? "shot" : "swingHeavy");
         pressFx(els["btn-skill1"]);
+      },
+      { passive: false }
+    );
+
+    els["btn-skill2"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        var res = EN.Player.useSkill2(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) {
+          if (res.projectile) ctx.spawnProjectile(res.projectile);
+          if (res.projectiles) res.projectiles.forEach(ctx.spawnProjectile);
+          if (res.type === "melee_heavy" || res.type === "melee") spawnSlash(ctx.player, true, false);
+          if (res.type === "trap" && ctx.spawnFx) {
+            ctx.spawnFx("shock", { x: ctx.player.x, y: ctx.player.y, radius: res.radius, friendly: true });
+          }
+          EN.Audio.play(
+            res.type === "parry" ? "ui" : res.type === "shield" ? "magic" : res.type === "trap" ? "dodge" : res.type === "projectile_magic" ? "magic" : res.type === "projectile_multi" ? "shot" : "swingHeavy"
+          );
+        }
+        pressFx(els["btn-skill2"]);
       },
       { passive: false }
     );
@@ -302,9 +334,19 @@ EN.Controls = (function () {
       els["btn-skill1"].classList.remove("has-accent");
       els["icon-skill1"].textContent = "🔒";
     }
-    // habilidade 2 reservada para futuras especializações (ver GDD Seção 11/12)
-    els["btn-skill2"].classList.add("locked");
-    els["icon-skill2"].textContent = "🔒";
+    // habilidade 2 = talento escolhido no nível 5 (GDD Seção 11)
+    var ab2 = p.skill2Def;
+    if (ab2) {
+      els["btn-skill2"].classList.remove("locked");
+      els["btn-skill2"].classList.add("has-accent");
+      els["btn-skill2"].style.setProperty("--accent", CLASS_ACCENT[p.classId] || "var(--ipe-dim)");
+      els["icon-skill2"].textContent = ab2.icon;
+      setCooldownRing("cd-skill2", p.cd.skill2 / ab2.cooldown);
+    } else {
+      els["btn-skill2"].classList.add("locked");
+      els["btn-skill2"].classList.remove("has-accent");
+      els["icon-skill2"].textContent = "🔒";
+    }
 
     if (p.charging) {
       els["charge-ring"].style.setProperty("--charge", p.chargeT * 100 + "%");

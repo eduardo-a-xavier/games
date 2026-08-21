@@ -280,8 +280,14 @@ EN.Story = (function () {
     defineQuests();
 
     EN.Quests.onEvent(function (kind, quest, objective) {
-      if (kind === "started" && api.toast) api.toast("📜 Nova missão: " + quest.title);
-      if (kind === "completed" && api.toast) api.toast("✓ Missão concluída: " + quest.title);
+      if (kind === "started" && api.toast) {
+        api.toast("📜 Nova missão: " + quest.title);
+        EN.Audio.play("quest");
+      }
+      if (kind === "completed" && api.toast) {
+        api.toast("✓ Missão concluída: " + quest.title);
+        EN.Audio.play("quest");
+      }
       if (api.refreshTracker) api.refreshTracker();
     });
 

@@ -235,7 +235,7 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 .primary-btn:not(:disabled):active { transform: scale(.98); }
 
 /* ============ O DESPERTAR ============ */
-#screen-despertar { background: #08100de8; }
+#screen-despertar, #screen-talent, #screen-death { background: #08100de8; }
 .desp-wrap { max-width: 420px; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; position: relative; }
 .desp-glow {
   position: absolute; top: -40px; left: 50%; transform: translateX(-50%);
@@ -493,3 +493,62 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 }
 
 .desp-title.death { color: var(--danger); }
+
+/* ===================== TALENTO E SOM (v4) ===================== */
+
+.mute-btn {
+  margin-top: 5px;
+  width: 100%;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1;
+  background: transparent;
+  border: 1px solid var(--panel-line);
+  border-radius: 3px;
+  color: var(--mist);
+  cursor: pointer;
+}
+.mute-btn:active { background: #ffffff14; }
+
+/* Escolha de talento (nível 5): duas cartas grandes, lado a lado, com o
+   resumo do que cada uma MUDA no jeito de jogar — não só o número. */
+.talent-wrap {
+  width: min(720px, 94vw);
+  padding: 18px;
+  text-align: center;
+}
+.talent-eyebrow {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: .18em;
+  color: var(--ipe);
+  margin-bottom: 8px;
+}
+.talent-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  color: var(--mist);
+  margin: 0 0 16px;
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.talent-cards { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.talent-card {
+  flex: 1 1 240px;
+  max-width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  padding: 16px 14px;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: border-color .15s, transform .15s;
+  text-align: center;
+}
+.talent-card:hover, .talent-card:active { border-color: var(--ipe); transform: translateY(-2px); }
+.talent-icon { font-size: 30px; line-height: 1; }
+.talent-name { font-family: var(--font-display); font-size: 12px; color: var(--ipe); }
+.talent-summary { font-family: var(--font-body); font-size: 12px; line-height: 1.45; color: var(--mist-dim); }

@@ -18,8 +18,13 @@ EN.State = (function () {
       progress: {
         despertarSeen: false,
         classId: null, // 'guerreiro' | 'mateiro' | 'encantado' | null (ainda pessoa comum)
+        talentId: null, // talento de nível 5 escolhido (GDD Seção 11)
         level: 1,
         xp: 0,
+        quests: {},
+      },
+      settings: {
+        muted: false,
       },
       world: {
         x: 300,
@@ -44,6 +49,7 @@ EN.State = (function () {
       return {
         profile: Object.assign(base.profile, parsed.profile),
         progress: Object.assign(base.progress, parsed.progress),
+        settings: Object.assign(base.settings, parsed.settings),
         world: Object.assign(base.world, parsed.world),
       };
     } catch (e) {

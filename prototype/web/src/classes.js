@@ -42,6 +42,39 @@ EN.Classes = (function () {
           animation: "chargeAttack",
         },
       ],
+      talents: {
+        level: 5,
+        prompt: "O facão já não basta. Que tipo de guerreiro você vai ser?",
+        options: [
+          {
+            id: "golpe_pesado",
+            name: "Golpe Pesado",
+            icon: "🪓",
+            summary: "Golpe lento e devastador em arco largo. Quebra a postura de quase tudo.",
+            cooldown: 4.2,
+            staminaCost: 30,
+            manaCost: 0,
+            damage: 62,
+            range: 70,
+            type: "melee_heavy",
+            animation: "chargeAttack",
+          },
+          {
+            id: "contra_ataque",
+            name: "Contra-Ataque",
+            icon: "🛡️",
+            summary: "Abre uma janela curta de aparo: apanhar dentro dela anula o dano e devolve o golpe.",
+            cooldown: 3.4,
+            staminaCost: 12,
+            manaCost: 0,
+            damage: 0,
+            range: 0,
+            type: "parry",
+            animation: "tool",
+            parryWindow: 0.5,
+          },
+        ],
+      },
     },
     {
       id: "mateiro",
@@ -68,6 +101,41 @@ EN.Classes = (function () {
           animation: "attack",
         },
       ],
+      talents: {
+        level: 5,
+        prompt: "Uma flecha por vez já não segura o mato. Como você vai caçar?",
+        options: [
+          {
+            id: "tiro_multiplo",
+            name: "Tiro Múltiplo",
+            icon: "🎯",
+            summary: "Três flechas em leque. Menos dano cada, cobre muito mais espaço.",
+            cooldown: 3.0,
+            staminaCost: 22,
+            manaCost: 0,
+            damage: 20,
+            range: 360,
+            type: "projectile_multi",
+            animation: "attack",
+            shots: 3,
+            spread: 0.26,
+          },
+          {
+            id: "armadilha_rede",
+            name: "Armadilha de Rede",
+            icon: "🕸️",
+            summary: "Prende no lugar quem estiver perto. Não dá dano — dá tempo.",
+            cooldown: 5.0,
+            staminaCost: 18,
+            manaCost: 0,
+            damage: 0,
+            range: 90,
+            type: "trap",
+            animation: "tool",
+            rootDuration: 2.2,
+          },
+        ],
+      },
     },
     {
       id: "encantado",
@@ -94,6 +162,41 @@ EN.Classes = (function () {
           animation: "attack",
         },
       ],
+      talents: {
+        level: 5,
+        prompt: "O Encantado responde. Você vai canalizar ou se proteger?",
+        options: [
+          {
+            id: "rajada_elemental",
+            name: "Rajada Elemental",
+            icon: "🔥",
+            summary: "Projétil pesado que queima o alvo por alguns segundos.",
+            cooldown: 3.2,
+            staminaCost: 0,
+            manaCost: 26,
+            damage: 44,
+            range: 340,
+            type: "projectile_magic",
+            animation: "attack",
+            burn: true,
+          },
+          {
+            id: "barreira_arcana",
+            name: "Barreira Arcana",
+            icon: "🔮",
+            summary: "Converte mana em escudo. Absorve dano até acabar.",
+            cooldown: 6.0,
+            staminaCost: 0,
+            manaCost: 30,
+            damage: 0,
+            range: 0,
+            type: "shield",
+            animation: "tool",
+            shieldAmount: 55,
+            shieldDuration: 9,
+          },
+        ],
+      },
     },
   ];
 
@@ -110,6 +213,22 @@ EN.Classes = (function () {
     basic: { id: "ataque_basico", cooldown: 0.32, staminaCost: 0, damage: 11, range: 46, type: "melee", animation: "attack" },
     heavy: { id: "ataque_carregado", cooldown: 0.9, staminaCost: 18, damage: 24, range: 52, type: "melee_heavy", animation: "chargeAttack" },
   };
+
+  // acha a definição de um talento de nível 5 pelo id, sem o chamador
+  // precisar saber de que classe ele é
+  function getTalent(classId, talentId) {
+    var c = getById(classId);
+    if (!c || !c.talents) return null;
+    for (var i = 0; i < c.talents.options.length; i++) {
+      if (c.talents.options[i].id === talentId) return c.talents.options[i];
+    }
+    return null;
+  }
+
+  function talentsFor(classId) {
+    var c = getById(classId);
+    return c && c.talents ? c.talents : null;
+  }
 
   function getById(id) {
     for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
@@ -138,6 +257,8 @@ EN.Classes = (function () {
     list: list,
     getById: getById,
     classlessDefaults: classlessDefaults,
+    getTalent: getTalent,
+    talentsFor: talentsFor,
     universalAttack: universalAttack,
     meleeHitTest: meleeHitTest,
   };

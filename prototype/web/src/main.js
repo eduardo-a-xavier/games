@@ -31,6 +31,7 @@ EN.Main = (function () {
     wireDespertarScreen();
     wireDeathScreen();
     wireLandscapeLock();
+    wireAudio();
 
     EN.Story.init({
       toast: toast,
@@ -46,6 +47,49 @@ EN.Main = (function () {
     }
 
     requestAnimationFrame(loop);
+  }
+
+  /*
+   * O navegador só deixa tocar som depois de um gesto do usuário, então o
+   * áudio é ligado no primeiro toque em qualquer lugar — o mesmo gesto que
+   * já pedia fullscreen. Antes disso tudo vira silêncio, nunca erro.
+   */
+  function wireAudio() {
+    var muteBtn = document.getElementById("btn-mute");
+    var saved = EN.State.data.settings;
+    EN.Audio.setMuted(!!saved.muted);
+    muteBtn.textContent = saved.muted ? "🔇" : "🔊";
+
+    function unlockOnce() {
+      EN.Audio.unlock();
+      EN.Audio.startAmbient();
+      refreshAmbience();
+    }
+    document.addEventListener("pointerdown", unlockOnce, { once: true });
+
+    muteBtn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      EN.Audio.unlock();
+      var m = EN.Audio.setMuted(!EN.Audio.isMuted());
+      saved.muted = m;
+      EN.State.persist();
+      muteBtn.textContent = m ? "🔇" : "🔊";
+      if (!m) {
+        EN.Audio.startAmbient();
+        refreshAmbience();
+        EN.Audio.play("ui");
+      }
+    });
+  }
+
+  var lastAmbience = null;
+  function refreshAmbience() {
+    if (!currentSession) return;
+    var phase = currentSession.isMine ? "mina" : currentSession.meta.dayT >= 6 && currentSession.meta.dayT < 18 ? "dia" : "noite";
+    if (phase === lastAmbience) return;
+    lastAmbience = phase;
+    EN.Audio.setAmbience(phase);
   }
 
   // Encantaria é desenhado para paisagem (ver docs/GDD.md "UX MOBILE"). Em
@@ -120,6 +164,7 @@ EN.Main = (function () {
     var save = EN.State.data;
     var appearance = save.profile.appearance;
     var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y, save.progress.level);
+    EN.Player.applyTalent(player, save.progress.talentId);
     player.healCharges = save.world.inventory.curas;
 
     var session = {
@@ -261,10 +306,12 @@ EN.Main = (function () {
     document.getElementById("screen-classselect").classList.remove("active");
     document.getElementById("screen-game").classList.add("active");
     EN.Player.applyClass(mainSession.player, classId, true, EN.State.data.progress.level);
+    EN.Player.applyTalent(mainSession.player, EN.State.data.progress.talentId);
     toast("Você agora é " + EN.Classes.getById(classId).name + "!");
     setSession(mainSession);
     EN.Story.flag("classe_escolhida");
     refreshQuestTracker();
+    maybeOpenTalentChoice();
   }
 
   // chamado pela arena quando o jogador toca "ESCOLHER ESTA CLASSE"
@@ -276,6 +323,52 @@ EN.Main = (function () {
   // classe/telas — usado quando a arena/mina é encerrada
   function restoreMainSession() {
     setSession(mainSession);
+  }
+
+  /*
+   * Escolha de talento do nível 5 (GDD Seção 11). Abre sozinha assim que o
+   * jogador atinge o nível com uma classe definida, e só uma vez: o id
+   * escolhido fica no save e é reaplicado a cada carregamento.
+   */
+  function maybeOpenTalentChoice() {
+    var p = mainSession && mainSession.player;
+    if (!p || !EN.Player.canChooseTalent(p)) return;
+    var talents = EN.Classes.talentsFor(p.classId);
+    if (!talents) return;
+
+    paused = true;
+    var screen = document.getElementById("screen-talent");
+    document.getElementById("talent-prompt").textContent = talents.prompt;
+    var box = document.getElementById("talent-cards");
+    box.innerHTML = "";
+
+    talents.options.forEach(function (opt) {
+      var card = document.createElement("button");
+      card.className = "talent-card";
+      card.innerHTML =
+        '<span class="talent-icon">' + opt.icon + "</span>" +
+        '<span class="talent-name"></span>' +
+        '<span class="talent-summary"></span>';
+      card.querySelector(".talent-name").textContent = opt.name;
+      card.querySelector(".talent-summary").textContent = opt.summary;
+      card.addEventListener("pointerdown", function (ev) {
+        ev.preventDefault();
+        chooseTalent(opt.id);
+      });
+      box.appendChild(card);
+    });
+    screen.classList.add("active");
+  }
+
+  function chooseTalent(talentId) {
+    EN.State.data.progress.talentId = talentId;
+    EN.State.persist();
+    EN.Player.applyTalent(mainSession.player, talentId);
+    document.getElementById("screen-talent").classList.remove("active");
+    paused = false;
+    EN.Audio.play("levelup");
+    var def = EN.Classes.getTalent(mainSession.player.classId, talentId);
+    toast("Novo talento: " + (def ? def.name : talentId));
   }
 
   // ---------- morte ----------
@@ -331,7 +424,10 @@ EN.Main = (function () {
       }
     });
     session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy, crit: !!crit });
-    if (!wasDead) session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+    if (!wasDead) {
+      session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+      EN.Audio.play(crit ? "crit" : "hit");
+    }
   }
 
   var XP_PER_LEVEL_BASE = 18,
@@ -356,7 +452,9 @@ EN.Main = (function () {
       var hpPct = p.hp / p.hpMax;
       EN.Player.applyClass(p, p.classId, false, pr.level);
       p.hp = Math.max(p.hp, Math.round(p.hpMax * hpPct));
+      EN.Audio.play("levelup");
       toast("✦ Subiu para o nível " + pr.level + "!");
+      maybeOpenTalentChoice();
     }
     EN.State.persist();
   }
@@ -398,6 +496,7 @@ EN.Main = (function () {
       EN.HUD.update(currentSession.player, currentSession.meta, currentSession.player.appearance);
       EN.Controls.refreshVisuals(currentSession.player);
       updateBossBar(currentSession);
+      refreshAmbience();
     }
     requestAnimationFrame(loop);
   }
@@ -421,8 +520,17 @@ EN.Main = (function () {
     }
 
     var api = {
-      damagePlayer: function (dmg, sx, sy) {
-        EN.Player.takeDamage(p, dmg, sx, sy);
+      damagePlayer: function (dmg, sx, sy, src) {
+        var r = EN.Player.takeDamage(p, dmg, sx, sy, src);
+        if (!r) return;
+        if (r.parried) {
+          EN.Audio.play("perfect");
+          s.fx.push({ kind: "perfect", x: p.x, y: p.y, t: 0, label: "APARADO" });
+        } else if (r.shielded) {
+          EN.Audio.play("ui");
+        } else {
+          EN.Audio.play(p.hp <= 0 ? "death" : "hurt");
+        }
       },
       spawnEnemyProjectile: function (desc) {
         s.enemyProjectiles.push(desc);
@@ -453,7 +561,8 @@ EN.Main = (function () {
       c.t += dt;
       if (!c.taken && Math.hypot(c.x - p.x, c.y - p.y) < 24) {
         c.taken = true;
-        s.meta.vintem += 2 + Math.floor(Math.random() * 4);
+          s.meta.vintem += 2 + Math.floor(Math.random() * 4);
+        EN.Audio.play("coin");
       }
     });
     s.coins = s.coins.filter(function (c) {
@@ -498,7 +607,8 @@ EN.Main = (function () {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
           var roll = EN.Combat.rollDamage(proj.dmg);
-          applyDamage(s, e, roll.value, false, roll.crit);
+          applyDamage(s, e, roll.value, !!proj.burn, roll.crit);
+          if (proj.burn) EN.Combat.applyStatus(e, "sangramento", 3, 4);
           EN.Combat.knockback(e, proj.x, proj.y, 160);
           EN.Combat.hitstop(0.035);
           proj.hit = true;
@@ -676,7 +786,7 @@ EN.Main = (function () {
       if (kt > 1) return;
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - kt) * 0.8;
-      ctx.strokeStyle = "#e0483a";
+      ctx.strokeStyle = f.friendly ? "#7fe0c9" : "#e0483a";
       ctx.lineWidth = 4 - kt * 2.5;
       ctx.beginPath();
       ctx.arc(x, y, (f.radius || 60) * (0.2 + kt * 0.95), 0, Math.PI * 2);
@@ -692,8 +802,9 @@ EN.Main = (function () {
       ctx.fillStyle = "#ffd66b";
       ctx.strokeStyle = "#1c1210";
       ctx.lineWidth = 3;
-      ctx.strokeText("ESQUIVA PERFEITA", x, y - 30 - pt * 14);
-      ctx.fillText("ESQUIVA PERFEITA", x, y - 30 - pt * 14);
+      var label = f.label || "ESQUIVA PERFEITA";
+      ctx.strokeText(label, x, y - 30 - pt * 14);
+      ctx.fillText(label, x, y - 30 - pt * 14);
       ctx.restore();
     }
   }
