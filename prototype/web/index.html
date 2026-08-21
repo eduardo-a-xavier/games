@@ -1,856 +1,178 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
 <title>Encantaria</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --sky-dusk:#16211f;
-    --ipe:#f2b705;
-    --ipe-dim:#b8890a;
-    --mata:#2d5a3d;
-    --terracotta:#b5603f;
-    --mist:#dff0e6;
-    --mist-dim:#9fc2ae;
-    --panel:#101b18e6;
-    --panel-line:#3c5a4bcc;
-    --hp:#c94b3f;
-    --st:#e0b23a;
-    --mp:#3f8fc9;
-    --danger:#e0483a;
-    --font-display:'Silkscreen', 'Courier New', monospace;
-    --font-body:'Karla', -apple-system, sans-serif;
-  }
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Karla:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="app">
 
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{
-    margin:0; padding:0; width:100%; height:100%; overflow:hidden;
-    background:var(--sky-dusk); color:var(--mist);
-    font-family:var(--font-body);
-    overscroll-behavior:none; touch-action:none;
-    -webkit-user-select:none; user-select:none;
-  }
+  <!-- ===================== TELA DE JOGO (mundo + arena compartilham este DOM) ===================== -->
+  <div id="screen-game" class="screen active">
+    <canvas id="world-canvas"></canvas>
 
-  #stage{position:fixed; inset:0; background:var(--sky-dusk);}
-  #world{position:absolute; inset:0; display:block; width:100%; height:100%;}
+    <div id="hud">
+      <div id="hud-top" class="safe-top">
+        <div id="vitals" class="panel safe-left">
+          <div class="portrait-row">
+            <canvas id="hud-portrait" width="40" height="40"></canvas>
+            <div class="portrait-text">
+              <div id="hud-name">Viajante</div>
+              <div id="hud-classline">Sem classe</div>
+            </div>
+          </div>
+          <div class="bar-row"><span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill hp" id="fill-hp"></div></div><span class="bar-num" id="num-hp">-/-</span></div>
+          <div class="bar-row"><span class="bar-icon">⚡</span><div class="bar-track"><div class="bar-fill st" id="fill-st"></div></div><span class="bar-num" id="num-st">-/-</span></div>
+          <div class="bar-row"><span class="bar-icon">✦</span><div class="bar-track"><div class="bar-fill mp" id="fill-mp"></div></div><span class="bar-num" id="num-mp">-/-</span></div>
+        </div>
 
-  #hud{position:absolute; inset:0; pointer-events:none;}
-  #hud > *{pointer-events:auto;}
-
-  .safe-top{padding-top:max(10px, env(safe-area-inset-top));}
-  .safe-bottom{padding-bottom:max(10px, env(safe-area-inset-bottom));}
-  .safe-left{padding-left:max(10px, env(safe-area-inset-left));}
-  .safe-right{padding-right:max(10px, env(safe-area-inset-right));}
-
-  #hud-top{
-    position:absolute; top:0; left:0; right:0;
-    display:flex; justify-content:space-between; align-items:flex-start;
-    gap:10px; padding:10px 12px;
-  }
-
-  .panel{
-    background:var(--panel);
-    border:1px solid var(--panel-line);
-    border-radius:3px 10px 3px 10px;
-    backdrop-filter:blur(2px);
-  }
-
-  #vitals{padding:8px 10px; display:flex; flex-direction:column; gap:5px; min-width:150px;}
-  .bar-row{display:flex; align-items:center; gap:6px;}
-  .bar-tag{
-    font-family:var(--font-display); font-size:9px; width:16px; text-align:center;
-    color:var(--mist-dim);
-  }
-  .bar-track{
-    flex:1; height:9px; background:#000a; border:1px solid var(--panel-line);
-    border-radius:1px; overflow:hidden; position:relative;
-  }
-  .bar-fill{height:100%; width:100%; transform-origin:left; transition:transform .25s ease;}
-  .bar-fill.hp{background:linear-gradient(90deg,#7a2318,var(--hp));}
-  .bar-fill.st{background:linear-gradient(90deg,#8a6b16,var(--st));}
-  .bar-fill.mp{background:linear-gradient(90deg,#1f4f70,var(--mp));}
-  .bar-num{
-    font-family:var(--font-display); font-size:9px; width:38px; text-align:right;
-    color:var(--mist-dim); font-variant-numeric:tabular-nums;
-  }
-
-  #status-panel{
-    padding:8px 12px; display:flex; flex-direction:column; align-items:flex-end; gap:6px;
-  }
-  #coin-row{display:flex; align-items:center; gap:7px;}
-  #coin-icon{width:14px; height:14px; border-radius:50%; background:radial-gradient(circle at 35% 30%, #fff3c4, var(--ipe) 55%, var(--ipe-dim)); box-shadow:0 0 6px #f2b70588;}
-  #coin-count{font-family:var(--font-display); font-size:14px; color:var(--ipe); font-variant-numeric:tabular-nums;}
-  #daychip{
-    display:flex; align-items:center; gap:6px;
-    font-family:var(--font-body); font-weight:600; font-size:11px;
-    color:var(--mist-dim); letter-spacing:.03em; text-transform:uppercase;
-  }
-  #day-glyph{font-size:12px;}
-
-  #hud-bottom-left{
-    position:absolute; left:0; bottom:0; width:150px; height:150px;
-  }
-  #joy-base{
-    position:absolute; width:96px; height:96px; border-radius:50%;
-    border:2px solid var(--panel-line); background:#0006;
-    left:24px; bottom:24px; opacity:0; transition:opacity .15s;
-  }
-  #joy-knob{
-    position:absolute; width:42px; height:42px; border-radius:50%;
-    background:radial-gradient(circle at 35% 30%, #4a7a63, var(--mata) 70%);
-    border:2px solid var(--ipe-dim);
-    left:0; top:0; transform:translate(-50%,-50%);
-  }
-  #joy-base.active{opacity:1;}
-
-  #hud-bottom-right{
-    position:absolute; right:0; bottom:0; width:220px; height:220px;
-  }
-  .abtn{
-    position:absolute; width:54px; height:54px; border-radius:50%;
-    border:2px solid var(--panel-line);
-    background:var(--panel);
-    color:var(--mist); font-family:var(--font-display); font-size:10px;
-    display:flex; align-items:center; justify-content:center; text-align:center;
-    line-height:1.15; padding:2px;
-    transition:transform .08s ease, background .12s ease, border-color .12s ease;
-  }
-  .abtn:active, .abtn.pressed{transform:scale(.9); background:#1c332b; border-color:var(--ipe);}
-  .abtn.cooling{color:var(--mist-dim); border-color:#2a3f36;}
-  #btn-attack{right:18px; bottom:80px;}
-  #btn-dodge{right:80px; bottom:130px;}
-  #btn-h1{right:80px; bottom:26px;}
-  #btn-h2{right:138px; bottom:80px;}
-  #btn-center{
-    right:78px; bottom:78px; width:58px; height:58px;
-    border-radius:50%; border:2px solid var(--ipe-dim);
-    background:radial-gradient(circle at 35% 30%, #2a453a, #142019 70%);
-    color:var(--ipe); font-family:var(--font-display); font-size:16px;
-    display:flex; align-items:center; justify-content:center;
-    position:absolute; z-index:5;
-  }
-  #btn-center.pressed{border-color:var(--ipe); box-shadow:0 0 12px #f2b70566;}
-  .cd-ring{
-    position:absolute; inset:-2px; border-radius:50%;
-    background:conic-gradient(#0009 var(--pct,0%), transparent 0);
-    pointer-events:none;
-  }
-
-  #radial{
-    position:absolute; right:78px; bottom:78px; width:0; height:0; pointer-events:none;
-  }
-  .radial-opt{
-    position:absolute; width:56px; height:56px; border-radius:50%;
-    background:var(--panel); border:2px solid var(--panel-line);
-    color:var(--mist); font-family:var(--font-display); font-size:9px;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    opacity:0; transform:scale(.4); transition:opacity .12s ease, transform .12s ease, border-color .12s;
-    left:0; top:0; margin-left:-28px; margin-top:-28px;
-  }
-  #radial.open .radial-opt{opacity:1; transform:scale(1);}
-  .radial-opt.hover{border-color:var(--ipe); background:#1c332b;}
-  .radial-opt b{font-size:12px; color:var(--ipe);}
-
-  #intro{
-    position:absolute; inset:0; background:#0b1512e8;
-    display:flex; align-items:center; justify-content:center; flex-direction:column;
-    gap:18px; text-align:center; padding:24px;
-  }
-  #intro h1{
-    font-family:var(--font-display); font-size:clamp(28px,7vw,42px); color:var(--ipe);
-    margin:0; letter-spacing:.02em; text-wrap:balance;
-  }
-  #intro p{max-width:420px; color:var(--mist-dim); font-size:14px; line-height:1.6; margin:0;}
-  #intro .legend{
-    display:grid; grid-template-columns:auto 1fr; gap:6px 14px; text-align:left;
-    font-size:12px; color:var(--mist); background:#0006; padding:14px 18px; border-radius:3px 10px 3px 10px;
-    border:1px solid var(--panel-line);
-  }
-  #intro .legend b{color:var(--ipe); font-family:var(--font-display); font-size:10px;}
-  #intro-btn{
-    font-family:var(--font-display); font-size:13px; color:#101b18;
-    background:var(--ipe); border:none; padding:12px 26px; border-radius:3px 10px 3px 10px;
-    cursor:pointer;
-  }
-  #intro-btn:active{transform:scale(.97);}
-  #intro-btn:focus-visible, .abtn:focus-visible, #btn-center:focus-visible{outline:2px solid var(--ipe); outline-offset:2px;}
-
-  #toast{
-    position:absolute; top:64px; left:50%; transform:translateX(-50%);
-    font-family:var(--font-body); font-weight:600; font-size:13px;
-    color:var(--mist); background:var(--panel); border:1px solid var(--panel-line);
-    padding:8px 16px; border-radius:3px 10px 3px 10px;
-    opacity:0; transition:opacity .3s ease, transform .3s ease;
-  }
-  #toast.show{opacity:1;}
-
-  #reset-btn{
-    position:absolute; left:10px; top:10px; z-index:20;
-    font-family:var(--font-display); font-size:9px; color:var(--mist-dim);
-    background:#0007; border:1px solid var(--panel-line); border-radius:3px;
-    padding:5px 8px; cursor:pointer;
-  }
-
-  @media (prefers-reduced-motion:reduce){
-    .bar-fill, .abtn, #btn-center, .radial-opt, #toast{transition:none;}
-  }
-</style>
-
-<div id="stage">
-  <canvas id="world"></canvas>
-  <div id="hud">
-    <div id="hud-top">
-      <div id="vitals" class="panel safe-top safe-left">
-        <div class="bar-row"><span class="bar-tag">HP</span><div class="bar-track"><div class="bar-fill hp" id="fill-hp"></div></div><span class="bar-num" id="num-hp">--/--</span></div>
-        <div class="bar-row"><span class="bar-tag">ST</span><div class="bar-track"><div class="bar-fill st" id="fill-st"></div></div><span class="bar-num" id="num-st">--/--</span></div>
-        <div class="bar-row"><span class="bar-tag">MP</span><div class="bar-track"><div class="bar-fill mp" id="fill-mp"></div></div><span class="bar-num" id="num-mp">--/--</span></div>
+        <div id="status-panel" class="panel safe-right">
+          <div id="clock-row"><span id="day-glyph">☀</span><span id="clock-time" class="tnum">08:00</span></div>
+          <div id="clock-day" class="tnum">Dia 1</div>
+          <div id="coin-row"><span id="coin-icon"></span><span id="coin-count" class="tnum">0</span></div>
+        </div>
       </div>
-      <div id="status-panel" class="panel safe-top safe-right">
-        <div id="coin-row"><div id="coin-icon"></div><span id="coin-count">0</span></div>
-        <div id="daychip"><span id="day-glyph">☀</span><span id="day-label">Tarde</span></div>
+
+      <div id="arena-banner">
+        <span class="arena-label">MODO TESTE · <span id="arena-banner-class">Classe</span></span>
+        <div class="arena-actions">
+          <button id="arena-back" class="pill-btn ghost">VOLTAR</button>
+          <button id="arena-choose" class="pill-btn solid">ESCOLHER ESTA CLASSE</button>
+        </div>
       </div>
-    </div>
 
-    <div id="hud-bottom-left" class="safe-bottom safe-left">
-      <div id="joy-base"><div id="joy-knob"></div></div>
-    </div>
+      <button id="btn-context" class="context-btn" aria-label="Interagir"><span id="icon-context">💬</span></button>
 
-    <div id="hud-bottom-right" class="safe-bottom safe-right">
-      <button class="abtn" id="btn-dodge" aria-label="Esquiva"><div class="cd-ring" id="cd-dodge"></div>ESQUIVA</button>
-      <button class="abtn" id="btn-h2" aria-label="Habilidade 2: Rajada"><div class="cd-ring" id="cd-h2"></div>RAJADA</button>
-      <button class="abtn" id="btn-attack" aria-label="Ataque"><div class="cd-ring" id="cd-attack"></div>ATAQUE</button>
-      <button class="abtn" id="btn-h1" aria-label="Habilidade 1: Golpe Pesado"><div class="cd-ring" id="cd-h1"></div>GOLPE&nbsp;PESADO</button>
-      <button id="btn-center" aria-label="Segurar para Especial e Itens">✦</button>
-      <div id="radial">
-        <div class="radial-opt" id="opt-special" data-opt="special"><b>✦</b>ESPECIAL</div>
-        <div class="radial-opt" id="opt-heal" data-opt="heal"><b id="heal-count">3</b>CURA</div>
+      <div id="joy-zone" class="safe-bottom safe-left">
+        <div id="joy-base"><div id="joy-knob"></div></div>
       </div>
-    </div>
 
-    <div id="toast"></div>
+      <div id="action-cluster" class="safe-bottom safe-right">
+        <button id="btn-skill2" class="icon-btn small locked" aria-label="Habilidade 2 (bloqueada)">
+          <div class="cd-ring" id="cd-skill2"></div><span id="icon-skill2">🔒</span>
+        </button>
+        <button id="btn-skill1" class="icon-btn small locked" aria-label="Habilidade 1">
+          <div class="cd-ring" id="cd-skill1"></div><span id="icon-skill1">🔒</span>
+        </button>
+        <button id="btn-attack" class="icon-btn big" aria-label="Ataque: toque para golpe normal, segure para golpe carregado">
+          <div class="cd-ring" id="cd-attack"></div><div class="charge-ring" id="charge-ring"></div><span class="atk-icon">👊</span>
+        </button>
+        <button id="btn-dodge" class="icon-btn small" aria-label="Esquiva">
+          <div class="cd-ring" id="cd-dodge"></div><span>💨</span>
+        </button>
+      </div>
+
+      <div id="toast"></div>
+    </div>
   </div>
 
-  <div id="intro">
-    <h1>ENCANTARIA</h1>
-    <p>Protótipo de mecânicas — Vila do Ipê. Combate, HUD de 4 botões e moeda (Vintém) para teste em toque.</p>
-    <div class="legend">
-      <b>MOVER</b><span>arraste no chão à esquerda</span>
-      <b>ATAQUE</b><span>golpe rápido corpo a corpo</span>
-      <b>ESQUIVA</b><span>rolamento com invencibilidade breve</span>
-      <b>GOLPE PESADO</b><span>dano alto, mais lento (custa Stamina)</span>
-      <b>RAJADA</b><span>projétil à distância (custa Mana)</span>
-      <b>✦ segurar</b><span>abre Especial e item de Cura</span>
+  <!-- ===================== CRIAÇÃO DE PERSONAGEM ===================== -->
+  <div id="screen-charcreate" class="screen">
+    <div class="cc-wrap safe-top safe-bottom">
+      <h1 class="screen-title">Quem chega à Vila do Ipê?</h1>
+
+      <div class="cc-layout">
+        <canvas id="cc-preview" width="180" height="220" class="cc-preview"></canvas>
+
+        <div class="cc-form">
+          <label class="cc-field">
+            <span class="cc-label">Nome</span>
+            <input id="cc-name" type="text" maxlength="16" placeholder="Como querem te chamar?" autocomplete="off" />
+          </label>
+
+          <div class="cc-field">
+            <span class="cc-label">Tom de pele</span>
+            <div class="swatch-row" id="cc-skins"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Cabelo</span>
+            <div class="swatch-row" id="cc-hair"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Cor do cabelo</span>
+            <div class="swatch-row" id="cc-haircolor"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Roupa inicial</span>
+            <div class="swatch-row" id="cc-outfits"></div>
+          </div>
+        </div>
+      </div>
+
+      <button id="cc-start" class="primary-btn" disabled>Começar Jornada</button>
     </div>
-    <button id="intro-btn">Entrar na Vila</button>
   </div>
+
+  <!-- ===================== O DESPERTAR (overlay narrativo) ===================== -->
+  <div id="screen-despertar" class="screen overlay">
+    <div class="desp-wrap">
+      <div class="desp-glow"></div>
+      <h1 class="desp-title">O DESPERTAR</h1>
+      <p class="desp-text">
+        Uma energia que você nunca soube nomear atravessa seu peito. Por um instante, a mata, o rio e a terra
+        parecem sussurrar ao mesmo tempo — e você entende, sem saber como, que sempre puderam.
+      </p>
+      <p class="desp-text desp-sub">O Encantado despertou em você.</p>
+      <button id="desp-continue" class="primary-btn">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ===================== ESCOLHA SEU CAMINHO ===================== -->
+  <div id="screen-classselect" class="screen">
+    <div class="cs-wrap safe-top safe-bottom">
+      <h1 class="screen-title">Escolha seu Caminho</h1>
+      <div class="cs-cards" id="cs-cards"></div>
+
+      <div id="cs-detail" class="cs-detail">
+        <div class="cs-detail-head">
+          <span id="cs-detail-icon" class="cs-detail-icon"></span>
+          <div>
+            <div id="cs-detail-name" class="cs-detail-name"></div>
+            <div id="cs-detail-tagline" class="cs-detail-tagline"></div>
+          </div>
+        </div>
+        <p id="cs-detail-desc" class="cs-detail-desc"></p>
+        <div class="cs-detail-meta">
+          <span><b>Dificuldade</b> <span id="cs-detail-diff"></span></span>
+          <span><b>Estilo</b> <span id="cs-detail-style"></span></span>
+        </div>
+        <div id="cs-detail-stats" class="cs-detail-stats"></div>
+        <div class="cs-detail-equip">
+          <span>Arma inicial: <b id="cs-detail-weapon"></b></span>
+          <span>Habilidade: <span id="cs-detail-ability-icon"></span> <b id="cs-detail-ability-name"></b></span>
+        </div>
+        <div class="cs-detail-actions">
+          <button id="cs-test" class="pill-btn ghost">TESTAR</button>
+          <button id="cs-choose" class="pill-btn solid">ESCOLHER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
-<script>
-(function(){
-  "use strict";
-  var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ---------- canvas setup ----------
-  var canvas = document.getElementById('world');
-  var ctx = canvas.getContext('2d');
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  var vw, vh;
-  function resize(){
-    vw = window.innerWidth; vh = window.innerHeight;
-    canvas.width = vw * dpr; canvas.height = vh * dpr;
-    canvas.style.width = vw+'px'; canvas.style.height = vh+'px';
-    ctx.setTransform(dpr,0,0,dpr,0,0);
-    ctx.imageSmoothingEnabled = false;
-  }
-  window.addEventListener('resize', resize);
-  resize();
-
-  // ---------- world ----------
-  var WORLD_W = 1700, WORLD_H = 1100;
-  var world = document.createElement('canvas');
-  world.width = WORLD_W; world.height = WORLD_H;
-  var wctx = world.getContext('2d');
-  wctx.imageSmoothingEnabled = false;
-
-  function rand(seed){ // deterministic-ish pseudo random for baked scenery
-    var x = Math.sin(seed*999)*10000; return x - Math.floor(x);
-  }
-
-  function bakeWorld(){
-    wctx.fillStyle = '#274a35';
-    wctx.fillRect(0,0,WORLD_W,WORLD_H);
-    // grass speckle
-    for(var i=0;i<2600;i++){
-      var x = rand(i*3.1)*WORLD_W, y = rand(i*7.7)*WORLD_H;
-      var g = rand(i*1.3);
-      wctx.fillStyle = g>.6 ? '#2f5a40' : (g>.3 ? '#23432f' : '#1c3527');
-      wctx.fillRect(x|0, y|0, 3, 3);
-    }
-    // dirt path (sítio -> vila) - simple curved band
-    wctx.strokeStyle = '#8a6a45';
-    wctx.lineWidth = 46;
-    wctx.lineCap = 'round';
-    wctx.beginPath();
-    wctx.moveTo(220,180);
-    wctx.quadraticCurveTo(500,420, 480,700);
-    wctx.quadraticCurveTo(460,920, 900,980);
-    wctx.stroke();
-    wctx.strokeStyle = '#9c7c53';
-    wctx.lineWidth = 30;
-    wctx.beginPath();
-    wctx.moveTo(220,180);
-    wctx.quadraticCurveTo(500,420, 480,700);
-    wctx.quadraticCurveTo(460,920, 900,980);
-    wctx.stroke();
-
-    // house (sítio)
-    drawHouse(wctx, 160, 120);
-    // fenced field with crop rows
-    drawField(wctx, 700, 760, 300, 180);
-    // trees scattered
-    var treeSpots = [[560,140],[900,220],[1150,420],[1350,700],[300,620],[80,820],[1500,900],[1250,140],[650,940]];
-    for(var t=0;t<treeSpots.length;t++) drawTree(wctx, treeSpots[t][0], treeSpots[t][1]);
-    // rocks near "mine" edge (east)
-    for(var r=0;r<10;r++){
-      var rx = 1420 + rand(r*5.5)*220, ry = 60 + rand(r*9.2)*980;
-      wctx.fillStyle = '#5a5850';
-      wctx.beginPath(); wctx.ellipse(rx,ry,14+rand(r)*10,10+rand(r*2)*8,0,0,Math.PI*2); wctx.fill();
-    }
-  }
-
-  function drawHouse(c,x,y){
-    c.fillStyle = '#c9a15f'; c.fillRect(x,y+40,150,90); // walls
-    c.fillStyle = '#8a6a45'; c.fillRect(x,y+40,150,10);
-    c.fillStyle = '#a5432f'; // roof
-    c.beginPath(); c.moveTo(x-16,y+42); c.lineTo(x+75,y-30); c.lineTo(x+166,y+42); c.closePath(); c.fill();
-    c.fillStyle = '#5a3a22'; c.fillRect(x+62,y+80,30,50); // door
-    c.fillStyle = '#e8d9a8'; c.fillRect(x+20,y+60,24,24); c.fillRect(x+108,y+60,24,24); // windows
-    c.strokeStyle='#5a3a22'; c.lineWidth=2; c.strokeRect(x+20,y+60,24,24); c.strokeRect(x+108,y+60,24,24);
-  }
-
-  function drawField(c,x,y,w,h){
-    c.strokeStyle = '#7a5a3a'; c.lineWidth = 6;
-    c.strokeRect(x,y,w,h);
-    c.fillStyle = '#3d2c1c'; c.fillRect(x+6,y+6,w-12,h-12);
-    for(var row=0; row<5; row++){
-      var ry = y + 18 + row*32;
-      for(var col=0; col<8; col++){
-        var cx = x + 20 + col*34;
-        c.fillStyle = '#4f7a3a';
-        c.beginPath(); c.arc(cx, ry, 7, 0, Math.PI*2); c.fill();
-        c.fillStyle = '#6ea34a';
-        c.beginPath(); c.arc(cx-2, ry-2, 3, 0, Math.PI*2); c.fill();
-      }
-    }
-  }
-
-  function drawTree(c,x,y){
-    c.fillStyle = '#4a3320'; c.fillRect(x-6,y,12,34);
-    c.fillStyle = '#1f4a30';
-    c.beginPath(); c.arc(x,y-10,32,0,Math.PI*2); c.fill();
-    c.fillStyle = '#2f6a42';
-    c.beginPath(); c.arc(x-10,y-18,22,0,Math.PI*2); c.fill();
-    c.beginPath(); c.arc(x+14,y-14,20,0,Math.PI*2); c.fill();
-  }
-
-  bakeWorld();
-
-  // ---------- game state ----------
-  var STORAGE_KEY = 'encantaria_prototype_vintem';
-  var vintem = 0;
-  try{ vintem = parseInt(localStorage.getItem(STORAGE_KEY)||'0',10) || 0; }catch(e){}
-
-  var player = {
-    x: 260, y: 260, r: 13, facing: {x:0,y:1}, speed: 165,
-    hp: 100, hpMax: 100, st: 100, stMax: 100, mp: 60, mpMax: 60,
-    invuln: 0, dodging: 0, attacking: 0, heavyWindup: 0, walkT: 0,
-    moving:false
-  };
-  var enemies = [];
-  var coins = [];
-  var projectiles = [];
-  var fx = []; // telegraphs / hit sparks / aoe rings
-
-  var HEAL_CHARGES_MAX = 3;
-  var healCharges = HEAL_CHARGES_MAX;
-
-  function spawnEnemy(x,y){
-    enemies.push({
-      x:x, y:y, r:11, hp:34, hpMax:34, state:'patrol', stateT: rand(x+y)*2,
-      home:{x:x,y:y}, target:null, telegraph:0, hitFlash:0, dead:false, deadT:0,
-      walkT: rand(x*y+1)*10
-    });
-  }
-  function stockEnemies(){
-    var spots = [[560,340],[820,540],[520,760],[980,320]];
-    for(var i=0;i<spots.length;i++) if(enemies.filter(function(e){return !e.dead;}).length < 4) spawnEnemy(spots[i][0]+rand(i)*40, spots[i][1]+rand(i*2)*40);
-  }
-  stockEnemies();
-
-  // ---------- input: joystick ----------
-  var joyBase = document.getElementById('joy-base');
-  var joyKnob = document.getElementById('joy-knob');
-  var joyZone = document.getElementById('hud-bottom-left');
-  var joy = {active:false, id:null, cx:0, cy:0, dx:0, dy:0, mag:0, maxR:44};
-
-  function joyStart(e){
-    if(joy.active) return;
-    joy.active = true; joy.id = e.pointerId;
-    var rect = joyZone.getBoundingClientRect();
-    joy.cx = e.clientX; joy.cy = e.clientY;
-    joyBase.style.left = (e.clientX - rect.left - 48) + 'px';
-    joyBase.style.bottom = (rect.bottom - e.clientY - 48) + 'px';
-    joyBase.classList.add('active');
-    joyZone.setPointerCapture && joyZone.setPointerCapture(e.pointerId);
-    joyMove(e);
-  }
-  function joyMove(e){
-    if(!joy.active || e.pointerId !== joy.id) return;
-    var dx = e.clientX - joy.cx, dy = e.clientY - joy.cy;
-    var d = Math.hypot(dx,dy);
-    var m = Math.min(d, joy.maxR);
-    var ang = Math.atan2(dy,dx);
-    var kx = Math.cos(ang)*m, ky = Math.sin(ang)*m;
-    joyKnob.style.transform = 'translate('+(kx-21)+'px,'+(ky-21)+'px)';
-    joy.dx = d>0 ? dx/d : 0; joy.dy = d>0 ? dy/d : 0;
-    joy.mag = m / joy.maxR;
-  }
-  function joyEnd(e){
-    if(e.pointerId !== joy.id) return;
-    joy.active=false; joy.id=null; joy.dx=0; joy.dy=0; joy.mag=0;
-    joyBase.classList.remove('active');
-    joyKnob.style.transform = 'translate(-50%,-50%)';
-  }
-  joyZone.addEventListener('pointerdown', joyStart);
-  joyZone.addEventListener('pointermove', joyMove);
-  joyZone.addEventListener('pointerup', joyEnd);
-  joyZone.addEventListener('pointercancel', joyEnd);
-
-  // ---------- action buttons ----------
-  var cd = {attack:0, dodge:0, h1:0, h2:0, special:0};
-  var cdMax = {attack:.35, dodge:.9, h1:1.3, h2:.8, special:3.2};
-
-  function ready(k){ return cd[k] <= 0; }
-  function setCooldown(k){ cd[k] = cdMax[k]; }
-
-  function showToast(msg){
-    var t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
-    clearTimeout(showToast._h);
-    showToast._h = setTimeout(function(){ t.classList.remove('show'); }, 1400);
-  }
-
-  function doAttack(){
-    if(!ready('attack') || player.hp<=0) return;
-    setCooldown('attack');
-    player.attacking = .18;
-    meleeHit(34, 46, Math.PI/2.1);
-  }
-  function doDodge(){
-    if(!ready('dodge') || player.hp<=0 || player.st < 18) return;
-    setCooldown('dodge');
-    player.st -= 18;
-    player.dodging = .28;
-    player.invuln = .32;
-  }
-  function doHeavy(){
-    if(!ready('h1') || player.hp<=0 || player.st < 28) return;
-    setCooldown('h1');
-    player.st -= 28;
-    player.heavyWindup = .32;
-    setTimeout(function(){ meleeHit(58, 52, Math.PI/1.6); spawnFx('ring', player.x, player.y, '#f2b705'); }, 320);
-  }
-  function doRanged(){
-    if(!ready('h2') || player.hp<=0 || player.mp < 16) return;
-    setCooldown('h2');
-    player.mp -= 16;
-    projectiles.push({x:player.x, y:player.y, vx:player.facing.x*340, vy:player.facing.y*340, r:6, life:1.1, dmg:22});
-  }
-  function doSpecial(){
-    if(!ready('special') || player.hp<=0 || player.mp < 40) return;
-    setCooldown('special');
-    player.mp -= 40;
-    spawnFx('ring', player.x, player.y, '#f2b705');
-    spawnFx('ring2', player.x, player.y, '#fff3c4');
-    enemies.forEach(function(e){
-      if(e.dead) return;
-      if(Math.hypot(e.x-player.x, e.y-player.y) < 110){ damageEnemy(e, 46); }
-    });
-  }
-  function useHeal(){
-    if(healCharges<=0 || player.hp<=0) return;
-    healCharges--;
-    player.hp = Math.min(player.hpMax, player.hp + 40);
-    document.getElementById('heal-count').textContent = healCharges;
-    spawnFx('heal', player.x, player.y, '#7fe0a8');
-    showToast('Usou Cura (+40 HP)');
-  }
-
-  function meleeHit(dmg, range, coneHalfAngle){
-    var fa = Math.atan2(player.facing.y, player.facing.x);
-    enemies.forEach(function(e){
-      if(e.dead) return;
-      var dx=e.x-player.x, dy=e.y-player.y, d=Math.hypot(dx,dy);
-      if(d>range) return;
-      var ea = Math.atan2(dy,dx);
-      var diff = Math.atan2(Math.sin(ea-fa), Math.cos(ea-fa));
-      if(Math.abs(diff) <= coneHalfAngle){
-        damageEnemy(e, dmg);
-        e.x += player.facing.x*10; e.y += player.facing.y*10;
-      }
-    });
-  }
-  function damageEnemy(e, dmg){
-    e.hp -= dmg; e.hitFlash = .18;
-    if(e.hp<=0 && !e.dead){
-      e.dead = true; e.deadT = 0;
-      coins.push({x:e.x, y:e.y, t:0, taken:false});
-    }
-  }
-  function damagePlayer(dmg){
-    if(player.invuln>0 || player.hp<=0) return;
-    player.hp = Math.max(0, player.hp - dmg);
-    player.invuln = .5;
-    spawnFx('hit', player.x, player.y, '#e0483a');
-    if(player.hp<=0){
-      showToast('Você caiu... a vila cuida de você.');
-      setTimeout(function(){
-        player.hp = player.hpMax; player.st = player.stMax; player.mp = player.mpMax;
-        player.x = 260; player.y = 260;
-      }, 1200);
-    }
-  }
-  function spawnFx(kind,x,y,color){ fx.push({kind:kind, x:x, y:y, t:0, color:color}); }
-
-  function bindHold(btn, immediateAction, key){
-    var pressT = 0, holding=false, pid=null;
-    btn.addEventListener('pointerdown', function(e){
-      pid = e.pointerId; holding=true; pressT = performance.now();
-      btn.classList.add('pressed');
-      btn.setPointerCapture && btn.setPointerCapture(e.pointerId);
-    });
-    btn.addEventListener('pointerup', function(e){
-      if(e.pointerId!==pid) return;
-      btn.classList.remove('pressed');
-      holding=false;
-      var held = performance.now()-pressT;
-      if(held < 260 && key==='attack') immediateAction();
-      else if(key!=='attack') immediateAction();
-    });
-    btn.addEventListener('pointercancel', function(){ holding=false; btn.classList.remove('pressed'); });
-  }
-  bindHold(document.getElementById('btn-attack'), doAttack, 'attack');
-  document.getElementById('btn-dodge').addEventListener('pointerdown', function(e){ e.currentTarget.classList.add('pressed'); doDodge(); });
-  document.getElementById('btn-h1').addEventListener('pointerdown', function(e){ e.currentTarget.classList.add('pressed'); doHeavy(); });
-  document.getElementById('btn-h2').addEventListener('pointerdown', function(e){ e.currentTarget.classList.add('pressed'); doRanged(); });
-  ['btn-dodge','btn-h1','btn-h2'].forEach(function(id){
-    var b=document.getElementById(id);
-    b.addEventListener('pointerup', function(){ b.classList.remove('pressed'); });
-    b.addEventListener('pointercancel', function(){ b.classList.remove('pressed'); });
-  });
-
-  // center hold -> radial
-  var center = document.getElementById('btn-center');
-  var radial = document.getElementById('radial');
-  var optSpecial = document.getElementById('opt-special');
-  var optHeal = document.getElementById('opt-heal');
-  var holdTimer=null, radialOpen=false, lastQuick='special', hoverOpt=null;
-  function layoutRadial(){
-    optSpecial.style.transform = 'translate(-64px,-14px)';
-    optHeal.style.transform = 'translate(14px,-64px)';
-  }
-  layoutRadial();
-  function openRadial(){ radialOpen=true; radial.classList.add('open'); }
-  function closeRadial(){ radialOpen=false; radial.classList.remove('open'); hoverOpt=null; optSpecial.classList.remove('hover'); optHeal.classList.remove('hover'); }
-
-  center.addEventListener('pointerdown', function(e){
-    center.classList.add('pressed');
-    holdTimer = setTimeout(openRadial, 220);
-    center.setPointerCapture && center.setPointerCapture(e.pointerId);
-  });
-  center.addEventListener('pointermove', function(e){
-    if(!radialOpen) return;
-    var r = center.getBoundingClientRect();
-    var cx = r.left+r.width/2, cy = r.top+r.height/2;
-    var dx = e.clientX-cx, dy = e.clientY-cy;
-    var over = null;
-    if(Math.hypot(dx-(-64),dy-(-14)) < 34) over='special';
-    else if(Math.hypot(dx-14,dy-(-64)) < 34) over='heal';
-    hoverOpt = over;
-    optSpecial.classList.toggle('hover', over==='special');
-    optHeal.classList.toggle('hover', over==='heal');
-  });
-  center.addEventListener('pointerup', function(){
-    center.classList.remove('pressed');
-    clearTimeout(holdTimer);
-    if(radialOpen){
-      if(hoverOpt==='special'){ doSpecial(); lastQuick='special'; }
-      else if(hoverOpt==='heal'){ useHeal(); lastQuick='heal'; }
-      closeRadial();
-    } else {
-      if(lastQuick==='special') doSpecial(); else useHeal();
-    }
-  });
-  center.addEventListener('pointercancel', function(){ center.classList.remove('pressed'); clearTimeout(holdTimer); closeRadial(); });
-
-  // ---------- intro ----------
-  document.getElementById('intro-btn').addEventListener('click', function(){
-    document.getElementById('intro').style.display='none';
-  });
-
-  document.getElementById('reset-btn') && document.getElementById('reset-btn').addEventListener('click', function(){
-    location.reload();
-  });
-
-  // ---------- day/night ----------
-  var DAY_LEN = 100; // seconds per full cycle (compressed for testing)
-  var dayT = 22; // start in the afternoon
-  var phases = [
-    {name:'Madrugada', from:0, to:6, glyph:'✧', tint:[10,14,28,.55]},
-    {name:'Manhã', from:6, to:12, glyph:'☀', tint:[255,214,140,.06]},
-    {name:'Tarde', from:12, to:18, glyph:'☀', tint:[255,170,90,.10]},
-    {name:'Noite', from:18, to:24, glyph:'☾', tint:[14,18,40,.42]}
-  ];
-  function currentPhase(hour){
-    for(var i=0;i<phases.length;i++) if(hour>=phases[i].from && hour<phases[i].to) return phases[i];
-    return phases[0];
-  }
-
-  // ---------- main loop ----------
-  var last = performance.now();
-  function tick(now){
-    var dt = Math.min(.05, (now-last)/1000); last = now;
-    update(dt);
-    render();
-    requestAnimationFrame(tick);
-  }
-
-  function update(dt){
-    dayT = (dayT + dt*(24/DAY_LEN)) % 24;
-
-    ['attack','dodge','h1','h2','special'].forEach(function(k){ if(cd[k]>0) cd[k]=Math.max(0,cd[k]-dt); });
-    ['attack','dodge','h1','h2'].forEach(function(k){
-      var ring = document.getElementById('cd-'+k);
-      if(ring) ring.style.setProperty('--pct', (cd[k]/cdMax[k]*100)+'%');
-      var btn = document.getElementById('btn-'+k);
-      if(btn) btn.classList.toggle('cooling', cd[k]>0);
-    });
-
-    if(player.invuln>0) player.invuln -= dt;
-    if(player.dodging>0) player.dodging -= dt;
-    if(player.attacking>0) player.attacking -= dt;
-    if(player.heavyWindup>0) player.heavyWindup -= dt;
-
-    player.st = Math.min(player.stMax, player.st + dt*9);
-    player.mp = Math.min(player.mpMax, player.mp + dt*4.5);
-
-    var mvx = joy.dx*joy.mag, mvy = joy.dy*joy.mag;
-    player.moving = Math.hypot(mvx,mvy) > .08;
-    if(player.moving){
-      player.facing.x = mvx; player.facing.y = mvy;
-      var norm = Math.hypot(mvx,mvy); player.facing.x/=norm; player.facing.y/=norm;
-      var spd = player.speed * (player.dodging>0 ? 2.4 : 1);
-      player.x += mvx*spd*dt; player.y += mvy*spd*dt;
-      player.walkT += dt*8;
-    }
-    player.x = Math.max(20, Math.min(WORLD_W-20, player.x));
-    player.y = Math.max(20, Math.min(WORLD_H-20, player.y));
-
-    enemies.forEach(function(e){ updateEnemy(e,dt); });
-
-    projectiles.forEach(function(p){
-      p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt;
-      enemies.forEach(function(e){
-        if(e.dead || p.hit) return;
-        if(Math.hypot(e.x-p.x,e.y-p.y) < e.r+p.r){ damageEnemy(e,p.dmg); p.hit=true; }
-      });
-    });
-    projectiles = projectiles.filter(function(p){ return p.life>0 && !p.hit; });
-
-    coins.forEach(function(c){
-      c.t += dt;
-      if(!c.taken && Math.hypot(c.x-player.x,c.y-player.y) < 24){
-        c.taken = true; vintem += (2+Math.floor(rand(c.x)*4));
-        try{ localStorage.setItem(STORAGE_KEY, String(vintem)); }catch(e){}
-      }
-    });
-    coins = coins.filter(function(c){ return !c.taken; });
-
-    fx.forEach(function(f){ f.t += dt; });
-    fx = fx.filter(function(f){ return f.t < 1.1; });
-
-    enemies = enemies.filter(function(e){
-      if(e.dead){ e.deadT += dt; return e.deadT < .5; }
-      return true;
-    });
-    if(enemies.length < 2 && rand(dayT+player.x)>.997) stockEnemies();
-
-    updateHUD();
-  }
-
-  function updateEnemy(e,dt){
-    if(e.dead) return;
-    e.walkT += dt;
-    if(e.hitFlash>0) e.hitFlash -= dt;
-    var dToPlayer = Math.hypot(player.x-e.x, player.y-e.y);
-
-    if(e.state==='patrol'){
-      e.stateT -= dt;
-      if(dToPlayer < 150){ e.state='chase'; }
-      else if(e.stateT<=0){
-        e.target = {x:e.home.x + (rand(e.walkT)-.5)*80, y:e.home.y + (rand(e.walkT+2)-.5)*80};
-        e.stateT = 1.5 + rand(e.walkT)*2;
-      }
-      if(e.target){
-        var dx=e.target.x-e.x, dy=e.target.y-e.y, d=Math.hypot(dx,dy);
-        if(d>4){ e.x += dx/d*30*dt; e.y += dy/d*30*dt; }
-      }
-    } else if(e.state==='chase'){
-      if(dToPlayer > 230){ e.state='patrol'; e.stateT=1; return; }
-      if(dToPlayer < 34){ e.state='telegraph'; e.telegraph=.55; return; }
-      var dx=player.x-e.x, dy=player.y-e.y, d=dToPlayer;
-      e.x += dx/d*72*dt; e.y += dy/d*72*dt;
-    } else if(e.state==='telegraph'){
-      e.telegraph -= dt;
-      if(e.telegraph<=0){
-        e.state='lunge'; e.lungeT=.22;
-        e.lx = player.x-e.x; e.ly = player.y-e.y;
-        var ld=Math.hypot(e.lx,e.ly)||1; e.lx/=ld; e.ly/=ld;
-      }
-    } else if(e.state==='lunge'){
-      e.lungeT -= dt;
-      e.x += e.lx*210*dt; e.y += e.ly*210*dt;
-      if(Math.hypot(player.x-e.x,player.y-e.y) < e.r+player.r+4){
-        damagePlayer(9); e.state='chase';
-      }
-      if(e.lungeT<=0) e.state='chase';
-    }
-  }
-
-  function updateHUD(){
-    setBar('hp', player.hp, player.hpMax);
-    setBar('st', player.st, player.stMax);
-    setBar('mp', player.mp, player.mpMax);
-    document.getElementById('coin-count').textContent = vintem;
-    var ph = currentPhase(dayT);
-    document.getElementById('day-glyph').textContent = ph.glyph;
-    document.getElementById('day-label').textContent = ph.name;
-  }
-  function setBar(key, v, max){
-    document.getElementById('fill-'+key).style.transform = 'scaleX('+Math.max(0,v/max)+')';
-    document.getElementById('num-'+key).textContent = Math.ceil(v)+'/'+max;
-  }
-
-  // ---------- render ----------
-  function render(){
-    ctx.clearRect(0,0,vw,vh);
-    var camX = clamp(player.x - vw/2, 0, WORLD_W-vw);
-    var camY = clamp(player.y - vh/2, 0, WORLD_H-vh);
-    if(WORLD_W < vw) camX = -(vw-WORLD_W)/2;
-    if(WORLD_H < vh) camY = -(vh-WORLD_H)/2;
-
-    ctx.drawImage(world, camX, camY, vw, vh, 0, 0, vw, vh);
-
-    coins.forEach(function(c){ drawCoin(c, camX, camY); });
-    fx.forEach(function(f){ drawFx(f, camX, camY); });
-    enemies.forEach(function(e){ drawEnemy(e, camX, camY); });
-    drawPlayer(camX, camY);
-    projectiles.forEach(function(p){
-      ctx.fillStyle = '#7fe0c9';
-      ctx.beginPath(); ctx.arc(p.x-camX, p.y-camY, p.r, 0, Math.PI*2); ctx.fill();
-    });
-
-    var ph = currentPhase(dayT);
-    ctx.fillStyle = 'rgba('+ph.tint[0]+','+ph.tint[1]+','+ph.tint[2]+','+ph.tint[3]+')';
-    ctx.fillRect(0,0,vw,vh);
-    if(ph.name==='Noite' || ph.name==='Madrugada'){
-      var g = ctx.createRadialGradient(215-camX,190-camY,10, 215-camX,190-camY,190);
-      g.addColorStop(0,'rgba(255,220,150,.28)'); g.addColorStop(1,'rgba(255,220,150,0)');
-      ctx.fillStyle=g; ctx.fillRect(0,0,vw,vh);
-    }
-  }
-  function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
-
-  function drawPlayer(camX,camY){
-    var x = player.x-camX, y = player.y-camY;
-    ctx.save();
-    if(player.invuln>0 && Math.floor(player.invuln*20)%2===0) ctx.globalAlpha = .45;
-    var bob = player.moving ? Math.sin(player.walkT)*2 : 0;
-    ctx.fillStyle = '#0004'; ctx.beginPath(); ctx.ellipse(x,y+15,13,5,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#5a3a22'; ctx.fillRect(x-8,y+2+bob*.3,6,12); ctx.fillRect(x+2,y+2-bob*.3,6,12);
-    ctx.fillStyle = player.heavyWindup>0 ? '#e0483a' : '#b5603f';
-    ctx.fillRect(x-11,y-16+bob,22,20);
-    ctx.fillStyle = '#e0b98a';
-    ctx.beginPath(); ctx.arc(x,y-24+bob,9,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#f2b705';
-    ctx.beginPath(); ctx.moveTo(x-13,y-28+bob); ctx.lineTo(x+13,y-28+bob); ctx.lineTo(x,y-38+bob); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#2a1c10';
-    ctx.beginPath(); ctx.arc(x+player.facing.x*6, y-24+bob+player.facing.y*3, 1.6, 0, Math.PI*2); ctx.fill();
-    if(player.attacking>0 || player.heavyWindup>0){
-      ctx.strokeStyle = player.heavyWindup>0?'#f2b705':'#dff0e6';
-      ctx.lineWidth=3;
-      var fa = Math.atan2(player.facing.y,player.facing.x);
-      ctx.beginPath(); ctx.arc(x,y-8, player.heavyWindup>0?30:22, fa-.8, fa+.8); ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawEnemy(e,camX,camY){
-    var x=e.x-camX, y=e.y-camY;
-    ctx.save();
-    if(e.dead){ ctx.globalAlpha = Math.max(0, 1-e.deadT/.5); }
-    ctx.fillStyle = '#0004'; ctx.beginPath(); ctx.ellipse(x,y+9,10,4,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = e.hitFlash>0 ? '#f2b0a8' : '#7a6a52';
-    ctx.beginPath(); ctx.ellipse(x,y,11,8,0,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#5a4c38';
-    ctx.beginPath(); ctx.moveTo(x-9,y-6); ctx.lineTo(x-13,y-13); ctx.lineTo(x-5,y-8); ctx.closePath(); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(x+9,y-6); ctx.lineTo(x+13,y-13); ctx.lineTo(x+5,y-8); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = e.state==='chase'||e.state==='telegraph'||e.state==='lunge' ? '#e0483a' : '#2a1c10';
-    ctx.beginPath(); ctx.arc(x-3,y-1,1.6,0,Math.PI*2); ctx.arc(x+3,y-1,1.6,0,Math.PI*2); ctx.fill();
-    if(!e.dead){
-      var pct = Math.max(0,e.hp/e.hpMax);
-      ctx.fillStyle='#000a'; ctx.fillRect(x-14,y-18,28,4);
-      ctx.fillStyle='#c94b3f'; ctx.fillRect(x-14,y-18,28*pct,4);
-    }
-    if(e.state==='telegraph'){
-      var pulse = 1 - e.telegraph/.55;
-      ctx.strokeStyle = 'rgba(224,72,58,'+(0.9-pulse*.5)+')';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(x,y,10+pulse*14,0,Math.PI*2); ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawCoin(c,camX,camY){
-    var x=c.x-camX, y=c.y-camY-6;
-    var sq = Math.abs(Math.sin(c.t*4));
-    ctx.save();
-    ctx.translate(x,y);
-    ctx.scale(0.4+sq*0.6,1);
-    ctx.fillStyle = '#f2b705';
-    ctx.beginPath(); ctx.arc(0,0,7,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#fff3c4';
-    ctx.beginPath(); ctx.arc(-2,-2,2.4,0,Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
-
-  function drawFx(f,camX,camY){
-    var x=f.x-camX, y=f.y-camY;
-    var t = f.t;
-    if(f.kind==='ring'){
-      ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0,1-t/.5); ctx.lineWidth=4;
-      ctx.beginPath(); ctx.arc(x,y,20+t*160,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1;
-    } else if(f.kind==='ring2'){
-      ctx.strokeStyle = f.color; ctx.globalAlpha = Math.max(0,1-t/.7); ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(x,y,10+t*110,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1;
-    } else if(f.kind==='hit'){
-      ctx.strokeStyle=f.color; ctx.globalAlpha=Math.max(0,1-t/.3); ctx.lineWidth=3;
-      ctx.beginPath(); ctx.arc(x,y-18,16+t*20,0,Math.PI*2); ctx.stroke(); ctx.globalAlpha=1;
-    } else if(f.kind==='heal'){
-      ctx.fillStyle=f.color; ctx.globalAlpha=Math.max(0,1-t/1);
-      ctx.font='12px sans-serif'; ctx.fillText('+40', x-10, y-30-t*24); ctx.globalAlpha=1;
-    }
-  }
-
-  requestAnimationFrame(function(t){ last=t; requestAnimationFrame(tick); });
-})();
-</script>
+<script src="src/state.js"></script>
+<script src="src/classes.js"></script>
+<script src="src/bestiary.js"></script>
+<script src="src/appearance.js"></script>
+<script src="src/interactable.js"></script>
+<script src="src/enemy.js"></script>
+<script src="src/player.js"></script>
+<script src="src/camera.js"></script>
+<script src="src/world.js"></script>
+<script src="src/hud.js"></script>
+<script src="src/controls.js"></script>
+<script src="src/charCreation.js"></script>
+<script src="src/classSelect.js"></script>
+<script src="src/arena.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>

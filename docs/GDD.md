@@ -742,23 +742,23 @@ Trilha instrumental com base em violão, viola caipira, percussão leve e sopros
 
 ---
 
-## 60-A. Protótipo jogável de mecânicas (implementado)
+## 60-A. Protótipo jogável (implementado, v2)
 
-Antes mesmo do projeto Godot descrito acima, foi construído um **protótipo web jogável** (`/prototype/web/index.html`) para validar rapidamente, em navegador (desktop e celular, sem instalação), as duas decisões de design mais sensíveis desta seção: o HUD de combate de **4 botões fixos + botão contextual em roda radial** (Seção 14/36) e a moeda **Vintém** (Seção 23).
+Antes mesmo do projeto Godot descrito acima, foi construído um **protótipo web jogável** em `/prototype/web/` para validar rapidamente, em navegador (desktop e celular, sem instalação), as decisões de design mais sensíveis do documento. A v1 validou o HUD de combate e a moeda Vintém num único arquivo; a v2 evoluiu para uma arquitetura modular (`index.html` + `styles.css` + `src/*.js`, um arquivo por sistema — Player, Appearance, Classes, Bestiary, Enemy, Interactable, World, Camera, HUD, Controls, CharCreation, ClassSelect, Arena, State, Main) e cobre o loop completo:
 
-O que o protótipo cobre:
-- Movimento via joystick virtual (lado esquerdo, aparece onde o polegar toca).
-- 4 botões fixos: Ataque, Esquiva (com invencibilidade breve), Golpe Pesado (habilidade 1, custa Stamina), Rajada (habilidade 2 à distância, custa Mana).
-- Botão central: toque rápido repete a última ação usada; pressionar e segurar abre a roda radial com **Especial** (dano em área, custa Mana) e **Cura** (item consumível com 3 cargas).
-- Barras de HP/ST/MP com regeneração de ST/MP ao longo do tempo.
-- Um inimigo (Rato-do-Mato Corrompido, Seção 27) com IA de patrulha → perseguição → telegraph (aviso visual antes do bicote) → investida, reaparecendo após derrotado.
-- Drop e coleta de **Vintém** ao derrotar inimigos, com contador persistente (`localStorage`) e ícone de moeda dourada no HUD.
-- Ciclo dia/noite comprimido (Seção 32) com indicador de fase (Manhã/Tarde/Noite/Madrugada) e tingimento de tela.
-- Cenário do Sítio (casa, campo plantado, árvores) desenhado proceduralmente em canvas, sem depender de assets externos.
+- **Personagem em camadas**: tom de pele, cabelo, cor do cabelo, roupa, chapéu e arma equipada, renderizados proceduralmente (placeholder) com 9 estados de animação (idle/walk/run/attack/chargeAttack/dodge/hurt/tool/death) prontos para receber spritesheets reais — ver `prototype/web/ASSETS.md`.
+- **Câmera** com zoom 1.4× e seguimento suave (lerp), sem solavancos.
+- **HUD compacto**: barras HP/ST/MP com ícone, retrato+nome+nível+classe, relógio/dia/Vintém no canto oposto — sem caixa de fase do dia.
+- **Controles em ícones**: joystick + 4 botões (Ataque, Esquiva, Habilidade 1, Habilidade 2/bloqueada) em arco solto ao redor do polegar, com cooldown por escurecimento radial. Ataque: toque = golpe normal, segurar = carrega e solta golpe pesado (com anel de carregamento visível).
+- **Interação contextual**: um único botão que troca de ícone conforme o objeto mais próximo (NPC, item, baú, plantação, porta), via um componente `Interactable` genérico reutilizável.
+- **Sem classe no início** → evento **O Despertar** → tela **Escolha seu Caminho** (Guerreiro/Mateiro/Encantado, com barras de pontos, arma e habilidade inicial) → **arena de teste isolada** (não afeta o save principal) → confirmação definitiva.
+- **Bestiário de folclore brasileiro** (`src/bestiary.js`): 19 entradas categorizadas (hostil/territorial/neutra/guardiã/narrativa/chefe) com habitat, comportamento, ataques, fraquezas, drops e lore; duas implementadas com IA e desenho próprios (Rato-do-Mato Corrompido e Cipó Vivo), demonstrando a diferença entre uma criatura hostil e uma territorial.
+- **Atmosfera dia/noite** com vagalumes à noite, e cenário com decoração leve (tufos, flores, pedras, bordas irregulares no caminho).
+- **Persistência completa**: nome, aparência, classe e posição sobrevivem a fechar/abrir o jogo (`localStorage`).
 
-Isto é um protótipo de **mecânica e controles**, não de arte final — os sprites são placeholders geométricos deliberadamente simples. Serve para validar em mãos reais, antes de investir em pixel art e no projeto Godot completo, se o HUD de 4 botões é confortável e se o loop de combate (ataque/esquiva/habilidades/telegraph) é legível e divertido em tela pequena.
+Isto continua sendo um protótipo de **mecânica, UX e arquitetura**, não de arte final — ver `prototype/web/ASSETS.md` para o contrato exato de substituição de cada placeholder visual.
 
-Como testar: abrir `prototype/web/index.html` em qualquer navegador (arrastar para mover, tocar os botões à direita para agir).
+Como testar: servir a pasta `prototype/web/` com qualquer servidor estático (ex.: `npx http-server prototype/web`) e abrir `index.html` — scripts clássicos (não ES modules), então também funciona abrindo o arquivo direto (`file://`) na maioria dos navegadores. Para compartilhar um único arquivo, `python3 prototype/web/build_bundle.py` gera `prototype/web/dist/index.bundled.html`.
 
 ---
 

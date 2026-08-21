@@ -1,0 +1,3306 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Encantaria</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Karla:wght@400;500;600;700&display=swap"
+  rel="stylesheet"
+/>
+<style>
+:root {
+  --sky-dusk: #16211f;
+  --ipe: #f2b705;
+  --ipe-dim: #b8890a;
+  --mata: #2d5a3d;
+  --terracotta: #b5603f;
+  --mist: #dff0e6;
+  --mist-dim: #9fc2ae;
+  --panel: #101b18e6;
+  --panel-line: #3c5a4bcc;
+  --hp: #c94b3f;
+  --st: #e0b23a;
+  --mp: #3f8fc9;
+  --danger: #e0483a;
+  --font-display: "Silkscreen", "Courier New", monospace;
+  --font-body: "Karla", -apple-system, sans-serif;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+  background: var(--sky-dusk); color: var(--mist);
+  font-family: var(--font-body);
+  overscroll-behavior: none; touch-action: none;
+  -webkit-user-select: none; user-select: none;
+}
+button { font-family: inherit; }
+h1, p { margin: 0; }
+
+#app { position: fixed; inset: 0; }
+
+.safe-top { padding-top: max(10px, env(safe-area-inset-top)); }
+.safe-bottom { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
+.safe-left { padding-left: max(10px, env(safe-area-inset-left)); }
+.safe-right { padding-right: max(10px, env(safe-area-inset-right)); }
+
+/* ============ sistema de telas ============ */
+.screen { position: absolute; inset: 0; display: none; }
+.screen.active { display: block; }
+.screen.overlay.active { display: flex; align-items: center; justify-content: center; }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 3px 10px 3px 10px;
+  backdrop-filter: blur(2px);
+}
+.primary-btn, .pill-btn {
+  font-family: var(--font-display);
+  border: none; cursor: pointer;
+  border-radius: 3px 10px 3px 10px;
+}
+.primary-btn:focus-visible, .pill-btn:focus-visible, .icon-btn:focus-visible,
+input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
+  outline: 2px solid var(--ipe); outline-offset: 2px;
+}
+
+/* ============ TELA DE JOGO ============ */
+#screen-game { background: var(--sky-dusk); }
+#world-canvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+#hud { position: absolute; inset: 0; pointer-events: none; }
+#hud > * { pointer-events: auto; }
+
+#hud-top { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; padding: 8px 10px; }
+
+#vitals { padding: 6px 10px 7px; display: flex; flex-direction: column; gap: 4px; min-width: 148px; }
+.portrait-row { display: flex; align-items: center; gap: 7px; margin-bottom: 2px; }
+#hud-portrait { width: 34px; height: 34px; border-radius: 50%; background: #0a1512; border: 1.5px solid var(--ipe-dim); }
+.portrait-text { display: flex; flex-direction: column; line-height: 1.2; }
+#hud-name { font-family: var(--font-display); font-size: 11px; color: var(--mist); }
+#hud-classline { font-size: 10px; color: var(--mist-dim); font-weight: 600; letter-spacing: .02em; }
+
+.bar-row { display: flex; align-items: center; gap: 5px; }
+.bar-icon { font-size: 9px; width: 12px; text-align: center; }
+.bar-track { flex: 1; height: 7px; background: #000a; border: 1px solid var(--panel-line); border-radius: 1px; overflow: hidden; }
+.bar-fill { height: 100%; width: 100%; transform-origin: left; transition: transform .25s ease; }
+.bar-fill.hp { background: linear-gradient(90deg, #7a2318, var(--hp)); }
+.bar-fill.st { background: linear-gradient(90deg, #8a6b16, var(--st)); }
+.bar-fill.mp { background: linear-gradient(90deg, #1f4f70, var(--mp)); }
+.bar-num { font-family: var(--font-display); font-size: 8px; width: 34px; text-align: right; color: var(--mist-dim); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+#status-panel { padding: 6px 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
+#clock-row { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
+#clock-day { font-size: 9px; color: var(--mist-dim); text-transform: uppercase; letter-spacing: .04em; }
+#coin-row { display: flex; align-items: center; gap: 5px; margin-top: 1px; }
+#coin-icon { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--ipe) 55%, var(--ipe-dim)); box-shadow: 0 0 5px #f2b70588; }
+#coin-count { font-family: var(--font-display); font-size: 12px; color: var(--ipe); }
+
+/* joystick */
+#joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; }
+#joy-base { position: absolute; width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--panel-line); background: #0006; left: 24px; bottom: 24px; opacity: 0; transition: opacity .15s; }
+#joy-base.active { opacity: 1; }
+#joy-knob { position: absolute; width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a7a63, var(--mata) 70%); border: 2px solid var(--ipe-dim); left: 0; top: 0; transform: translate(-50%, -50%); }
+
+/* cluster de botões: arco solto ao redor do ataque (botão principal, maior
+   e mais baixo -- alcance natural do polegar), inspirado no padrão comum de
+   ARPGs mobile (joystick + leque de habilidades), sem copiar nenhum jogo
+   específico. Cada habilidade pode ganhar uma cor de destaque própria via
+   --accent (ver controls.js#applyAccent). */
+#action-cluster { position: absolute; right: 0; bottom: 0; width: 250px; height: 236px; }
+.icon-btn {
+  --accent: var(--ipe-dim);
+  position: absolute; border-radius: 50%;
+  border: 2px solid var(--panel-line); background: var(--panel); color: var(--mist);
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .08s ease, border-color .12s ease, box-shadow .12s ease;
+  overflow: hidden;
+}
+.icon-btn span, .icon-btn .atk-icon { font-size: 20px; position: relative; z-index: 2; filter: drop-shadow(0 1px 1px #0008); }
+.icon-btn.small { width: 50px; height: 50px; }
+.icon-btn.small span { font-size: 17px; }
+.icon-btn.big { width: 78px; height: 78px; border-color: var(--ipe-dim); box-shadow: 0 2px 10px #0006; }
+.icon-btn.big .atk-icon { font-size: 30px; }
+.icon-btn:active, .icon-btn.pressed { transform: scale(.9); }
+.icon-btn.locked { opacity: .5; }
+.icon-btn.charging { border-color: var(--ipe); }
+.icon-btn.has-accent:not(.locked) { border-color: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent); }
+
+/* arco: skill2 no topo, skill1 diagonal acima-esquerda do ataque, ataque
+   maior embaixo-direita (alcance direto do polegar), esquiva mais próxima
+   do joystick para permitir combo mover+esquivar com uma mão */
+#btn-skill2 { right: 46px; bottom: 190px; }
+#btn-skill1 { right: 142px; bottom: 146px; }
+#btn-attack { right: 66px; bottom: 66px; }
+#btn-dodge  { right: 172px; bottom: 52px; }
+
+/* cooldown: escurecimento radial (conic-gradient) */
+.cd-ring { position: absolute; inset: -2px; border-radius: 50%; z-index: 1; background: conic-gradient(#0009 var(--pct, 0%), transparent 0); pointer-events: none; }
+.charge-ring { position: absolute; inset: -4px; border-radius: 50%; z-index: 1; background: conic-gradient(var(--ipe) var(--charge, 0%), transparent 0); opacity: 0; pointer-events: none; transition: opacity .1s; }
+.icon-btn.charging .charge-ring { opacity: .85; }
+
+/* botão contextual: flutua bem acima do cluster de ação (nunca sobre outro
+   botão), só aparece quando há algo interativo por perto */
+.context-btn {
+  position: absolute; right: 40px; bottom: 254px;
+  width: 46px; height: 46px; border-radius: 50%;
+  border: 2px solid var(--ipe-dim); background: var(--panel); color: var(--ipe);
+  display: flex; align-items: center; justify-content: center; font-size: 19px;
+  opacity: 0; transform: scale(.5); pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.context-btn.visible { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+/* MODO TESTE (arena) */
+#arena-banner {
+  position: absolute; top: 0; left: 50%; transform: translate(-50%, -8px);
+  display: none; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--ipe-dim);
+  border-radius: 3px 3px 10px 10px; padding: 8px 14px 10px;
+  margin-top: max(6px, env(safe-area-inset-top));
+}
+#arena-banner.visible { display: flex; }
+.arena-label { font-family: var(--font-display); font-size: 10px; color: var(--ipe); letter-spacing: .03em; }
+.arena-actions { display: flex; gap: 8px; }
+.pill-btn { font-size: 10px; padding: 7px 12px; }
+.pill-btn.ghost { background: transparent; border: 1px solid var(--panel-line); color: var(--mist-dim); }
+.pill-btn.solid { background: var(--ipe); color: #101b18; }
+
+/* toast */
+#toast {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-body); font-weight: 600; font-size: 13px; text-align: center; max-width: 80vw;
+  color: var(--mist); background: var(--panel); border: 1px solid var(--panel-line);
+  padding: 8px 16px; border-radius: 3px 10px 3px 10px;
+  opacity: 0; transition: opacity .3s ease;
+}
+#toast.show { opacity: 1; }
+
+/* ============ CRIAÇÃO DE PERSONAGEM ============ */
+#screen-charcreate { background: linear-gradient(180deg, #16211f, #0d1512); overflow-y: auto; }
+.cc-wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 18px; min-height: 100%; }
+.screen-title { font-family: var(--font-display); font-size: clamp(18px, 5vw, 24px); color: var(--ipe); text-align: center; text-wrap: balance; }
+
+.cc-layout { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.cc-preview { background: radial-gradient(ellipse at 50% 60%, #26392f, #131f1a); border: 1px solid var(--panel-line); border-radius: 3px 14px 3px 14px; }
+.cc-form { width: 100%; display: flex; flex-direction: column; gap: 14px; }
+.cc-field { display: flex; flex-direction: column; gap: 6px; }
+.cc-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--mist-dim); font-weight: 600; }
+#cc-name {
+  font-family: var(--font-body); font-size: 15px; padding: 10px 12px;
+  background: #0006; border: 1px solid var(--panel-line); border-radius: 3px 10px 3px 10px; color: var(--mist);
+}
+#cc-name::placeholder { color: #6f8c7d; }
+
+.swatch-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch {
+  background: #0004; border: 2px solid var(--panel-line); border-radius: 3px 8px 3px 8px;
+  padding: 6px 8px; display: flex; align-items: center; gap: 6px; cursor: pointer; min-height: 40px;
+}
+.swatch.selected { border-color: var(--ipe); background: #1c332b; }
+.swatch-color { width: 20px; height: 20px; border-radius: 50%; display: block; border: 1px solid #0006; }
+.swatch-color.split { border-radius: 4px; }
+.swatch-label { font-size: 11px; color: var(--mist); }
+
+.primary-btn { background: var(--ipe); color: #101b18; font-size: 14px; padding: 13px 20px; margin-top: 4px; }
+.primary-btn:disabled { opacity: .4; cursor: not-allowed; }
+.primary-btn:not(:disabled):active { transform: scale(.98); }
+
+/* ============ O DESPERTAR ============ */
+#screen-despertar { background: #08100de8; }
+.desp-wrap { max-width: 420px; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; position: relative; }
+.desp-glow {
+  position: absolute; top: -40px; left: 50%; transform: translateX(-50%);
+  width: 200px; height: 200px; border-radius: 50%;
+  background: radial-gradient(circle, #f2b70544, transparent 70%);
+  animation: desp-pulse 3.5s ease-in-out infinite;
+}
+@keyframes desp-pulse { 0%, 100% { opacity: .5; transform: translateX(-50%) scale(1); } 50% { opacity: 1; transform: translateX(-50%) scale(1.15); } }
+.desp-title { font-family: var(--font-display); font-size: clamp(24px, 7vw, 34px); color: var(--ipe); position: relative; letter-spacing: .03em; }
+.desp-text { font-size: 14px; line-height: 1.7; color: var(--mist); position: relative; }
+.desp-sub { color: var(--ipe); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { .desp-glow { animation: none; opacity: .7; } }
+
+/* ============ ESCOLHA SEU CAMINHO ============ */
+#screen-classselect { background: linear-gradient(180deg, #16211f, #0d1512); overflow-y: auto; }
+.cs-wrap { max-width: 560px; margin: 0 auto; padding: 22px 18px 40px; display: flex; flex-direction: column; gap: 16px; }
+.cs-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.class-card {
+  background: #0004; border: 2px solid var(--panel-line); border-radius: 3px 12px 3px 12px;
+  padding: 14px 8px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer;
+  color: var(--mist);
+}
+.class-card.selected { border-color: var(--ipe); background: #1c332b; }
+.cc-icon { font-size: 26px; }
+.cc-name { font-family: var(--font-display); font-size: 11px; }
+.cc-tag { font-size: 9.5px; color: var(--mist-dim); text-align: center; line-height: 1.3; }
+
+.cs-detail { display: none; flex-direction: column; gap: 12px; background: #0005; border: 1px solid var(--panel-line); border-radius: 3px 14px 3px 14px; padding: 16px; }
+.cs-detail.visible { display: flex; }
+.cs-detail-head { display: flex; align-items: center; gap: 12px; }
+.cs-detail-icon { font-size: 32px; }
+.cs-detail-name { font-family: var(--font-display); font-size: 16px; color: var(--ipe); }
+.cs-detail-tagline { font-size: 11px; color: var(--mist-dim); }
+.cs-detail-desc { font-size: 13px; line-height: 1.6; color: var(--mist); }
+.cs-detail-meta { display: flex; gap: 18px; font-size: 11px; color: var(--mist-dim); }
+.cs-detail-meta b { color: var(--mist); font-weight: 600; }
+.cs-detail-stats { display: flex; flex-direction: column; gap: 4px; }
+.stat-row { display: flex; justify-content: space-between; font-size: 12px; }
+.stat-label { color: var(--mist-dim); }
+.stat-dots { color: var(--ipe); letter-spacing: 2px; font-family: var(--font-display); font-size: 10px; }
+.cs-detail-equip { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--mist-dim); }
+.cs-detail-equip b { color: var(--mist); }
+.cs-detail-actions { display: flex; gap: 10px; margin-top: 4px; }
+.cs-detail-actions .pill-btn { flex: 1; padding: 12px; font-size: 11px; }
+
+/* ============ responsivo ============ */
+@media (max-width: 380px) {
+  #action-cluster { width: 224px; height: 212px; }
+  .icon-btn.big { width: 68px; height: 68px; }
+  .icon-btn.small { width: 44px; height: 44px; }
+  #btn-skill2 { right: 40px; bottom: 170px; }
+  #btn-skill1 { right: 126px; bottom: 132px; }
+  #btn-attack { right: 58px; bottom: 58px; }
+  #btn-dodge  { right: 152px; bottom: 46px; }
+  .context-btn { right: 34px; bottom: 226px; width: 42px; height: 42px; }
+  .cs-cards { gap: 7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar-fill, .icon-btn, .swatch, #toast, .primary-btn { transition: none; }
+}
+
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===================== TELA DE JOGO (mundo + arena compartilham este DOM) ===================== -->
+  <div id="screen-game" class="screen active">
+    <canvas id="world-canvas"></canvas>
+
+    <div id="hud">
+      <div id="hud-top" class="safe-top">
+        <div id="vitals" class="panel safe-left">
+          <div class="portrait-row">
+            <canvas id="hud-portrait" width="40" height="40"></canvas>
+            <div class="portrait-text">
+              <div id="hud-name">Viajante</div>
+              <div id="hud-classline">Sem classe</div>
+            </div>
+          </div>
+          <div class="bar-row"><span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill hp" id="fill-hp"></div></div><span class="bar-num" id="num-hp">-/-</span></div>
+          <div class="bar-row"><span class="bar-icon">⚡</span><div class="bar-track"><div class="bar-fill st" id="fill-st"></div></div><span class="bar-num" id="num-st">-/-</span></div>
+          <div class="bar-row"><span class="bar-icon">✦</span><div class="bar-track"><div class="bar-fill mp" id="fill-mp"></div></div><span class="bar-num" id="num-mp">-/-</span></div>
+        </div>
+
+        <div id="status-panel" class="panel safe-right">
+          <div id="clock-row"><span id="day-glyph">☀</span><span id="clock-time" class="tnum">08:00</span></div>
+          <div id="clock-day" class="tnum">Dia 1</div>
+          <div id="coin-row"><span id="coin-icon"></span><span id="coin-count" class="tnum">0</span></div>
+        </div>
+      </div>
+
+      <div id="arena-banner">
+        <span class="arena-label">MODO TESTE · <span id="arena-banner-class">Classe</span></span>
+        <div class="arena-actions">
+          <button id="arena-back" class="pill-btn ghost">VOLTAR</button>
+          <button id="arena-choose" class="pill-btn solid">ESCOLHER ESTA CLASSE</button>
+        </div>
+      </div>
+
+      <button id="btn-context" class="context-btn" aria-label="Interagir"><span id="icon-context">💬</span></button>
+
+      <div id="joy-zone" class="safe-bottom safe-left">
+        <div id="joy-base"><div id="joy-knob"></div></div>
+      </div>
+
+      <div id="action-cluster" class="safe-bottom safe-right">
+        <button id="btn-skill2" class="icon-btn small locked" aria-label="Habilidade 2 (bloqueada)">
+          <div class="cd-ring" id="cd-skill2"></div><span id="icon-skill2">🔒</span>
+        </button>
+        <button id="btn-skill1" class="icon-btn small locked" aria-label="Habilidade 1">
+          <div class="cd-ring" id="cd-skill1"></div><span id="icon-skill1">🔒</span>
+        </button>
+        <button id="btn-attack" class="icon-btn big" aria-label="Ataque: toque para golpe normal, segure para golpe carregado">
+          <div class="cd-ring" id="cd-attack"></div><div class="charge-ring" id="charge-ring"></div><span class="atk-icon">👊</span>
+        </button>
+        <button id="btn-dodge" class="icon-btn small" aria-label="Esquiva">
+          <div class="cd-ring" id="cd-dodge"></div><span>💨</span>
+        </button>
+      </div>
+
+      <div id="toast"></div>
+    </div>
+  </div>
+
+  <!-- ===================== CRIAÇÃO DE PERSONAGEM ===================== -->
+  <div id="screen-charcreate" class="screen">
+    <div class="cc-wrap safe-top safe-bottom">
+      <h1 class="screen-title">Quem chega à Vila do Ipê?</h1>
+
+      <div class="cc-layout">
+        <canvas id="cc-preview" width="180" height="220" class="cc-preview"></canvas>
+
+        <div class="cc-form">
+          <label class="cc-field">
+            <span class="cc-label">Nome</span>
+            <input id="cc-name" type="text" maxlength="16" placeholder="Como querem te chamar?" autocomplete="off" />
+          </label>
+
+          <div class="cc-field">
+            <span class="cc-label">Tom de pele</span>
+            <div class="swatch-row" id="cc-skins"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Cabelo</span>
+            <div class="swatch-row" id="cc-hair"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Cor do cabelo</span>
+            <div class="swatch-row" id="cc-haircolor"></div>
+          </div>
+          <div class="cc-field">
+            <span class="cc-label">Roupa inicial</span>
+            <div class="swatch-row" id="cc-outfits"></div>
+          </div>
+        </div>
+      </div>
+
+      <button id="cc-start" class="primary-btn" disabled>Começar Jornada</button>
+    </div>
+  </div>
+
+  <!-- ===================== O DESPERTAR (overlay narrativo) ===================== -->
+  <div id="screen-despertar" class="screen overlay">
+    <div class="desp-wrap">
+      <div class="desp-glow"></div>
+      <h1 class="desp-title">O DESPERTAR</h1>
+      <p class="desp-text">
+        Uma energia que você nunca soube nomear atravessa seu peito. Por um instante, a mata, o rio e a terra
+        parecem sussurrar ao mesmo tempo — e você entende, sem saber como, que sempre puderam.
+      </p>
+      <p class="desp-text desp-sub">O Encantado despertou em você.</p>
+      <button id="desp-continue" class="primary-btn">Continuar</button>
+    </div>
+  </div>
+
+  <!-- ===================== ESCOLHA SEU CAMINHO ===================== -->
+  <div id="screen-classselect" class="screen">
+    <div class="cs-wrap safe-top safe-bottom">
+      <h1 class="screen-title">Escolha seu Caminho</h1>
+      <div class="cs-cards" id="cs-cards"></div>
+
+      <div id="cs-detail" class="cs-detail">
+        <div class="cs-detail-head">
+          <span id="cs-detail-icon" class="cs-detail-icon"></span>
+          <div>
+            <div id="cs-detail-name" class="cs-detail-name"></div>
+            <div id="cs-detail-tagline" class="cs-detail-tagline"></div>
+          </div>
+        </div>
+        <p id="cs-detail-desc" class="cs-detail-desc"></p>
+        <div class="cs-detail-meta">
+          <span><b>Dificuldade</b> <span id="cs-detail-diff"></span></span>
+          <span><b>Estilo</b> <span id="cs-detail-style"></span></span>
+        </div>
+        <div id="cs-detail-stats" class="cs-detail-stats"></div>
+        <div class="cs-detail-equip">
+          <span>Arma inicial: <b id="cs-detail-weapon"></b></span>
+          <span>Habilidade: <span id="cs-detail-ability-icon"></span> <b id="cs-detail-ability-name"></b></span>
+        </div>
+        <div class="cs-detail-actions">
+          <button id="cs-test" class="pill-btn ghost">TESTAR</button>
+          <button id="cs-choose" class="pill-btn solid">ESCOLHER</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Estado global persistido (perfil, aparência, classe, progresso).
+ * Tudo que precisa sobreviver a fechar/abrir o jogo vive aqui.
+ * Estados de ARENA (teste de classe) nunca tocam este objeto — ver arena.js.
+ */
+EN.State = (function () {
+  var STORAGE_KEY = "encantaria_save_v2";
+
+  function freshSave() {
+    return {
+      profile: {
+        name: "",
+        appearance: null, // preenchido em CharCreation, ver appearance.js#defaultAppearance
+        created: false,
+      },
+      progress: {
+        despertarSeen: false,
+        classId: null, // 'guerreiro' | 'mateiro' | 'encantado' | null (ainda pessoa comum)
+        level: 1,
+        xp: 0,
+      },
+      world: {
+        x: 300,
+        y: 300,
+        vintem: 0,
+        day: 1,
+        dayT: 8, // hora do dia (0-24), começa de manhã
+        inventory: { curas: 3 },
+      },
+    };
+  }
+
+  var save = load();
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return freshSave();
+      var parsed = JSON.parse(raw);
+      // merge raso para tolerar saves antigos incompletos
+      var base = freshSave();
+      return {
+        profile: Object.assign(base.profile, parsed.profile),
+        progress: Object.assign(base.progress, parsed.progress),
+        world: Object.assign(base.world, parsed.world),
+      };
+    } catch (e) {
+      return freshSave();
+    }
+  }
+
+  var saveTimer = null;
+  function persist() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+      } catch (e) {
+        /* armazenamento indisponível (modo privado etc.) — falha silenciosa, não é crítico para o protótipo */
+      }
+    }, 200);
+  }
+
+  return {
+    data: save,
+    persist: persist,
+    hasProfile: function () {
+      return !!save.profile.created && !!save.profile.appearance;
+    },
+    resetAll: function () {
+      save = freshSave();
+      this.data = save;
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+    },
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Arquitetura de classes — dado-orientada, sem if/else por classe.
+ *
+ * ClassDefinition: id, name, icon, tagline, description, difficulty, style,
+ *   dots (1-5 para as barras da tela de seleção), baseStats reais,
+ *   startingEquipment, abilities: [AbilityDefinition]
+ *
+ * AbilityDefinition: id, name, icon, cooldown, staminaCost, manaCost,
+ *   damage, range, type ('melee' | 'melee_heavy' | 'projectile' | 'projectile_magic'),
+ *   animation
+ *
+ * Novas classes (Benzedeiro, Alquimista, Malandro, ...) só precisam de uma
+ * nova entrada em `list` — nenhum outro arquivo precisa saber o nome delas.
+ * O combate resolve tudo por `ability.type`, ver executeAbility().
+ */
+EN.Classes = (function () {
+  var list = [
+    {
+      id: "guerreiro",
+      name: "Guerreiro",
+      icon: "⚔️",
+      tagline: "Corpo a corpo • Resistente • Direto",
+      description: "Enfrenta o perigo de frente, aguenta o tranco e retribui com força.",
+      difficulty: "Fácil de aprender",
+      style: "Corpo a corpo",
+      dots: { hp: 5, dmg: 4, def: 4, mobility: 2, magic: 1 },
+      baseStats: { hpMax: 140, stMax: 110, mpMax: 30, atk: 15, def: 10, speed: 155 },
+      startingEquipment: { id: "facao", name: "Facão Simples" },
+      abilities: [
+        {
+          id: "golpe_poderoso",
+          name: "Golpe Poderoso",
+          icon: "💥",
+          cooldown: 2.6,
+          staminaCost: 26,
+          manaCost: 0,
+          damage: 40,
+          range: 58,
+          type: "melee_heavy",
+          animation: "chargeAttack",
+        },
+      ],
+    },
+    {
+      id: "mateiro",
+      name: "Mateiro",
+      icon: "🏹",
+      tagline: "Ágil • Distância • Exploração",
+      description: "Lê o terreno, mantém distância e pune com precisão antes de ser alcançado.",
+      difficulty: "Moderado",
+      style: "À distância",
+      dots: { hp: 3, dmg: 4, def: 2, mobility: 5, magic: 1 },
+      baseStats: { hpMax: 105, stMax: 130, mpMax: 30, atk: 12, def: 6, speed: 190 },
+      startingEquipment: { id: "arco", name: "Arco Simples" },
+      abilities: [
+        {
+          id: "disparo_preciso",
+          name: "Disparo Preciso",
+          icon: "🎯",
+          cooldown: 1.6,
+          staminaCost: 16,
+          manaCost: 0,
+          damage: 30,
+          range: 380,
+          type: "projectile",
+          animation: "attack",
+        },
+      ],
+    },
+    {
+      id: "encantado",
+      name: "Encantado",
+      icon: "✨",
+      tagline: "Místico • Área • Frágil",
+      description: "Canaliza a energia do Encantado — poderoso à distância, vulnerável de perto.",
+      difficulty: "Avançado",
+      style: "Magia",
+      dots: { hp: 2, dmg: 4, def: 2, mobility: 3, magic: 5 },
+      baseStats: { hpMax: 95, stMax: 100, mpMax: 90, atk: 10, def: 5, speed: 165 },
+      startingEquipment: { id: "foco", name: "Foco Encantado" },
+      abilities: [
+        {
+          id: "rajada_encantada",
+          name: "Rajada Encantada",
+          icon: "✨",
+          cooldown: 1.3,
+          staminaCost: 0,
+          manaCost: 16,
+          damage: 26,
+          range: 340,
+          type: "projectile_magic",
+          animation: "attack",
+        },
+      ],
+    },
+  ];
+
+  // usado enquanto o jogador ainda não passou pelo Despertar
+  var classlessDefaults = {
+    id: null,
+    name: "Andarilho",
+    baseStats: { hpMax: 90, stMax: 100, mpMax: 20, atk: 9, def: 4, speed: 160 },
+    startingEquipment: { id: null, name: "Mãos vazias" },
+  };
+
+  // ataque universal (tap = normal, hold = carregado) — existe mesmo sem classe
+  var universalAttack = {
+    basic: { id: "ataque_basico", cooldown: 0.32, staminaCost: 0, damage: 11, range: 46, type: "melee", animation: "attack" },
+    heavy: { id: "ataque_carregado", cooldown: 0.9, staminaCost: 18, damage: 24, range: 52, type: "melee_heavy", animation: "chargeAttack" },
+  };
+
+  function getById(id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  // teste geométrico puro de cone corpo-a-corpo — devolve os alvos atingidos
+  function meleeHitTest(px, py, facing, range, halfAngle, targets) {
+    var fa = Math.atan2(facing.y, facing.x);
+    var hits = [];
+    for (var i = 0; i < targets.length; i++) {
+      var e = targets[i];
+      if (e.dead) continue;
+      var dx = e.x - px,
+        dy = e.y - py,
+        d = Math.hypot(dx, dy);
+      if (d > range) continue;
+      var ea = Math.atan2(dy, dx);
+      var diff = Math.atan2(Math.sin(ea - fa), Math.cos(ea - fa));
+      if (Math.abs(diff) <= halfAngle) hits.push(e);
+    }
+    return hits;
+  }
+
+  return {
+    list: list,
+    getById: getById,
+    classlessDefaults: classlessDefaults,
+    universalAttack: universalAttack,
+    meleeHitTest: meleeHitTest,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Bestiário — dados de todas as criaturas da primeira região (Sítio/Mata do
+ * Cedro), com identidade de folclore brasileiro. A maioria das entradas é
+ * SOMENTE DADOS nesta etapa (`implemented:false`): define categoria, lore,
+ * comportamento e regras de aparição para orientar produção futura, sem
+ * inflar o escopo deste protótipo com IA/arte para 19 criaturas de uma vez.
+ *
+ * Apenas as marcadas `implemented:true` têm IA e sprite funcionando no
+ * mundo/arena agora: Rato-do-Mato Corrompido e Cipó Vivo — escolhidas por
+ * representarem as duas categorias mais comuns (HOSTIL vs TERRITORIAL) com
+ * comportamentos claramente diferentes.
+ *
+ * category: 'hostile' | 'territorial' | 'neutral' | 'guardian' | 'narrative' | 'boss'
+ */
+EN.Bestiary = (function () {
+  var CATEGORY_LABEL = {
+    hostile: "Hostil",
+    territorial: "Territorial",
+    neutral: "Neutra",
+    guardian: "Guardiã",
+    narrative: "Narrativa",
+    boss: "Chefe",
+  };
+
+  var list = [
+    {
+      id: "rato_mato_corrompido",
+      name: "Rato-do-Mato Corrompido",
+      category: "hostile",
+      habitat: "Sítio, bordas da Mata do Cedro",
+      schedule: "any",
+      behavior: "Patrulha território curto; persegue ao avistar o jogador; avisa antes de morder.",
+      aggressiveness: 2,
+      attacks: ["Mordida"],
+      weaknesses: ["Dano físico"],
+      resistances: [],
+      drops: ["Vintém", "Pelo Corrompido"],
+      lore: "Um rato comum que bebeu água próxima a uma raiz negra vinda da Mina Santa Luzia.",
+      veioRelation: "Vítima de contaminação leve — não é natural da espécie.",
+      corruptionVisual: "Pequenas rachaduras escuras no pelo, olhos alaranjados.",
+      implemented: true,
+    },
+    {
+      id: "vagalume_de_defunto",
+      name: "Vagalume de Defunto",
+      category: "hostile",
+      habitat: "Mata do Cedro, Brejo das Lanternas",
+      schedule: "night",
+      behavior: "Aparece em grupos pequenos à noite; voa em padrão errático; luz confunde o jogador.",
+      aggressiveness: 2,
+      attacks: ["Luz Confusa (inverte controles por instantes)", "Toque Elétrico"],
+      weaknesses: ["Dano mágico"],
+      resistances: ["Dano físico leve"],
+      drops: ["Pó de Vagalume"],
+      lore: "Diz-se que carregam a última luz de quem se perdeu na mata sem encontrar o caminho de volta.",
+      veioRelation: "Naturalmente ligado ao Encantado — só fica hostil perto de Veios perturbados.",
+      corruptionVisual: "Luz que pulsa em vermelho em vez de amarelo quando corrompido.",
+      implemented: false,
+    },
+    {
+      id: "cipo_vivo",
+      name: "Cipó Vivo",
+      category: "territorial",
+      habitat: "Mata do Cedro, moitas densas",
+      schedule: "any",
+      behavior: "Fica enraizado em um ponto fixo; ignora o jogador à distância; agarra quem entra na área por tempo demais.",
+      aggressiveness: 1,
+      attacks: ["Agarrar", "Imobilizar", "Puxão"],
+      weaknesses: ["Fogo", "Corte"],
+      resistances: ["Perfuração"],
+      drops: ["Fibra Encantada"],
+      lore: "Uma planta que absorveu tanta energia do Veio que ganhou vontade própria — e território a defender.",
+      veioRelation: "Cresce diretamente sobre pontos de vazamento do Veio.",
+      corruptionVisual: "Nervuras negras pulsantes correndo pelo caule.",
+      implemented: true,
+    },
+    {
+      id: "tatu_de_pedra",
+      name: "Tatu de Pedra",
+      category: "hostile",
+      habitat: "Mina Santa Luzia, pedreiras",
+      schedule: "any",
+      behavior: "Defensivo por padrão; enrola-se e realiza investidas em linha reta quando provocado.",
+      aggressiveness: 2,
+      attacks: ["Investida em Rolamento"],
+      weaknesses: ["Impacto quando enrolado"],
+      resistances: ["Corte", "Perfuração"],
+      drops: ["Placa de Casco"],
+      lore: "Sua casca mineralizou com o tempo perto de veios de minério corrompido.",
+      veioRelation: "Contaminação mineral, não espiritual.",
+      corruptionVisual: "Vetas de minério escuro visíveis entre as placas do casco.",
+      implemented: false,
+    },
+    {
+      id: "morcego_da_mina",
+      name: "Morcego da Mina",
+      category: "hostile",
+      habitat: "Mina Santa Luzia",
+      schedule: "any (interior escuro)",
+      behavior: "Voa em bando; ataques rápidos e erráticos em rajada.",
+      aggressiveness: 3,
+      attacks: ["Investida em Rajada"],
+      weaknesses: ["Dano em área"],
+      resistances: [],
+      drops: ["Asa Membranosa"],
+      lore: "Colônia comum na mina, agora agitada pelas raízes negras que avançam pelas galerias.",
+      veioRelation: "Território diretamente afetado pela contaminação da mina.",
+      corruptionVisual: "Pelagem com manchas escuras, voo mais errático que o normal.",
+      implemented: false,
+    },
+    {
+      id: "sapo_de_pedra",
+      name: "Sapo de Pedra",
+      category: "hostile",
+      habitat: "Rio das Pedras, câmaras úmidas da mina",
+      schedule: "any",
+      behavior: "Estacionário até ser provocado; alta defesa; ataques lentos e previsíveis.",
+      aggressiveness: 1,
+      attacks: ["Língua Pesada", "Salto Esmagador"],
+      weaknesses: ["Dano mágico"],
+      resistances: ["Dano físico"],
+      drops: ["Pedra Úmida", "Veneno de Sapo"],
+      lore: "Guardião lento das poças mais fundas — quase nunca ataca primeiro.",
+      veioRelation: "Nenhuma — inimigo comum, não corrompido.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "cao_da_estrada",
+      name: "Cão da Estrada",
+      category: "hostile",
+      habitat: "Estrada Velha",
+      schedule: "madrugada",
+      behavior: "Só se manifesta na madrugada; segue viajantes solitários por longas distâncias antes de atacar.",
+      aggressiveness: 3,
+      attacks: ["Perseguição", "Mordida Sombria"],
+      weaknesses: ["Luz", "Dano mágico"],
+      resistances: ["Medo (imune)"],
+      drops: ["Coleira Enferrujada"],
+      lore: "Assombração de um cão que morreu protegendo seu dono numa estrada esquecida.",
+      veioRelation: "Presença espiritual antiga, anterior aos Veios — não é corrompido, é assombração natural.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "espantalho_possuido",
+      name: "Espantalho Possuído",
+      category: "hostile",
+      habitat: "Plantações abandonadas, Sítio (raro)",
+      schedule: "night",
+      behavior: "Finge estar inerte até o jogador se aproximar; então ataca de surpresa.",
+      aggressiveness: 3,
+      attacks: ["Emboscada", "Golpe de Palha Afiada"],
+      weaknesses: ["Fogo"],
+      resistances: ["Perfuração"],
+      drops: ["Palha Amaldiçoada"],
+      lore: "Espantalhos abandonados por tempo demais às vezes atraem algo que não é mais só palha.",
+      veioRelation: "Vaso para pequenos espíritos errantes ligados a terras negligenciadas perto de um Veio.",
+      corruptionVisual: "Costuras que brilham fracamente em roxo.",
+      implemented: false,
+    },
+    {
+      id: "corpo_seco",
+      name: "Corpo-Seco",
+      category: "hostile",
+      habitat: "Mata do Cedro, Brejo das Lanternas",
+      schedule: "night",
+      behavior: "Errático e imprevisível; alterna entre lento e explosivamente rápido.",
+      aggressiveness: 4,
+      attacks: ["Investida Errática", "Sufocamento"],
+      weaknesses: ["Água benta / itens de Benzedeiro (futuro)"],
+      resistances: ["Dano físico leve"],
+      drops: ["Vínculo Podre"],
+      lore: "Segundo a lenda, é o corpo de quem morreu sem enterro digno e sem parte de sua alma.",
+      veioRelation: "Atraído por Veios como forma de tentar se completar novamente.",
+      corruptionVisual: "Pele rachada com fumaça escura escapando das fendas.",
+      implemented: false,
+    },
+    {
+      id: "assombracao_da_mina",
+      name: "Assombração da Mina",
+      category: "hostile",
+      habitat: "Mina Santa Luzia (galerias profundas)",
+      schedule: "any (interior)",
+      behavior: "Atravessa paredes curtas distâncias; resistente a dano físico.",
+      aggressiveness: 3,
+      attacks: ["Toque Gélido", "Grito Sussurrado"],
+      weaknesses: ["Dano espiritual/mágico"],
+      resistances: ["Dano físico (alto)"],
+      drops: ["Eco de Memória"],
+      lore: "Ecos de mineradores que não voltaram — o mesmo destino que Seu Osvaldo teme para seu irmão.",
+      veioRelation: "Presas na fronteira entre os dois mundos, bem no ponto onde o Veio da mina vaza.",
+      corruptionVisual: "Contorno translúcido com veios negros pulsando por dentro.",
+      implemented: false,
+    },
+    {
+      id: "onca_de_bruma",
+      name: "Onça de Bruma",
+      category: "hostile",
+      habitat: "Serra da Onça (fora do MVP), avistada raramente na Mata do Cedro",
+      schedule: "neblina",
+      behavior: "Mini-boss. Predador raro que desaparece na neblina e reaparece para um ataque surpresa.",
+      aggressiveness: 4,
+      attacks: ["Emboscada na Neblina", "Investida Tripla"],
+      weaknesses: ["Luz concentrada"],
+      resistances: ["Furtividade — ignora detecção comum enquanto na neblina"],
+      drops: ["Presa de Bruma", "Pelagem Nebulosa"],
+      lore: "Predadora que aprendeu a caçar entre os dois mundos, nunca totalmente em nenhum deles.",
+      veioRelation: "Não corrompida — uma entidade nativa do Encantado que caça no lado humano.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "carcara_de_ferro",
+      name: "Carcará de Ferro",
+      category: "boss",
+      habitat: "Câmara Funda, Mina Santa Luzia",
+      schedule: "any",
+      behavior: "Chefe principal do MVP — ver Seção 28 do GDD (3 fases, arena dedicada). Não implementado nesta etapa do protótipo.",
+      aggressiveness: 5,
+      attacks: ["Bicada", "Rasante", "Rajada de Penas", "Grito do Carcará", "Queda de Pedra", "Ninho Corrompido"],
+      weaknesses: ["Ataques concentrados após telegraphs"],
+      resistances: ["Fase 3: reduz janelas de punição"],
+      drops: ["Fragmento do Encantado"],
+      lore: "Vítima, não vilão — uma ave sobrenatural tomada por raízes negras vindas do fundo da mina.",
+      veioRelation: "Guardião original do Veio da Mina Santa Luzia, corrompido em sua fonte.",
+      corruptionVisual: "Raízes negras entrelaçadas nas asas e penas misturadas a minério.",
+      implemented: false,
+    },
+    {
+      id: "saci",
+      name: "Saci",
+      category: "neutral",
+      habitat: "Redemoinhos na Estrada Velha e no Sítio",
+      schedule: "any (raro)",
+      behavior: "Nunca ataca. Pode pregar peças (esconder um item, trocar uma ferramenta de lugar) e depois devolver se o jogador reagir com bom humor.",
+      aggressiveness: 0,
+      attacks: [],
+      weaknesses: [],
+      resistances: [],
+      drops: [],
+      lore: "Prefere rir de quem se irrita do que brigar com quem ri junto.",
+      veioRelation: "Trafega livremente entre os dois mundos por conta própria — não é afetado pela corrupção.",
+      corruptionVisual: null,
+      implemented: "interactable",
+    },
+    {
+      id: "curupira",
+      name: "Curupira",
+      category: "guardian",
+      habitat: "Mata do Cedro inteira (território)",
+      schedule: "any",
+      behavior: "Territorial/guardião: não ataca por padrão. Reage à Perturbação da Mata (ver GDD Seção 34) — acima de um limiar, atrapalha a navegação do jogador como aviso antes de qualquer punição maior.",
+      aggressiveness: "condicional",
+      attacks: ["Confundir Trilhas (não-letal)"],
+      weaknesses: [],
+      resistances: ["Praticamente invencível em combate direto — não é pensado como inimigo derrotável"],
+      drops: [],
+      lore: "Protetor da mata, pés virados para trás para confundir quem a agride demais.",
+      veioRelation: "Guardião nativo do Encantado, hostil apenas à destruição excessiva, não ao jogador em si.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "boitata",
+      name: "Boitatá",
+      category: "guardian",
+      habitat: "Brejo das Lanternas",
+      schedule: "night",
+      behavior: "Entidade de fogo associada à proteção da mata contra quem a destrói. Pode se tornar chefe em conteúdo futuro dependendo das ações do jogador.",
+      aggressiveness: "condicional",
+      attacks: ["Rastro de Fogo (fase de chefe futura)"],
+      weaknesses: [],
+      resistances: ["Fogo"],
+      drops: [],
+      lore: "Serpente de fogo que devora os olhos de quem queima a mata sem necessidade, na lenda original.",
+      veioRelation: "Guardiã de um Veio ainda não revelado ao jogador no MVP.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "iara",
+      name: "Iara",
+      category: "narrative",
+      habitat: "Rio das Pedras",
+      schedule: "madrugada (00h-02h)",
+      behavior: "Gatilho da quest 'Pescaria Noturna' (GDD Seção 30) — combate, conversa, seguir ou oferenda geram resultados diferentes.",
+      aggressiveness: "depende da escolha do jogador",
+      attacks: ["Canto Hipnótico (se atacada)"],
+      weaknesses: [],
+      resistances: [],
+      drops: [],
+      lore: "Entidade das águas — nome reaproveitado deliberadamente do folclore, distinto da NPC humana 'Iara, a pescadora' (GDD Seção 24) por contraste narrativo.",
+      veioRelation: "Vive próxima a um pequeno vazamento do Veio no leito do rio.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "boto",
+      name: "Boto",
+      category: "narrative",
+      habitat: "Rio das Pedras, em noites de festa na vila",
+      schedule: "night (eventos especiais)",
+      behavior: "Aparece em forma humana durante eventos comunitários futuros; quest de identidade/confiança.",
+      aggressiveness: 0,
+      attacks: [],
+      weaknesses: [],
+      resistances: [],
+      drops: [],
+      lore: "Reservado para conteúdo pós-MVP — gancho já documentado para não perder a referência.",
+      veioRelation: "A definir.",
+      corruptionVisual: null,
+      implemented: false,
+    },
+    {
+      id: "sombra_do_cafezal",
+      name: "Sombra do Cafezal",
+      category: "hostile",
+      habitat: "Plantações da vila, noites específicas",
+      schedule: "night (raro)",
+      behavior: "Furtiva — usa medo em vez de dano direto na maior parte do encontro.",
+      aggressiveness: 3,
+      attacks: ["Sussurro do Medo", "Golpe nas Sombras"],
+      weaknesses: ["Luz"],
+      resistances: ["Furtividade"],
+      drops: ["Grão Sombrio"],
+      lore: "Diz-se que ronda plantações onde uma colheita foi perdida por descaso, não por azar.",
+      veioRelation: "Atraída por Perturbação alta em terras cultivadas próximas a um Veio.",
+      corruptionVisual: "Silhueta com bordas que 'fumegam' escuridão.",
+      implemented: false,
+    },
+  ];
+
+  function getById(id) {
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
+    return null;
+  }
+
+  return {
+    CATEGORY_LABEL: CATEGORY_LABEL,
+    list: list,
+    getById: getById,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Sistema de aparência em camadas + renderizador "pixel doll" procedural.
+ *
+ * PLACEHOLDER DE ARTE: enquanto não existem spritesheets definitivos, cada
+ * camada é desenhada com primitivas de canvas (retângulos/círculos) em vez
+ * de sprites. A função draw() abaixo é o único lugar que precisa mudar
+ * quando a arte final chegar — ver PLACEHOLDER em ASSETS.md para o
+ * contrato de substituição (tamanho de frame, ancoragem, lista de estados).
+ */
+EN.Appearance = (function () {
+  var skins = [
+    { id: "clara", name: "Clara", hex: "#e8bf95" },
+    { id: "media", name: "Média", hex: "#c98f5e" },
+    { id: "morena", name: "Morena", hex: "#9a6238" },
+    { id: "escura", name: "Escura", hex: "#5f3a20" },
+  ];
+
+  var hairStyles = [
+    { id: "curto", name: "Curto" },
+    { id: "cacheado", name: "Cacheado" },
+    { id: "longo", name: "Longo" },
+    { id: "coque", name: "Coque" },
+    { id: "raspado", name: "Raspado" },
+  ];
+
+  var hairColors = [
+    { id: "preto", hex: "#231913" },
+    { id: "castanho", hex: "#4a2f1c" },
+    { id: "ruivo", hex: "#8a3d22" },
+    { id: "grisalho", hex: "#9c9186" },
+    { id: "loiro", hex: "#c9a24a" },
+  ];
+
+  var outfits = [
+    { id: "roca", name: "Roupa de Roça", shirt: "#b5603f", pants: "#4a3a2a" },
+    { id: "pescador", name: "Traje de Pescador", shirt: "#3f6e8f", pants: "#3a3a3a" },
+    { id: "viajante", name: "Manto de Viajante", shirt: "#5a5033", pants: "#33291c" },
+    { id: "festa", name: "Traje de Festa", shirt: "#a8324a", pants: "#20232e" },
+  ];
+
+  function defaultAppearance() {
+    return {
+      name: "",
+      skin: "media",
+      hair: "curto",
+      hairColor: "castanho",
+      outfit: "roca",
+      hat: null,
+    };
+  }
+
+  function findHex(list, id, key) {
+    key = key || "hex";
+    for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i][key];
+    return list[0][key];
+  }
+
+  var WEAPON_BY_CLASS = {
+    guerreiro: "facao",
+    mateiro: "arco",
+    encantado: "foco",
+  };
+
+  // desenha o personagem ancorado nos pés em (cx, cy), em espaço de tela
+  function draw(ctx, cx, cy, appearance, anim) {
+    var skinHex = findHex(skins, appearance.skin);
+    var hairHex = findHex(hairColors, appearance.hairColor);
+    var shirt = findHex(outfits, appearance.outfit, "shirt");
+    var pants = findHex(outfits, appearance.outfit, "pants");
+    var state = anim.state || "idle";
+    var t = anim.t || 0;
+    var facing = anim.facing || { x: 0, y: 1 };
+    var scaleY = 1,
+      scaleX = 1,
+      lean = 0,
+      bob = 0,
+      legSwing = 0,
+      alpha = 1,
+      rot = 0;
+
+    if (state === "idle") bob = Math.sin(t * 2.2) * 1.4;
+    else if (state === "walk") {
+      bob = Math.abs(Math.sin(t * 8)) * 1.6;
+      legSwing = Math.sin(t * 8) * 4.5;
+    } else if (state === "run") {
+      bob = Math.abs(Math.sin(t * 13)) * 2.4;
+      legSwing = Math.sin(t * 13) * 6.5;
+      lean = facing.x * 2.2;
+    } else if (state === "attack") {
+      lean = facing.x * 2;
+      bob = -1;
+    } else if (state === "chargeAttack") {
+      scaleY = 0.94;
+      bob = Math.sin(t * 20) * 0.8;
+    } else if (state === "dodge") {
+      lean = facing.x * 5;
+      scaleX = 0.9;
+    } else if (state === "hurt") {
+      lean = -facing.x * 3;
+    } else if (state === "tool") {
+      bob = Math.sin(t * 6) * 1.2;
+      lean = facing.x * 1.5;
+    } else if (state === "death") {
+      rot = Math.min(1, t / 0.6) * (Math.PI / 2.2);
+      alpha = Math.max(0, 1 - t / 1.1);
+    }
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(cx + lean, cy);
+    if (rot) ctx.rotate(rot);
+    ctx.scale(scaleX, scaleY);
+
+    // sombra
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.beginPath();
+    ctx.ellipse(0, 15, 12, 4.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    var y = -bob;
+
+    // pernas
+    ctx.fillStyle = "#2c2118";
+    ctx.fillRect(-8, y + 1 + legSwing * 0.3, 6, 12);
+    ctx.fillRect(2, y + 1 - legSwing * 0.3, 6, 12);
+    ctx.fillStyle = pants;
+    ctx.fillRect(-9, y - 3, 18, 9);
+
+    // camisa/torso
+    ctx.fillStyle = shirt;
+    ctx.fillRect(-11, y - 16, 22, 15);
+
+    // braço com arma (desenhado antes da cabeça p/ ficar atrás em idle, na frente durante ataque)
+    var weaponId = WEAPON_BY_CLASS[anim.classId] || null;
+    if (weaponId && (state === "attack" || state === "chargeAttack")) {
+      drawWeaponSwing(ctx, weaponId, facing, state === "chargeAttack" ? anim.chargeProgress || 0 : 1, y);
+    }
+
+    // cabeça
+    ctx.fillStyle = skinHex;
+    ctx.beginPath();
+    ctx.arc(0, y - 25, 9.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // olhos (indicam direção)
+    ctx.fillStyle = "#231913";
+    var ex = facing.x * 3.4,
+      ey = facing.y * 2;
+    ctx.beginPath();
+    ctx.arc(ex, y - 25 + ey, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // cabelo
+    drawHair(ctx, appearance.hair, hairHex, y - 25);
+
+    // chapéu (opcional)
+    if (appearance.hat === "palha") {
+      ctx.fillStyle = "#d8b872";
+      ctx.beginPath();
+      ctx.ellipse(0, y - 33, 15, 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(-7, y - 33);
+      ctx.lineTo(7, y - 33);
+      ctx.lineTo(0, y - 42);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    if (weaponId && state !== "attack" && state !== "chargeAttack") {
+      drawWeaponIdle(ctx, weaponId, facing, y);
+    }
+
+    // flash de dano
+    if (state === "hurt") {
+      ctx.globalCompositeOperation = "source-atop";
+      ctx.fillStyle = "rgba(224,72,58," + Math.max(0, 0.55 - t * 1.8) + ")";
+      ctx.fillRect(-14, y - 40, 28, 60);
+      ctx.globalCompositeOperation = "source-over";
+    }
+
+    ctx.restore();
+  }
+
+  function drawHair(ctx, style, hex, headY) {
+    ctx.fillStyle = hex;
+    if (style === "curto") {
+      ctx.beginPath();
+      ctx.arc(0, headY - 2, 10, Math.PI, 0);
+      ctx.fill();
+    } else if (style === "cacheado") {
+      for (var i = -1; i <= 1; i++) {
+        ctx.beginPath();
+        ctx.arc(i * 6, headY - 6, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (style === "longo") {
+      ctx.beginPath();
+      ctx.arc(0, headY - 2, 10, Math.PI, 0);
+      ctx.fill();
+      ctx.fillRect(-9, headY - 2, 5, 16);
+      ctx.fillRect(4, headY - 2, 5, 16);
+    } else if (style === "coque") {
+      ctx.beginPath();
+      ctx.arc(0, headY - 2, 9.5, Math.PI, 0);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, headY - 14, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (style === "raspado") {
+      ctx.beginPath();
+      ctx.arc(0, headY - 2, 9.6, Math.PI * 0.95, Math.PI * 0.05);
+      ctx.fill();
+    }
+  }
+
+  function drawWeaponIdle(ctx, weaponId, facing, y) {
+    ctx.save();
+    ctx.translate(9, y - 8);
+    drawWeaponShape(ctx, weaponId, 0);
+    ctx.restore();
+  }
+
+  function drawWeaponSwing(ctx, weaponId, facing, progress, y) {
+    var fa = Math.atan2(facing.y, facing.x);
+    ctx.save();
+    ctx.translate(0, y - 8);
+    ctx.rotate(fa - 0.9 + progress * 1.7);
+    ctx.translate(16, 0);
+    drawWeaponShape(ctx, weaponId, progress);
+    ctx.restore();
+  }
+
+  function drawWeaponShape(ctx, weaponId, glow) {
+    if (weaponId === "facao") {
+      ctx.strokeStyle = "#3a3a3a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-3, 0);
+      ctx.lineTo(11, 0);
+      ctx.stroke();
+      ctx.fillStyle = "#cfd6da";
+      ctx.beginPath();
+      ctx.moveTo(2, -2.5);
+      ctx.lineTo(14, 0);
+      ctx.lineTo(2, 2.5);
+      ctx.closePath();
+      ctx.fill();
+    } else if (weaponId === "arco") {
+      ctx.strokeStyle = "#6b4a2a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 10, -1.1, 1.1);
+      ctx.stroke();
+      ctx.strokeStyle = "#cfc8b0";
+      ctx.beginPath();
+      ctx.moveTo(4.2, -8.5);
+      ctx.lineTo(4.2, 8.5);
+      ctx.stroke();
+    } else if (weaponId === "foco") {
+      ctx.strokeStyle = "#6b4a2a";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, 6);
+      ctx.lineTo(10, -4);
+      ctx.stroke();
+      if (glow > 0) {
+        ctx.fillStyle = "rgba(242,183,5," + (0.5 + glow * 0.5) + ")";
+        ctx.beginPath();
+        ctx.arc(11, -6, 3 + glow * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = "#f2b705";
+        ctx.beginPath();
+        ctx.arc(11, -6, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  return {
+    skins: skins,
+    hairStyles: hairStyles,
+    hairColors: hairColors,
+    outfits: outfits,
+    defaultAppearance: defaultAppearance,
+    draw: draw,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Componente/registro reutilizável de interação contextual.
+ *
+ * Qualquer objeto do mundo (NPC, item, baú, plantação, porta, ponto de
+ * investigação...) só precisa se registrar aqui com {x, y, range, icon,
+ * label, onInteract}. O botão contextual (controls.js) nunca sabe o que é
+ * cada objeto — só pergunta "qual é o mais próximo?" e chama onInteract().
+ * Isso evita `if (tipo === 'npc') ... else if (tipo === 'baú') ...`
+ * espalhado pelo código.
+ */
+EN.Interactable = (function () {
+  var registry = [];
+
+  function register(obj) {
+    obj.range = obj.range || 46;
+    registry.push(obj);
+    return obj;
+  }
+
+  function unregisterAll() {
+    registry = [];
+  }
+
+  function findNearest(px, py) {
+    var best = null,
+      bestD = Infinity;
+    for (var i = 0; i < registry.length; i++) {
+      var o = registry[i];
+      if (o.used && o.once) continue;
+      if (o.available === false) continue;
+      var d = Math.hypot(o.x - px, o.y - py);
+      if (d <= o.range && d < bestD) {
+        best = o;
+        bestD = d;
+      }
+    }
+    return best;
+  }
+
+  function all() {
+    return registry;
+  }
+
+  // usados para isolar a arena de teste: guarda o registro do mundo
+  // principal de lado e devolve depois, sem recriar objetos (o que
+  // reapareceria itens já coletados / baús já abertos)
+  function snapshot() {
+    return registry;
+  }
+  function restore(saved) {
+    registry = saved;
+  }
+
+  return {
+    register: register,
+    unregisterAll: unregisterAll,
+    findNearest: findNearest,
+    all: all,
+    snapshot: snapshot,
+    restore: restore,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Entidades de inimigo — IA e desenho dirigidos pela categoria do
+ * EnemyDefinition (bestiary.js). Duas categorias implementadas nesta etapa:
+ *
+ *  - 'hostile'     (Rato-do-Mato Corrompido): patrulha -> persegue ->
+ *                    avisa (telegraph) -> investe.
+ *  - 'territorial' (Cipó Vivo): fica fixo; só reage se o jogador permanecer
+ *                    perto por tempo demais; agarra e imobiliza brevemente.
+ *
+ * Novas categorias reaproveitam esta mesma máquina de estados adicionando
+ * um novo `case` em update()/draw() — não é preciso criar um arquivo por
+ * criatura.
+ */
+EN.Enemy = (function () {
+  function rand(seed) {
+    var x = Math.sin(seed * 999) * 10000;
+    return x - Math.floor(x);
+  }
+
+  var STATS_BY_DEF = {
+    rato_mato_corrompido: { hp: 34, r: 11, detect: 150, forget: 230, speed: 72, telegraph: 0.55, lungeSpeed: 210, lungeDmg: 9 },
+    cipo_vivo: { hp: 46, r: 13, territory: 78, grip: 40, grace: 1.0, dmg: 7, tickEvery: 0.7 },
+  };
+
+  function spawn(defId, x, y) {
+    var def = EN.Bestiary.getById(defId);
+    var s = STATS_BY_DEF[defId];
+    var e = {
+      defId: defId,
+      def: def,
+      x: x,
+      y: y,
+      home: { x: x, y: y },
+      r: s.r,
+      hp: s.hp,
+      hpMax: s.hp,
+      state: def.category === "territorial" ? "dormant" : "patrol",
+      stateT: rand(x + y) * 2,
+      target: null,
+      telegraph: 0,
+      hitFlash: 0,
+      dead: false,
+      deadT: 0,
+      walkT: rand(x * y + 1) * 10,
+      nearT: 0,
+      tickT: 0,
+      vineReach: 0,
+    };
+    return e;
+  }
+
+  function update(e, dt, player, dealDamageToPlayer) {
+    if (e.dead) return;
+    var s = STATS_BY_DEF[e.defId];
+    e.walkT += dt;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    var dToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+
+    if (e.def.category === "hostile") {
+      if (e.state === "patrol") {
+        e.stateT -= dt;
+        if (dToPlayer < s.detect) {
+          e.state = "chase";
+        } else if (e.stateT <= 0) {
+          e.target = { x: e.home.x + (rand(e.walkT) - 0.5) * 80, y: e.home.y + (rand(e.walkT + 2) - 0.5) * 80 };
+          e.stateT = 1.5 + rand(e.walkT) * 2;
+        }
+        if (e.target) {
+          var tdx = e.target.x - e.x,
+            tdy = e.target.y - e.y,
+            td = Math.hypot(tdx, tdy);
+          if (td > 4) {
+            e.x += (tdx / td) * 30 * dt;
+            e.y += (tdy / td) * 30 * dt;
+          }
+        }
+      } else if (e.state === "chase") {
+        if (dToPlayer > s.forget) {
+          e.state = "patrol";
+          e.stateT = 1;
+          return;
+        }
+        if (dToPlayer < e.r + 24) {
+          e.state = "telegraph";
+          e.telegraph = s.telegraph;
+          return;
+        }
+        var dx = player.x - e.x,
+          dy = player.y - e.y,
+          d = dToPlayer;
+        e.x += (dx / d) * s.speed * dt;
+        e.y += (dy / d) * s.speed * dt;
+      } else if (e.state === "telegraph") {
+        e.telegraph -= dt;
+        if (e.telegraph <= 0) {
+          e.state = "lunge";
+          e.lungeT = 0.22;
+          e.lx = player.x - e.x;
+          e.ly = player.y - e.y;
+          var ld = Math.hypot(e.lx, e.ly) || 1;
+          e.lx /= ld;
+          e.ly /= ld;
+        }
+      } else if (e.state === "lunge") {
+        e.lungeT -= dt;
+        e.x += e.lx * s.lungeSpeed * dt;
+        e.y += e.ly * s.lungeSpeed * dt;
+        if (Math.hypot(player.x - e.x, player.y - e.y) < e.r + player.r + 4) {
+          dealDamageToPlayer(s.lungeDmg);
+          e.state = "chase";
+        }
+        if (e.lungeT <= 0) e.state = "chase";
+      }
+    } else if (e.def.category === "territorial") {
+      // nunca se move do lugar — território fixo
+      if (dToPlayer <= s.grip) {
+        e.nearT += dt;
+        if (e.state === "dormant") e.state = "alert";
+        if (e.nearT >= s.grace && e.state !== "gripping") {
+          e.state = "gripping";
+          e.tickT = 0;
+        }
+      } else {
+        e.nearT = Math.max(0, e.nearT - dt * 1.5);
+        if (e.nearT <= 0 && e.state !== "dormant") e.state = dToPlayer <= s.territory ? "alert" : "dormant";
+      }
+
+      if (e.state === "gripping") {
+        e.vineReach = Math.min(1, e.vineReach + dt * 4);
+        e.tickT -= dt;
+        if (dToPlayer > s.grip + 14) {
+          e.state = "alert";
+          e.vineReach = 0;
+        } else if (e.tickT <= 0) {
+          e.tickT = s.tickEvery;
+          dealDamageToPlayer(s.dmg);
+        }
+      } else {
+        e.vineReach = Math.max(0, e.vineReach - dt * 3);
+      }
+    }
+  }
+
+  function damage(e, dmg, onKilled) {
+    e.hp -= dmg;
+    e.hitFlash = 0.18;
+    if (e.hp <= 0 && !e.dead) {
+      e.dead = true;
+      e.deadT = 0;
+      if (onKilled) onKilled(e);
+    }
+  }
+
+  function draw(ctx, e, camX, camY) {
+    var x = e.x - camX,
+      y = e.y - camY;
+    ctx.save();
+    if (e.dead) ctx.globalAlpha = Math.max(0, 1 - e.deadT / 0.5);
+
+    if (e.def.category === "territorial") {
+      drawCipoVivo(ctx, e, x, y);
+    } else {
+      drawRato(ctx, e, x, y);
+    }
+
+    if (!e.dead) {
+      var pct = Math.max(0, e.hp / e.hpMax);
+      ctx.fillStyle = "#000a";
+      ctx.fillRect(x - 14, y - 26, 28, 4);
+      ctx.fillStyle = "#c94b3f";
+      ctx.fillRect(x - 14, y - 26, 28 * pct, 4);
+    }
+    if (e.state === "telegraph") {
+      var pulse = 1 - e.telegraph / STATS_BY_DEF[e.defId].telegraph;
+      ctx.strokeStyle = "rgba(224,72,58," + (0.9 - pulse * 0.5) + ")";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(x, y, 10 + pulse * 14, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawRato(ctx, e, x, y) {
+    ctx.fillStyle = "#0004";
+    ctx.beginPath();
+    ctx.ellipse(x, y + 9, 10, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = e.hitFlash > 0 ? "#f2b0a8" : "#7a6a52";
+    ctx.beginPath();
+    ctx.ellipse(x, y, 11, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#5a4c38";
+    ctx.beginPath();
+    ctx.moveTo(x - 9, y - 6);
+    ctx.lineTo(x - 13, y - 13);
+    ctx.lineTo(x - 5, y - 8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x + 9, y - 6);
+    ctx.lineTo(x + 13, y - 13);
+    ctx.lineTo(x + 5, y - 8);
+    ctx.closePath();
+    ctx.fill();
+    // marca de corrupção
+    ctx.strokeStyle = "#1c1420";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - 3, y + 4);
+    ctx.lineTo(x + 1, y - 1);
+    ctx.stroke();
+    ctx.fillStyle = e.state === "chase" || e.state === "telegraph" || e.state === "lunge" ? "#e0483a" : "#e07a2a";
+    ctx.beginPath();
+    ctx.arc(x - 3, y - 1, 1.6, 0, Math.PI * 2);
+    ctx.arc(x + 3, y - 1, 1.6, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawCipoVivo(ctx, e, x, y) {
+    ctx.strokeStyle = "#3a5a2c";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(x, y + 12);
+    ctx.quadraticCurveTo(x - 6, y - 2, x, y - 14);
+    ctx.stroke();
+    ctx.fillStyle = e.hitFlash > 0 ? "#c9a8a0" : e.state === "gripping" ? "#4a2530" : "#2f5a2e";
+    ctx.beginPath();
+    ctx.arc(x, y - 16, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#1c1420";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(x - 2, y - 17, 3, 0, Math.PI);
+    ctx.stroke();
+    if (e.vineReach > 0) {
+      ctx.strokeStyle = "rgba(58,90,44,.85)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(x, y - 10);
+      ctx.lineTo(x + e.vineReach * 26, y - 4);
+      ctx.stroke();
+    }
+  }
+
+  return { spawn: spawn, update: update, damage: damage, draw: draw };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Entidade do jogador: movimento, máquina de estados de animação, uso de
+ * habilidades e recursos (HP/ST/MP). Não conhece o mundo (inimigos,
+ * projéteis) diretamente — ataques corpo-a-corpo recebem uma lista de alvos
+ * e um callback `dealDamage`; habilidades à distância devolvem um
+ * "descritor" de projétil para quem chamou (world.js/arena.js) instanciar.
+ * Isso mantém Player.js independente da cena em que está rodando (mundo
+ * principal ou arena de teste).
+ */
+EN.Player = (function () {
+  function create(appearance, classId, x, y) {
+    var p = {
+      appearance: appearance,
+      x: x || 300,
+      y: y || 300,
+      r: 13,
+      facing: { x: 0, y: 1 },
+      speed: 160,
+      moving: false,
+      walkT: 0,
+      state: "idle",
+      stateT: 0,
+      invuln: 0,
+      chargeT: 0,
+      charging: false,
+      healCharges: 3,
+      cd: { basic: 0, heavy: 0, skill1: 0, dodge: 0 },
+      classId: null,
+      classDef: null,
+    };
+    applyClass(p, classId, true);
+    return p;
+  }
+
+  function applyClass(p, classId, fullHeal) {
+    var stats;
+    if (classId) {
+      p.classDef = EN.Classes.getById(classId);
+      stats = p.classDef.baseStats;
+    } else {
+      p.classDef = null;
+      stats = EN.Classes.classlessDefaults.baseStats;
+    }
+    p.classId = classId;
+    p.hpMax = stats.hpMax;
+    p.stMax = stats.stMax;
+    p.mpMax = stats.mpMax;
+    p.atk = stats.atk;
+    p.def = stats.def;
+    p.speed = stats.speed;
+    if (fullHeal || p.hp === undefined) {
+      p.hp = p.hpMax;
+      p.st = p.stMax;
+      p.mp = p.mpMax;
+    } else {
+      p.hp = Math.min(p.hp, p.hpMax);
+      p.st = Math.min(p.st, p.stMax);
+      p.mp = Math.min(p.mp, p.mpMax);
+    }
+  }
+
+  var CD_MAX = { dodge: 0.9 };
+  var COOLDOWN_TICK_KEYS = ["basic", "heavy", "skill1", "dodge"];
+
+  function update(p, dt, moveVec) {
+    COOLDOWN_TICK_KEYS.forEach(function (k) {
+      if (p.cd[k] > 0) p.cd[k] = Math.max(0, p.cd[k] - dt);
+    });
+    if (p.invuln > 0) p.invuln -= dt;
+    p.stateT += dt;
+
+    p.st = Math.min(p.stMax, p.st + dt * 9);
+    p.mp = Math.min(p.mpMax, p.mp + dt * 4.5);
+
+    var mag = Math.hypot(moveVec.x, moveVec.y);
+    p.moving = mag > 0.08 && p.state !== "attack" && p.state !== "dodge" && p.state !== "hurt" && p.state !== "death";
+    if (p.moving) {
+      p.facing.x = moveVec.x / mag;
+      p.facing.y = moveVec.y / mag;
+      var running = mag > 0.85;
+      var spd = p.speed * (p.state === "dodge" ? 2.6 : 1);
+      p.x += moveVec.x * spd * dt;
+      p.y += moveVec.y * spd * dt;
+      p.walkT += dt * (running ? 13 : 8);
+      if (p.state !== "attack" && p.state !== "chargeAttack" && p.state !== "dodge" && p.state !== "hurt")
+        p.state = running ? "run" : "walk";
+    } else if (p.state === "walk" || p.state === "run") {
+      p.state = "idle";
+    }
+
+    if (p.charging) {
+      p.chargeT = Math.min(1, p.chargeT + dt / 0.55);
+      p.state = "chargeAttack";
+    }
+
+    if ((p.state === "attack" || p.state === "dodge" || p.state === "hurt" || p.state === "tool") && p.stateT > 0.32) {
+      p.state = p.moving ? (mag > 0.85 ? "run" : "walk") : "idle";
+    }
+  }
+
+  function setState(p, state) {
+    p.state = state;
+    p.stateT = 0;
+  }
+
+  function tapAttack(p, enemies, dealDamage) {
+    if (p.cd.basic > 0 || p.hp <= 0 || p.charging) return false;
+    var ab = EN.Classes.universalAttack.basic;
+    p.cd.basic = ab.cooldown;
+    setState(p, "attack");
+    var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 2.1, enemies);
+    hits.forEach(function (e) {
+      dealDamage(e, ab.damage);
+    });
+    return { type: "melee", hitCount: hits.length };
+  }
+
+  function startCharge(p) {
+    if (p.cd.heavy > 0 || p.hp <= 0 || p.st < 15) return false;
+    p.charging = true;
+    p.chargeT = 0;
+    setState(p, "chargeAttack");
+    return true;
+  }
+
+  function releaseCharge(p, enemies, dealDamage) {
+    if (!p.charging) return false;
+    p.charging = false;
+    var full = p.chargeT >= 0.98;
+    p.chargeT = 0;
+    var ab = EN.Classes.universalAttack.heavy;
+    var cost = full ? ab.staminaCost : Math.round(ab.staminaCost * 0.6);
+    if (p.st < cost) {
+      setState(p, "idle");
+      return false;
+    }
+    p.st -= cost;
+    p.cd.heavy = ab.cooldown;
+    setState(p, "attack");
+    var dmg = full ? ab.damage : Math.round(ab.damage * 0.55);
+    var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 1.7, enemies);
+    hits.forEach(function (e) {
+      dealDamage(e, dmg);
+    });
+    return { type: "melee_heavy", full: full, hitCount: hits.length };
+  }
+
+  // habilidade 1 da classe (única implementada nesta etapa) — devolve
+  // descritor de projétil para quem chamou instanciar, ou aplica dano
+  // corpo-a-corpo diretamente (Golpe Poderoso do Guerreiro)
+  function useSkill1(p, enemies, dealDamage) {
+    if (!p.classDef || !p.classDef.abilities[0]) return false;
+    var ab = p.classDef.abilities[0];
+    if (p.cd.skill1 > 0 || p.hp <= 0) return false;
+    if (ab.staminaCost && p.st < ab.staminaCost) return false;
+    if (ab.manaCost && p.mp < ab.manaCost) return false;
+
+    p.st -= ab.staminaCost || 0;
+    p.mp -= ab.manaCost || 0;
+    p.cd.skill1 = ab.cooldown;
+    setState(p, ab.animation || "attack");
+
+    if (ab.type === "melee_heavy" || ab.type === "melee") {
+      var halfAngle = ab.type === "melee_heavy" ? Math.PI / 1.6 : Math.PI / 2.1;
+      var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, halfAngle, enemies);
+      hits.forEach(function (e) {
+        dealDamage(e, ab.damage);
+      });
+      return { type: ab.type, ability: ab, hitCount: hits.length };
+    }
+    if (ab.type === "projectile" || ab.type === "projectile_magic") {
+      return {
+        type: ab.type,
+        ability: ab,
+        projectile: {
+          x: p.x,
+          y: p.y,
+          vx: p.facing.x * 380,
+          vy: p.facing.y * 380,
+          r: ab.type === "projectile_magic" ? 6 : 5,
+          dmg: ab.damage,
+          magic: ab.type === "projectile_magic",
+        },
+      };
+    }
+    return false;
+  }
+
+  function dodge(p) {
+    if (p.cd.dodge > 0 || p.hp <= 0 || p.st < 18) return false;
+    p.st -= 18;
+    p.cd.dodge = CD_MAX.dodge;
+    p.invuln = 0.32;
+    setState(p, "dodge");
+    return true;
+  }
+
+  function useHeal(p) {
+    if (p.healCharges <= 0 || p.hp <= 0) return false;
+    p.healCharges--;
+    p.hp = Math.min(p.hpMax, p.hp + 40);
+    return true;
+  }
+
+  function takeDamage(p, dmg) {
+    if (p.invuln > 0 || p.hp <= 0) return false;
+    p.hp = Math.max(0, p.hp - dmg);
+    p.invuln = 0.5;
+    setState(p, "hurt");
+    if (p.hp <= 0) setState(p, "death");
+    return true;
+  }
+
+  function draw(ctx, p, camX, camY) {
+    var anim = {
+      state: p.state,
+      t: p.stateT,
+      facing: p.facing,
+      classId: p.classId,
+      chargeProgress: p.chargeT,
+    };
+    if (p.invuln > 0 && p.state !== "hurt" && Math.floor(p.invuln * 20) % 2 === 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.5;
+      EN.Appearance.draw(ctx, p.x - camX, p.y - camY, p.appearance, anim);
+      ctx.restore();
+    } else {
+      EN.Appearance.draw(ctx, p.x - camX, p.y - camY, p.appearance, anim);
+    }
+  }
+
+  return {
+    create: create,
+    applyClass: applyClass,
+    update: update,
+    tapAttack: tapAttack,
+    startCharge: startCharge,
+    releaseCharge: releaseCharge,
+    useSkill1: useSkill1,
+    dodge: dodge,
+    useHeal: useHeal,
+    takeDamage: takeDamage,
+    draw: draw,
+    CD_MAX: CD_MAX,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Câmera com zoom fixo e seguimento suave (lerp) — sem solavancos, sem
+ * atraso perceptível. ZOOM = 1.4 (~40% mais perto que o protótipo anterior),
+ * valor escolhido testando legibilidade de cabelo/roupa/arma em tela mobile
+ * pequena sem cortar demais o campo de visão de combate.
+ */
+EN.Camera = (function () {
+  var ZOOM = 1.4;
+  var LERP_SPEED = 5.2;
+
+  function create(x, y) {
+    return { x: x, y: y, zoom: ZOOM };
+  }
+
+  function update(cam, targetX, targetY, dt) {
+    var f = Math.min(1, dt * LERP_SPEED);
+    cam.x += (targetX - cam.x) * f;
+    cam.y += (targetY - cam.y) * f;
+  }
+
+  // devolve o canto superior-esquerdo (em espaço de mundo) visível na tela,
+  // já considerando o zoom e limitado às bordas do mundo
+  function getViewOrigin(cam, screenW, screenH, worldW, worldH) {
+    var viewW = screenW / cam.zoom;
+    var viewH = screenH / cam.zoom;
+    var camX = cam.x - viewW / 2;
+    var camY = cam.y - viewH / 2;
+    camX = Math.max(0, Math.min(worldW - viewW, camX));
+    camY = Math.max(0, Math.min(worldH - viewH, camY));
+    if (worldW < viewW) camX = -(viewW - worldW) / 2;
+    if (worldH < viewH) camY = -(viewH - worldH) / 2;
+    return { x: camX, y: camY, viewW: viewW, viewH: viewH };
+  }
+
+  return { create: create, update: update, getViewOrigin: getViewOrigin, ZOOM: ZOOM };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Cenário do Sítio: fundo pré-renderizado (baked) em canvas offscreen,
+ * povoamento de objetos interativos (NPC/item/baú/plantação/porta) via
+ * Interactable, spawns de inimigos do bestiário, e atmosfera dia/noite
+ * (tingimento + partículas leves). Nada aqui é dono do jogador nem do HUD —
+ * só do espaço e do que existe nele.
+ */
+EN.World = (function () {
+  var WORLD_W = 1700,
+    WORLD_H = 1100;
+
+  function rand(seed) {
+    var x = Math.sin(seed * 999) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function bake() {
+    var world = document.createElement("canvas");
+    world.width = WORLD_W;
+    world.height = WORLD_H;
+    var c = world.getContext("2d");
+    c.imageSmoothingEnabled = false;
+
+    c.fillStyle = "#274a35";
+    c.fillRect(0, 0, WORLD_W, WORLD_H);
+    for (var i = 0; i < 2600; i++) {
+      var x = rand(i * 3.1) * WORLD_W,
+        y = rand(i * 7.7) * WORLD_H;
+      var g = rand(i * 1.3);
+      c.fillStyle = g > 0.6 ? "#2f5a40" : g > 0.3 ? "#23432f" : "#1c3527";
+      c.fillRect(x | 0, y | 0, 3, 3);
+    }
+
+    drawPath(c);
+    drawHouse(c, 160, 120);
+    drawField(c, 700, 760, 300, 180);
+
+    var treeSpots = [
+      [560, 140],
+      [900, 220],
+      [1150, 420],
+      [1350, 700],
+      [300, 620],
+      [80, 820],
+      [1500, 900],
+      [1250, 140],
+      [650, 940],
+    ];
+    for (var t = 0; t < treeSpots.length; t++) drawTree(c, treeSpots[t][0], treeSpots[t][1]);
+
+    for (var r = 0; r < 10; r++) {
+      var rx = 1420 + rand(r * 5.5) * 220,
+        ry = 60 + rand(r * 9.2) * 980;
+      drawRock(c, rx, ry, 14 + rand(r) * 10);
+    }
+
+    // decoração leve: tufos de grama, flores e pedrinhas espalhadas
+    for (var d = 0; d < 90; d++) {
+      var dx = rand(d * 4.4 + 50) * WORLD_W,
+        dy = rand(d * 8.8 + 50) * WORLD_H;
+      var kind = rand(d * 2.2);
+      if (kind < 0.4) drawTuft(c, dx, dy);
+      else if (kind < 0.75) drawFlower(c, dx, dy, rand(d * 5) > 0.5 ? "#e8c9e0" : "#f2e08a");
+      else drawRock(c, dx, dy, 4 + rand(d) * 5);
+    }
+
+    return world;
+  }
+
+  function drawPath(c) {
+    // borda irregular: várias passadas com leve jitter em vez de uma curva perfeitamente lisa
+    var pts = [
+      [220, 180],
+      [340, 320],
+      [480, 500],
+      [500, 700],
+      [470, 860],
+      [620, 950],
+      [900, 980],
+    ];
+    for (var pass = 0; pass < 3; pass++) {
+      c.strokeStyle = pass === 0 ? "#7a5c3c" : pass === 1 ? "#8a6a45" : "#9c7c53";
+      c.lineWidth = 48 - pass * 9;
+      c.lineCap = "round";
+      c.lineJoin = "round";
+      c.beginPath();
+      for (var i = 0; i < pts.length; i++) {
+        var jx = (rand(i * 3.3 + pass * 7) - 0.5) * 10;
+        var jy = (rand(i * 5.1 + pass * 11) - 0.5) * 10;
+        var px = pts[i][0] + jx,
+          py = pts[i][1] + jy;
+        if (i === 0) c.moveTo(px, py);
+        else c.lineTo(px, py);
+      }
+      c.stroke();
+    }
+    // tufos de grama invadindo a borda do caminho
+    for (var g = 0; g < 26; g++) {
+      var seg = pts[Math.floor(rand(g * 1.7) * (pts.length - 1))];
+      var ox = seg[0] + (rand(g * 9.1) - 0.5) * 60;
+      var oy = seg[1] + (rand(g * 4.4) - 0.5) * 60;
+      drawTuft(c, ox, oy);
+    }
+  }
+
+  function drawHouse(c, x, y) {
+    c.fillStyle = "#c9a15f";
+    c.fillRect(x, y + 40, 150, 90);
+    c.fillStyle = "#8a6a45";
+    c.fillRect(x, y + 40, 150, 10);
+    c.fillStyle = "#a5432f";
+    c.beginPath();
+    c.moveTo(x - 16, y + 42);
+    c.lineTo(x + 75, y - 30);
+    c.lineTo(x + 166, y + 42);
+    c.closePath();
+    c.fill();
+    c.fillStyle = "#5a3a22";
+    c.fillRect(x + 62, y + 80, 30, 50);
+    c.fillStyle = "#e8d9a8";
+    c.fillRect(x + 20, y + 60, 24, 24);
+    c.fillRect(x + 108, y + 60, 24, 24);
+    c.strokeStyle = "#5a3a22";
+    c.lineWidth = 2;
+    c.strokeRect(x + 20, y + 60, 24, 24);
+    c.strokeRect(x + 108, y + 60, 24, 24);
+  }
+
+  function drawField(c, x, y, w, h) {
+    c.strokeStyle = "#7a5a3a";
+    c.lineWidth = 6;
+    c.strokeRect(x, y, w, h);
+    c.fillStyle = "#3d2c1c";
+    c.fillRect(x + 6, y + 6, w - 12, h - 12);
+    for (var row = 0; row < 5; row++) {
+      var ry = y + 18 + row * 32;
+      for (var col = 0; col < 8; col++) {
+        var cx = x + 20 + col * 34;
+        c.fillStyle = "#4f7a3a";
+        c.beginPath();
+        c.arc(cx, ry, 7, 0, Math.PI * 2);
+        c.fill();
+        c.fillStyle = "#6ea34a";
+        c.beginPath();
+        c.arc(cx - 2, ry - 2, 3, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+  }
+
+  function drawTree(c, x, y) {
+    c.fillStyle = "#4a3320";
+    c.fillRect(x - 6, y, 12, 34);
+    c.fillStyle = "#1f4a30";
+    c.beginPath();
+    c.arc(x, y - 10, 32, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#2f6a42";
+    c.beginPath();
+    c.arc(x - 10, y - 18, 22, 0, Math.PI * 2);
+    c.fill();
+    c.beginPath();
+    c.arc(x + 14, y - 14, 20, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  function drawRock(c, x, y, r) {
+    c.fillStyle = "#5a5850";
+    c.beginPath();
+    c.ellipse(x, y, r, r * 0.72, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#6f6c62";
+    c.beginPath();
+    c.ellipse(x - r * 0.25, y - r * 0.25, r * 0.4, r * 0.28, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  function drawTuft(c, x, y) {
+    c.strokeStyle = "#3f6a45";
+    c.lineWidth = 1.6;
+    for (var i = -2; i <= 2; i++) {
+      c.beginPath();
+      c.moveTo(x + i * 2, y);
+      c.quadraticCurveTo(x + i * 2 + i, y - 8, x + i * 3, y - 12);
+      c.stroke();
+    }
+  }
+
+  function drawFlower(c, x, y, hex) {
+    c.fillStyle = "#3f6a45";
+    c.fillRect(x - 0.5, y - 5, 1, 6);
+    c.fillStyle = hex;
+    for (var a = 0; a < 4; a++) {
+      var ang = (a / 4) * Math.PI * 2;
+      c.beginPath();
+      c.arc(x + Math.cos(ang) * 2.6, y - 6 + Math.sin(ang) * 2.6, 2, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = "#f2b705";
+    c.beginPath();
+    c.arc(x, y - 6, 1.4, 0, Math.PI * 2);
+    c.fill();
+  }
+
+  // ---------- povoamento de interativos + inimigos ----------
+  function populate(onDespertar, onSayNpc, onOpenChest, onPickupItem, onCropInteract) {
+    EN.Interactable.unregisterAll();
+
+    EN.Interactable.register({
+      x: 420,
+      y: 210,
+      range: 50,
+      icon: "💬",
+      label: "Conversar",
+      type: "npc",
+      onInteract: function () {
+        onSayNpc("zé");
+      },
+    });
+
+    EN.Interactable.register({
+      x: 560,
+      y: 470,
+      range: 40,
+      icon: "✋",
+      label: "Pegar",
+      type: "item",
+      once: true,
+      used: false,
+      onInteract: function (obj) {
+        obj.used = true;
+        onPickupItem();
+      },
+    });
+
+    EN.Interactable.register({
+      x: 1020,
+      y: 300,
+      range: 44,
+      icon: "🎁",
+      label: "Abrir",
+      type: "chest",
+      once: true,
+      used: false,
+      onInteract: function (obj) {
+        obj.used = true;
+        onOpenChest();
+      },
+    });
+
+    EN.Interactable.register({
+      x: 780,
+      y: 820,
+      range: 50,
+      icon: "🧺",
+      label: "Colher",
+      type: "crop",
+      onInteract: function () {
+        onCropInteract();
+      },
+    });
+
+    EN.Interactable.register({
+      x: 237,
+      y: 178,
+      range: 44,
+      icon: "🚪",
+      label: "Entrar",
+      type: "door",
+      onInteract: function () {
+        onSayNpc("porta");
+      },
+    });
+
+    EN.Interactable.register({
+      x: 900,
+      y: 220,
+      range: 46,
+      icon: "🌀",
+      label: "Observar",
+      type: "saci",
+      onInteract: function () {
+        onSayNpc("saci");
+      },
+    });
+
+    // ponto de investigação que dispara O Despertar (ver GDD Seção 4/7)
+    EN.Interactable.register({
+      x: 1300,
+      y: 700,
+      range: 50,
+      icon: "🔍",
+      label: "Investigar",
+      type: "investigate",
+      once: true,
+      used: false,
+      onInteract: function (obj) {
+        obj.used = true;
+        onDespertar();
+      },
+    });
+  }
+
+  function spawnInitialEnemies() {
+    var enemies = [];
+    enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 560, 340));
+    enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 820, 540));
+    enemies.push(EN.Enemy.spawn("cipo_vivo", 520, 760));
+    return enemies;
+  }
+
+  // ---------- atmosfera dia/noite ----------
+  var phases = [
+    { name: "Madrugada", from: 0, to: 6, glyph: "✧", tint: [10, 14, 28, 0.55] },
+    { name: "Manhã", from: 6, to: 12, glyph: "☀", tint: [255, 214, 140, 0.06] },
+    { name: "Tarde", from: 12, to: 18, glyph: "☀", tint: [255, 170, 90, 0.1] },
+    { name: "Noite", from: 18, to: 24, glyph: "☾", tint: [14, 18, 40, 0.42] },
+  ];
+  function currentPhase(hour) {
+    for (var i = 0; i < phases.length; i++) if (hour >= phases[i].from && hour < phases[i].to) return phases[i];
+    return phases[0];
+  }
+
+  var fireflies = null;
+  var reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function ensureFireflies() {
+    if (fireflies) return fireflies;
+    fireflies = [];
+    var n = reduceMotion ? 6 : 16;
+    for (var i = 0; i < n; i++) {
+      fireflies.push({
+        x: rand(i * 3.3) * WORLD_W,
+        y: rand(i * 7.1) * WORLD_H,
+        baseX: 0,
+        baseY: 0,
+        t: rand(i) * 10,
+        speed: 0.4 + rand(i * 2) * 0.5,
+      });
+    }
+    fireflies.forEach(function (f) {
+      f.baseX = f.x;
+      f.baseY = f.y;
+    });
+    return fireflies;
+  }
+
+  function drawAtmosphere(ctx, dayT, camX, camY, viewW, viewH, dt) {
+    var ph = currentPhase(dayT);
+    var night = ph.name === "Noite" || ph.name === "Madrugada";
+
+    if (night) {
+      var flies = ensureFireflies();
+      ctx.save();
+      flies.forEach(function (f) {
+        f.t += dt * f.speed;
+        var fx = f.baseX + Math.sin(f.t) * 30;
+        var fy = f.baseY + Math.cos(f.t * 0.7) * 20;
+        var sx = fx - camX,
+          sy = fy - camY;
+        if (sx < -20 || sy < -20 || sx > viewW + 20 || sy > viewH + 20) return;
+        var glow = ctx.createRadialGradient(sx, sy, 0, sx, sy, 7);
+        glow.addColorStop(0, "rgba(255,236,150,.85)");
+        glow.addColorStop(1, "rgba(255,236,150,0)");
+        ctx.fillStyle = glow;
+        ctx.fillRect(sx - 7, sy - 7, 14, 14);
+      });
+      ctx.restore();
+    }
+
+    ctx.fillStyle = "rgba(" + ph.tint[0] + "," + ph.tint[1] + "," + ph.tint[2] + "," + ph.tint[3] + ")";
+    ctx.fillRect(0, 0, viewW, viewH);
+
+    if (night) {
+      var g = ctx.createRadialGradient(215 - camX, 190 - camY, 10, 215 - camX, 190 - camY, 190);
+      g.addColorStop(0, "rgba(255,220,150,.28)");
+      g.addColorStop(1, "rgba(255,220,150,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+  }
+
+  return {
+    WORLD_W: WORLD_W,
+    WORLD_H: WORLD_H,
+    bake: bake,
+    populate: populate,
+    spawnInitialEnemies: spawnInitialEnemies,
+    currentPhase: currentPhase,
+    drawAtmosphere: drawAtmosphere,
+  };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * HUD compacto: barras horizontais com ícone, retrato+nível+classe,
+ * relógio/dia/moeda. Só atualiza texto/estilo de elementos já existentes no
+ * DOM (ver index.html) — nenhum layout é gerado aqui.
+ */
+EN.HUD = (function () {
+  var els = {};
+  function cache() {
+    [
+      "fill-hp",
+      "fill-st",
+      "fill-mp",
+      "num-hp",
+      "num-st",
+      "num-mp",
+      "hud-name",
+      "hud-classline",
+      "hud-portrait",
+      "coin-count",
+      "clock-time",
+      "clock-day",
+      "day-glyph",
+    ].forEach(function (id) {
+      els[id] = document.getElementById(id);
+    });
+  }
+
+  function setBar(key, v, max) {
+    els["fill-" + key].style.transform = "scaleX(" + Math.max(0, v / max) + ")";
+    els["num-" + key].textContent = Math.ceil(v) + "/" + max;
+  }
+
+  function fmtClock(dayT) {
+    var h = Math.floor(dayT);
+    var m = Math.floor((dayT - h) * 60);
+    return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+  }
+
+  function update(p, world, appearance) {
+    if (!els["fill-hp"]) cache();
+    setBar("hp", p.hp, p.hpMax);
+    setBar("st", p.st, p.stMax);
+    setBar("mp", p.mp, p.mpMax);
+
+    els["hud-name"].textContent = appearance.name || "Viajante";
+    var className = p.classDef ? p.classDef.name : "Sem classe";
+    els["hud-classline"].textContent = (world.level ? "Nv. " + world.level + " • " : "") + className;
+    drawPortrait(appearance, p.classId);
+
+    if (world.showClock !== false) {
+      els["coin-count"].textContent = world.vintem;
+      els["clock-time"].textContent = fmtClock(world.dayT);
+      els["clock-day"].textContent = "Dia " + world.day;
+      var ph = EN.World.currentPhase(world.dayT);
+      els["day-glyph"].textContent = ph.glyph;
+    }
+  }
+
+  function drawPortrait(appearance, classId) {
+    var canvas = els["hud-portrait"];
+    if (!canvas || canvas.tagName !== "CANVAS") return;
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.imageSmoothingEnabled = false;
+    EN.Appearance.draw(ctx, canvas.width / 2, canvas.height / 2 + 16, appearance, {
+      state: "idle",
+      t: performance.now() / 600,
+      facing: { x: 0, y: 1 },
+      classId: classId,
+    });
+  }
+
+  return { update: update };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Controles mobile: joystick virtual + botões baseados em ícone (sem texto
+ * permanente). Ataque: toque = normal, segurar = carrega e solta um golpe
+ * pesado (visual de carregamento no próprio botão + na animação do
+ * personagem). Cooldowns são mostrados por escurecimento radial
+ * (conic-gradient), nunca por números fixos sobre o botão.
+ *
+ * `EN.Controls.bind(ctx)` troca o "alvo" das ações (mundo principal vs.
+ * arena de teste) sem duplicar a lógica de input — ver arena.js.
+ */
+EN.Controls = (function () {
+  var joy = { active: false, id: null, cx: 0, cy: 0, dx: 0, dy: 0, mag: 0, maxR: 44 };
+  var ctx = null; // { player, enemies, dealDamage, spawnProjectile, isArena }
+  var chargeHoldTimer = null;
+  var holdStartT = 0;
+  var els = {};
+
+  function bind(newCtx) {
+    ctx = newCtx;
+  }
+
+  function cacheEls() {
+    [
+      "joy-zone",
+      "joy-base",
+      "joy-knob",
+      "btn-attack",
+      "btn-dodge",
+      "btn-skill1",
+      "btn-skill2",
+      "btn-context",
+      "cd-attack",
+      "cd-dodge",
+      "cd-skill1",
+      "charge-ring",
+      "icon-skill1",
+      "icon-skill2",
+      "icon-context",
+    ].forEach(function (id) {
+      els[id] = document.getElementById(id);
+    });
+  }
+
+  function init() {
+    cacheEls();
+    wireJoystick();
+    wireButtons();
+  }
+
+  function wireJoystick() {
+    var zone = els["joy-zone"];
+    zone.addEventListener("pointerdown", function (e) {
+      if (joy.active) return;
+      joy.active = true;
+      joy.id = e.pointerId;
+      var rect = zone.getBoundingClientRect();
+      joy.cx = e.clientX;
+      joy.cy = e.clientY;
+      els["joy-base"].style.left = e.clientX - rect.left - 48 + "px";
+      els["joy-base"].style.bottom = rect.bottom - e.clientY - 48 + "px";
+      els["joy-base"].classList.add("active");
+      zone.setPointerCapture && zone.setPointerCapture(e.pointerId);
+    });
+    zone.addEventListener("pointermove", function (e) {
+      if (!joy.active || e.pointerId !== joy.id) return;
+      var dx = e.clientX - joy.cx,
+        dy = e.clientY - joy.cy;
+      var d = Math.hypot(dx, dy);
+      var m = Math.min(d, joy.maxR);
+      var ang = Math.atan2(dy, dx);
+      var kx = Math.cos(ang) * m,
+        ky = Math.sin(ang) * m;
+      els["joy-knob"].style.transform = "translate(" + (kx - 21) + "px," + (ky - 21) + "px)";
+      joy.dx = d > 0 ? dx / d : 0;
+      joy.dy = d > 0 ? dy / d : 0;
+      joy.mag = m / joy.maxR;
+    });
+    function end(e) {
+      if (e.pointerId !== joy.id) return;
+      joy.active = false;
+      joy.id = null;
+      joy.dx = 0;
+      joy.dy = 0;
+      joy.mag = 0;
+      els["joy-base"].classList.remove("active");
+      els["joy-knob"].style.transform = "translate(-50%,-50%)";
+    }
+    zone.addEventListener("pointerup", end);
+    zone.addEventListener("pointercancel", end);
+  }
+
+  function getMoveVector() {
+    return { x: joy.dx * joy.mag, y: joy.dy * joy.mag };
+  }
+
+  function pressFx(btn) {
+    btn.classList.add("pressed");
+    setTimeout(function () {
+      btn.classList.remove("pressed");
+    }, 140);
+  }
+
+  function wireButtons() {
+    var atk = els["btn-attack"];
+    atk.addEventListener("pointerdown", function (e) {
+      atk.setPointerCapture && atk.setPointerCapture(e.pointerId);
+      holdStartT = performance.now();
+      clearTimeout(chargeHoldTimer);
+      chargeHoldTimer = setTimeout(function () {
+        if (!ctx) return;
+        EN.Player.startCharge(ctx.player);
+        atk.classList.add("charging");
+      }, 150);
+    });
+    atk.addEventListener("pointerup", function () {
+      clearTimeout(chargeHoldTimer);
+      if (!ctx) return;
+      var held = performance.now() - holdStartT;
+      atk.classList.remove("charging");
+      if (ctx.player.charging) {
+        EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
+      } else if (held < 500) {
+        EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
+      }
+      pressFx(atk);
+    });
+    atk.addEventListener("pointercancel", function () {
+      clearTimeout(chargeHoldTimer);
+      atk.classList.remove("charging");
+    });
+
+    els["btn-dodge"].addEventListener("pointerdown", function (e) {
+      if (!ctx) return;
+      EN.Player.dodge(ctx.player);
+      pressFx(els["btn-dodge"]);
+    });
+
+    els["btn-skill1"].addEventListener("pointerdown", function () {
+      if (!ctx) return;
+      var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
+      if (res && res.projectile) ctx.spawnProjectile(res.projectile);
+      pressFx(els["btn-skill1"]);
+    });
+
+    els["btn-context"].addEventListener("pointerdown", function () {
+      if (!ctx) return;
+      var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
+      if (target) target.onInteract(target);
+      pressFx(els["btn-context"]);
+    });
+  }
+
+  // cor de destaque por classe, só para dar identidade visual ao botão de
+  // habilidade 1 (inspirado no padrão de "ícone colorido por elemento" de
+  // ARPGs mobile em geral, sem copiar a paleta de nenhum jogo específico)
+  var CLASS_ACCENT = {
+    guerreiro: "#e0633a",
+    mateiro: "#5bb26a",
+    encantado: "#a97bf2",
+  };
+
+  function refreshVisuals(p) {
+    if (!p) return;
+    setCooldownRing("cd-attack", p.charging ? 0 : p.cd.basic / EN.Classes.universalAttack.basic.cooldown);
+    setCooldownRing("cd-dodge", p.cd.dodge / EN.Player.CD_MAX.dodge);
+    var ab1 = p.classDef && p.classDef.abilities[0];
+    if (ab1) {
+      els["btn-skill1"].classList.remove("locked");
+      els["btn-skill1"].classList.add("has-accent");
+      els["btn-skill1"].style.setProperty("--accent", CLASS_ACCENT[p.classId] || "var(--ipe-dim)");
+      els["icon-skill1"].textContent = ab1.icon;
+      setCooldownRing("cd-skill1", p.cd.skill1 / ab1.cooldown);
+    } else {
+      els["btn-skill1"].classList.add("locked");
+      els["btn-skill1"].classList.remove("has-accent");
+      els["icon-skill1"].textContent = "🔒";
+    }
+    // habilidade 2 reservada para futuras especializações (ver GDD Seção 11/12)
+    els["btn-skill2"].classList.add("locked");
+    els["icon-skill2"].textContent = "🔒";
+
+    if (p.charging) {
+      els["charge-ring"].style.setProperty("--charge", p.chargeT * 100 + "%");
+      els["btn-attack"].classList.add("charging");
+    } else {
+      els["btn-attack"].classList.remove("charging");
+    }
+
+    var target = EN.Interactable.findNearest(p.x, p.y);
+    var cbtn = els["btn-context"];
+    if (target) {
+      cbtn.classList.add("visible");
+      els["icon-context"].textContent = target.icon;
+    } else {
+      cbtn.classList.remove("visible");
+    }
+  }
+
+  function setCooldownRing(id, pct) {
+    var el = els[id];
+    if (!el) return;
+    el.style.setProperty("--pct", Math.max(0, Math.min(1, pct)) * 100 + "%");
+  }
+
+  return { init: init, bind: bind, getMoveVector: getMoveVector, refreshVisuals: refreshVisuals };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Tela de criação de personagem: nome, tom de pele, cabelo, cor do cabelo,
+ * roupa inicial, com preview ao vivo. As opções vêm inteiramente de
+ * appearance.js — esta tela só monta os controles a partir dessas listas,
+ * então adicionar uma nova opção de cabelo/roupa no futuro não exige tocar
+ * neste arquivo.
+ */
+EN.CharCreation = (function () {
+  var appearance;
+  var onDone;
+  var previewCanvas, previewCtx;
+  var animT = 0,
+    rafId = null;
+
+  function open(doneCallback) {
+    onDone = doneCallback;
+    appearance = EN.Appearance.defaultAppearance();
+    var saved = EN.State.data.profile.appearance;
+    if (saved) appearance = Object.assign(appearance, saved);
+    document.getElementById("screen-game").classList.remove("active");
+    document.getElementById("screen-charcreate").classList.add("active");
+    buildSwatches();
+    wireOnce();
+    document.getElementById("cc-name").value = EN.State.data.profile.name || "";
+    previewCanvas = document.getElementById("cc-preview");
+    previewCtx = previewCanvas.getContext("2d");
+    startPreviewLoop();
+    validate();
+  }
+
+  function close() {
+    document.getElementById("screen-charcreate").classList.remove("active");
+    cancelAnimationFrame(rafId);
+  }
+
+  function buildSwatches() {
+    buildRow("cc-skins", EN.Appearance.skins, "skin", function (opt) {
+      return '<span class="swatch-color" style="background:' + opt.hex + '"></span>';
+    });
+    buildRow("cc-hair", EN.Appearance.hairStyles, "hair", function (opt) {
+      return '<span class="swatch-label">' + opt.name + "</span>";
+    });
+    buildRow("cc-haircolor", EN.Appearance.hairColors, "hairColor", function (opt) {
+      return '<span class="swatch-color" style="background:' + opt.hex + '"></span>';
+    });
+    buildRow("cc-outfits", EN.Appearance.outfits, "outfit", function (opt) {
+      return (
+        '<span class="swatch-color split" style="background:linear-gradient(180deg,' +
+        opt.shirt +
+        " 50%," +
+        opt.pants +
+        ' 50%)"></span><span class="swatch-label">' +
+        opt.name +
+        "</span>"
+      );
+    });
+  }
+
+  function buildRow(containerId, options, key, innerHtml) {
+    var el = document.getElementById(containerId);
+    el.innerHTML = "";
+    options.forEach(function (opt) {
+      var btn = document.createElement("button");
+      btn.className = "swatch";
+      btn.type = "button";
+      btn.innerHTML = innerHtml(opt);
+      btn.dataset.id = opt.id;
+      if (appearance[key] === opt.id) btn.classList.add("selected");
+      btn.addEventListener("click", function () {
+        appearance[key] = opt.id;
+        el.querySelectorAll(".swatch").forEach(function (s) {
+          s.classList.remove("selected");
+        });
+        btn.classList.add("selected");
+      });
+      el.appendChild(btn);
+    });
+  }
+
+  var wired = false;
+  function wireOnce() {
+    if (wired) return;
+    wired = true;
+    document.getElementById("cc-name").addEventListener("input", validate);
+    document.getElementById("cc-start").addEventListener("click", function () {
+      appearance.name = document.getElementById("cc-name").value.trim().slice(0, 16) || "Viajante";
+      EN.State.data.profile.name = appearance.name;
+      EN.State.data.profile.appearance = appearance;
+      EN.State.data.profile.created = true;
+      EN.State.persist();
+      close();
+      onDone(appearance);
+    });
+  }
+
+  function validate() {
+    var name = document.getElementById("cc-name").value.trim();
+    document.getElementById("cc-start").disabled = name.length === 0;
+  }
+
+  function startPreviewLoop() {
+    function loop(now) {
+      animT = now / 1000;
+      previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      previewCtx.imageSmoothingEnabled = false;
+      EN.Appearance.draw(previewCtx, previewCanvas.width / 2, previewCanvas.height / 2 + 30, appearance, {
+        state: "idle",
+        t: animT,
+        facing: { x: 0, y: 1 },
+        classId: null,
+      });
+      rafId = requestAnimationFrame(loop);
+    }
+    rafId = requestAnimationFrame(loop);
+  }
+
+  return { open: open };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Tela "Escolha seu Caminho" (evento O Despertar). Lê inteiramente de
+ * EN.Classes.list — adicionar uma 4ª classe no futuro não exige tocar
+ * neste arquivo, só uma nova entrada em classes.js.
+ */
+EN.ClassSelect = (function () {
+  var selectedId = null;
+  var appearance = null;
+  var onChosen = null;
+  var wired = false;
+
+  function open(appearanceRef, chosenCallback) {
+    appearance = appearanceRef;
+    onChosen = chosenCallback;
+    selectedId = null;
+    buildCards();
+    document.getElementById("cs-detail").classList.remove("visible");
+    document.getElementById("screen-classselect").classList.add("active");
+    wireOnce();
+  }
+
+  function close() {
+    document.getElementById("screen-classselect").classList.remove("active");
+  }
+
+  function buildCards() {
+    var wrap = document.getElementById("cs-cards");
+    wrap.innerHTML = "";
+    EN.Classes.list.forEach(function (cls) {
+      var card = document.createElement("button");
+      card.className = "class-card";
+      card.type = "button";
+      card.innerHTML =
+        '<div class="cc-icon">' +
+        cls.icon +
+        '</div><div class="cc-name">' +
+        cls.name +
+        '</div><div class="cc-tag">' +
+        cls.tagline +
+        "</div>";
+      card.addEventListener("click", function () {
+        selectedId = cls.id;
+        wrap.querySelectorAll(".class-card").forEach(function (c) {
+          c.classList.remove("selected");
+        });
+        card.classList.add("selected");
+        showDetail(cls);
+      });
+      wrap.appendChild(card);
+    });
+  }
+
+  function dots(value, max) {
+    max = max || 5;
+    var s = "";
+    for (var i = 0; i < max; i++) s += i < value ? "●" : "○";
+    return s;
+  }
+
+  function showDetail(cls) {
+    var d = document.getElementById("cs-detail");
+    d.classList.add("visible");
+    document.getElementById("cs-detail-icon").textContent = cls.icon;
+    document.getElementById("cs-detail-name").textContent = cls.name;
+    document.getElementById("cs-detail-tagline").textContent = cls.tagline;
+    document.getElementById("cs-detail-desc").textContent = cls.description;
+    document.getElementById("cs-detail-diff").textContent = cls.difficulty;
+    document.getElementById("cs-detail-style").textContent = cls.style;
+
+    var rows = [
+      ["Vida", cls.dots.hp],
+      ["Dano", cls.dots.dmg],
+      ["Defesa", cls.dots.def],
+      ["Mobilidade", cls.dots.mobility],
+      ["Magia", cls.dots.magic],
+    ];
+    var statsEl = document.getElementById("cs-detail-stats");
+    statsEl.innerHTML = "";
+    rows.forEach(function (r) {
+      var row = document.createElement("div");
+      row.className = "stat-row";
+      row.innerHTML = '<span class="stat-label">' + r[0] + '</span><span class="stat-dots">' + dots(r[1]) + "</span>";
+      statsEl.appendChild(row);
+    });
+
+    document.getElementById("cs-detail-weapon").textContent = cls.startingEquipment.name;
+    document.getElementById("cs-detail-ability-icon").textContent = cls.abilities[0].icon;
+    document.getElementById("cs-detail-ability-name").textContent = cls.abilities[0].name;
+  }
+
+  function wireOnce() {
+    if (wired) return;
+    wired = true;
+    document.getElementById("cs-test").addEventListener("click", function () {
+      if (!selectedId) return;
+      EN.Arena.open(appearance, selectedId, function () {
+        document.getElementById("screen-classselect").classList.add("active");
+      });
+    });
+    document.getElementById("cs-choose").addEventListener("click", function () {
+      if (!selectedId) return;
+      close();
+      onChosen(selectedId);
+    });
+  }
+
+  return { open: open };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Arena de teste de classe: sessão totalmente isolada. Usa o mesmo
+ * canvas/HUD/controles do jogo principal (via EN.Main.setSession), mas com
+ * um Player e inimigos "descartáveis" — nunca escreve em EN.State, nunca
+ * concede XP/itens, e devolve o registro de Interactable do mundo
+ * principal intacto ao sair (nada foi coletado/alterado por estar lá).
+ */
+EN.Arena = (function () {
+  var ARENA_W = 900,
+    ARENA_H = 640;
+  var savedInteractables = null;
+
+  function rand(seed) {
+    var x = Math.sin(seed * 999) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function bakeGround() {
+    var c = document.createElement("canvas");
+    c.width = ARENA_W;
+    c.height = ARENA_H;
+    var g = c.getContext("2d");
+    g.fillStyle = "#3a3226";
+    g.fillRect(0, 0, ARENA_W, ARENA_H);
+    for (var i = 0; i < 600; i++) {
+      var x = rand(i * 3.1) * ARENA_W,
+        y = rand(i * 7.7) * ARENA_H;
+      g.fillStyle = rand(i * 1.7) > 0.5 ? "#453b2c" : "#332b20";
+      g.fillRect(x | 0, y | 0, 3, 3);
+    }
+    g.strokeStyle = "#6b5a3f";
+    g.lineWidth = 10;
+    g.strokeRect(14, 14, ARENA_W - 28, ARENA_H - 28);
+    for (var p = 0; p < 14; p++) {
+      var ang = (p / 14) * Math.PI * 2;
+      var px = ARENA_W / 2 + Math.cos(ang) * (ARENA_W / 2 - 20);
+      var py = ARENA_H / 2 + Math.sin(ang) * (ARENA_H / 2 - 20);
+      g.fillStyle = "#7a6a45";
+      g.fillRect(px - 3, py - 14, 6, 20);
+    }
+    return c;
+  }
+
+  function open(appearance, classId, onBackToClassSelect) {
+    savedInteractables = EN.Interactable.snapshot();
+    EN.Interactable.unregisterAll();
+
+    var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140);
+
+    var enemies = [
+      EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
+      EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 + 140, ARENA_H / 2 - 60),
+      EN.Enemy.spawn("cipo_vivo", ARENA_W / 2, ARENA_H / 2 - 180),
+    ];
+
+    var session = {
+      isArena: true,
+      classId: classId,
+      player: player,
+      enemies: enemies,
+      coins: [],
+      projectiles: [],
+      fx: [],
+      worldCanvas: bakeGround(),
+      worldW: ARENA_W,
+      worldH: ARENA_H,
+      camera: EN.Camera.create(player.x, player.y),
+      meta: { vintem: 0, day: 0, dayT: 13, level: null, showClock: false },
+      respawnEnemies: function () {
+        enemies.length = 0;
+        enemies.push(
+          EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
+          EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 + 140, ARENA_H / 2 - 60),
+          EN.Enemy.spawn("cipo_vivo", ARENA_W / 2, ARENA_H / 2 - 180)
+        );
+      },
+    };
+
+    document.getElementById("screen-classselect").classList.remove("active");
+    document.getElementById("screen-game").classList.add("active");
+    document.getElementById("arena-banner").classList.add("visible");
+    document.getElementById("arena-banner-class").textContent = EN.Classes.getById(classId).name;
+    EN.Main.setSession(session);
+
+    var backBtn = document.getElementById("arena-back");
+    var chooseBtn = document.getElementById("arena-choose");
+    backBtn.onclick = function () {
+      close();
+      EN.Main.restoreMainSession();
+      document.getElementById("screen-game").classList.remove("active");
+      document.getElementById("screen-classselect").classList.add("active");
+      onBackToClassSelect();
+    };
+    chooseBtn.onclick = function () {
+      close();
+      EN.Main.confirmClassFromArena(classId, appearance);
+    };
+  }
+
+  function close() {
+    document.getElementById("arena-banner").classList.remove("visible");
+    if (savedInteractables) EN.Interactable.restore(savedInteractables);
+  }
+
+  return { open: open };
+})();
+
+</script>
+<script>
+window.EN = window.EN || {};
+
+/*
+ * Orquestrador: telas (criação de personagem, mundo, Despertar, seleção de
+ * classe, arena) e o loop de jogo genérico que roda tanto a sessão do mundo
+ * principal quanto a sessão da arena — ambas têm o mesmo formato (ver
+ * arena.js), então update()/render() não sabem qual das duas é a ativa.
+ */
+EN.Main = (function () {
+  var canvas, ctx, dpr, vw, vh;
+  var currentSession = null;
+  var mainSession = null; // referência estável ao mundo principal — a arena nunca a sobrescreve
+  var paused = true;
+  var last = performance.now();
+
+  function boot() {
+    canvas = document.getElementById("world-canvas");
+    ctx = canvas.getContext("2d");
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    resize();
+    window.addEventListener("resize", resize);
+
+    EN.Controls.init();
+    wireToast();
+    wireDespertarScreen();
+
+    if (EN.State.hasProfile()) {
+      startMainWorld();
+    } else {
+      EN.CharCreation.open(function (appearance) {
+        startMainWorld();
+      });
+    }
+
+    requestAnimationFrame(loop);
+  }
+
+  function resize() {
+    vw = window.innerWidth;
+    vh = window.innerHeight;
+    canvas.width = vw * dpr;
+    canvas.height = vh * dpr;
+    canvas.style.width = vw + "px";
+    canvas.style.height = vh + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+
+  // ---------- sessão do mundo principal ----------
+  function startMainWorld() {
+    document.getElementById("screen-game").classList.add("active");
+    var save = EN.State.data;
+    var appearance = save.profile.appearance;
+    var player = EN.Player.create(appearance, save.progress.classId, save.world.x, save.world.y);
+    player.healCharges = save.world.inventory.curas;
+
+    var session = {
+      isArena: false,
+      player: player,
+      enemies: EN.World.spawnInitialEnemies(),
+      coins: [],
+      projectiles: [],
+      fx: [],
+      worldCanvas: EN.World.bake(),
+      worldW: EN.World.WORLD_W,
+      worldH: EN.World.WORLD_H,
+      camera: EN.Camera.create(player.x, player.y),
+      meta: save.world,
+    };
+
+    EN.World.populate(handleDespertarTrigger, handleNpcSay, handleOpenChest, handlePickupItem, handleCropInteract);
+    mainSession = session;
+    setSession(session);
+
+    // se o Despertar já aconteceu mas por algum motivo nenhuma classe foi
+    // confirmada (estado inconsistente improvável, mas tratado com
+    // segurança), reabre a seleção direto, sem repetir a narrativa
+    if (save.progress.despertarSeen && !save.progress.classId) {
+      openClassSelect();
+    }
+  }
+
+  function handleDespertarTrigger() {
+    var save = EN.State.data;
+    if (save.progress.despertarSeen) {
+      toast("As raízes negras continuam ali, silenciosas.");
+      return;
+    }
+    playDespertarSequence();
+  }
+
+  function handleNpcSay(id) {
+    var lines = {
+      zé: "Zé acena: “Bom dia! Tudo calmo por aqui, graças a Deus.”",
+      porta: "A porta está fechada por enquanto — ninguém em casa.",
+      saci: "Um redemoinho de folhas passa por você, rindo. Não parece querer briga.",
+    };
+    toast(lines[id] || "...");
+  }
+
+  function handleOpenChest() {
+    EN.State.data.world.vintem += 12;
+    EN.State.persist();
+    toast("Baú aberto: +12 Vintém");
+  }
+
+  function handlePickupItem() {
+    EN.State.data.world.vintem += 3;
+    EN.State.persist();
+    toast("Você pegou uma Erva Selvagem (+3 Vintém em feira futura)");
+  }
+
+  function handleCropInteract() {
+    toast("Ainda não há ferramenta de plantio — Agricultura chega em breve.");
+  }
+
+  // ---------- O Despertar ----------
+  function wireDespertarScreen() {
+    document.getElementById("desp-continue").addEventListener("click", function () {
+      document.getElementById("screen-despertar").classList.remove("active");
+      openClassSelect();
+    });
+  }
+
+  function playDespertarSequence() {
+    paused = true;
+    document.getElementById("screen-despertar").classList.add("active");
+  }
+
+  function openClassSelect() {
+    document.getElementById("screen-game").classList.remove("active");
+    var appearance = EN.State.data.profile.appearance;
+    EN.ClassSelect.open(appearance, function (classId) {
+      confirmClass(classId, appearance);
+    });
+  }
+
+  // SEMPRE aplica a classe em `mainSession` — nunca na sessão ativa no
+  // momento, porque se o jogador confirmou a partir da arena, a sessão
+  // ativa é a temporária da arena (ver arena.js), e escolher a classe ali
+  // não pode virar progresso permanente no lugar errado.
+  function confirmClass(classId, appearance) {
+    EN.State.data.progress.despertarSeen = true;
+    EN.State.data.progress.classId = classId;
+    EN.State.persist();
+    document.getElementById("screen-classselect").classList.remove("active");
+    document.getElementById("screen-game").classList.add("active");
+    EN.Player.applyClass(mainSession.player, classId, true);
+    toast("Você agora é " + EN.Classes.getById(classId).name + "!");
+    setSession(mainSession);
+  }
+
+  // chamado pela arena quando o jogador toca "ESCOLHER ESTA CLASSE"
+  function confirmClassFromArena(classId, appearance) {
+    confirmClass(classId, appearance);
+  }
+
+  // troca a sessão ativa de volta para o mundo principal sem mexer em
+  // classe/telas — usado quando a arena é encerrada por "VOLTAR"
+  function restoreMainSession() {
+    setSession(mainSession);
+  }
+
+  // ---------- sessão ativa (mundo OU arena) ----------
+  function setSession(session) {
+    currentSession = session;
+    paused = false;
+    document.getElementById("status-panel").style.display = session.meta.showClock === false ? "none" : "";
+    EN.Controls.bind({
+      player: session.player,
+      enemies: session.enemies,
+      dealDamage: function (enemy, dmg) {
+        EN.Enemy.damage(enemy, dmg, function (killed) {
+          if (!session.isArena) {
+            session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
+          }
+        });
+      },
+      spawnProjectile: function (desc) {
+        desc.life = 1.1;
+        session.projectiles.push(desc);
+      },
+    });
+  }
+
+  // ---------- loop genérico ----------
+  function loop(now) {
+    var dt = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (!paused && currentSession) {
+      update(currentSession, dt);
+      render(currentSession, dt);
+      EN.HUD.update(currentSession.player, currentSession.meta, currentSession.player.appearance);
+      EN.Controls.refreshVisuals(currentSession.player);
+    }
+    requestAnimationFrame(loop);
+  }
+
+  function update(s, dt) {
+    var p = s.player;
+    var move = EN.Controls.getMoveVector();
+    EN.Player.update(p, dt, move);
+    p.x = Math.max(20, Math.min(s.worldW - 20, p.x));
+    p.y = Math.max(20, Math.min(s.worldH - 20, p.y));
+    EN.Camera.update(s.camera, p.x, p.y, dt);
+
+    s.enemies.forEach(function (e) {
+      EN.Enemy.update(e, dt, p, function (dmg) {
+        EN.Player.takeDamage(p, dmg);
+      });
+    });
+    s.enemies = s.enemies.filter(function (e) {
+      if (e.dead) {
+        e.deadT += dt;
+        return e.deadT < 0.5;
+      }
+      return true;
+    });
+
+    s.projectiles.forEach(function (proj) {
+      proj.x += proj.vx * dt;
+      proj.y += proj.vy * dt;
+      proj.life -= dt;
+      s.enemies.forEach(function (e) {
+        if (e.dead || proj.hit) return;
+        if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
+          EN.Enemy.damage(e, proj.dmg, function (killed) {
+            if (!s.isArena) s.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
+          });
+          proj.hit = true;
+        }
+      });
+    });
+    s.projectiles = s.projectiles.filter(function (pr) {
+      return pr.life > 0 && !pr.hit;
+    });
+
+    s.coins.forEach(function (c) {
+      c.t += dt;
+      if (!c.taken && Math.hypot(c.x - p.x, c.y - p.y) < 24) {
+        c.taken = true;
+        s.meta.vintem += 2 + Math.floor(Math.random() * 4);
+      }
+    });
+    s.coins = s.coins.filter(function (c) {
+      return !c.taken;
+    });
+
+    s.fx.forEach(function (f) {
+      f.t += dt;
+    });
+    s.fx = s.fx.filter(function (f) {
+      return f.t < 1.1;
+    });
+
+    if (!s.isArena) {
+      s.meta.dayT = (s.meta.dayT + dt * (24 / 240)) % 24;
+      if (s.meta.dayT < 0.02) s.meta.day++;
+      s.meta.x = p.x;
+      s.meta.y = p.y;
+      s.meta.inventory.curas = p.healCharges;
+      persistThrottled();
+      if (s.enemies.length < 2 && Math.random() > 0.997) {
+        s.enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 300 + Math.random() * 900, 300 + Math.random() * 500));
+      }
+    } else if (s.enemies.filter(function (e) { return !e.dead; }).length === 0 && !s._respawning) {
+      s._respawning = true;
+      setTimeout(function () {
+        s.respawnEnemies();
+        s._respawning = false;
+      }, 1200);
+    }
+  }
+
+  var persistTimer = null;
+  function persistThrottled() {
+    if (persistTimer) return;
+    persistTimer = setTimeout(function () {
+      persistTimer = null;
+      EN.State.persist();
+    }, 1000);
+  }
+
+  function render(s, dt) {
+    ctx.clearRect(0, 0, vw, vh);
+    var origin = EN.Camera.getViewOrigin(s.camera, vw, vh, s.worldW, s.worldH);
+    var zoom = s.camera.zoom;
+
+    ctx.save();
+    ctx.scale(zoom, zoom);
+    ctx.drawImage(s.worldCanvas, origin.x, origin.y, origin.viewW, origin.viewH, 0, 0, origin.viewW, origin.viewH);
+
+    s.coins.forEach(function (c) {
+      drawCoin(ctx, c, origin.x, origin.y);
+    });
+    s.enemies.forEach(function (e) {
+      EN.Enemy.draw(ctx, e, origin.x, origin.y);
+    });
+    EN.Player.draw(ctx, s.player, origin.x, origin.y);
+    s.projectiles.forEach(function (pr) {
+      ctx.fillStyle = pr.magic ? "#c9a8f2" : "#7fe0c9";
+      ctx.beginPath();
+      ctx.arc(pr.x - origin.x, pr.y - origin.y, pr.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    if (!s.isArena) {
+      EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
+    }
+    ctx.restore();
+  }
+
+  function drawCoin(ctx, c, camX, camY) {
+    var x = c.x - camX,
+      y = c.y - camY - 6;
+    var sq = Math.abs(Math.sin(c.t * 4));
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(0.4 + sq * 0.6, 1);
+    ctx.fillStyle = "#f2b705";
+    ctx.beginPath();
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#fff3c4";
+    ctx.beginPath();
+    ctx.arc(-2, -2, 2.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ---------- toast ----------
+  var toastEl, toastTimer;
+  function wireToast() {
+    toastEl = document.getElementById("toast");
+  }
+  function toast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toastEl.classList.remove("show");
+    }, 2200);
+  }
+
+  return {
+    boot: boot,
+    setSession: setSession,
+    restoreMainSession: restoreMainSession,
+    confirmClassFromArena: confirmClassFromArena,
+    toast: toast,
+    getSession: function () {
+      return currentSession;
+    },
+  };
+})();
+
+window.addEventListener("DOMContentLoaded", EN.Main.boot);
+
+</script>
+</body>
+</html>
