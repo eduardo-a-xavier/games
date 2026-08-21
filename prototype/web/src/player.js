@@ -210,7 +210,26 @@ EN.Player = (function () {
     var canMove = !rooted && p.attackLock <= 0 && p.state !== "hurt";
     p.moving = mag > 0.08 && canMove;
 
-    if (mag > 0.08 && !p.charging && p.attackLock <= 0) {
+    /*
+     * MIRA. Quando existe um ponto de mira explícito (cursor do mouse), ele
+     * manda na direção que o personagem encara — inclusive andando pro lado
+     * oposto, que é o que permite recuar batendo (kiting). Sem mira, o
+     * corpo segue o movimento, como antes.
+     *
+     * A mira vale até durante o attackLock: girar o corpo no meio do golpe
+     * não muda o golpe que já saiu (o hit test roda no instante do ataque),
+     * mas deixa o personagem já apontado pro próximo — sem isso a mira
+     * "engasga" a cada golpe.
+     */
+    if (p.aim && !p.charging) {
+      var ax = p.aim.x - p.x,
+        ay = p.aim.y - p.y;
+      var ad = Math.hypot(ax, ay);
+      if (ad > 6) {
+        p.facing.x = ax / ad;
+        p.facing.y = ay / ad;
+      }
+    } else if (mag > 0.08 && !p.charging && p.attackLock <= 0) {
       p.facing.x = moveVec.x / mag;
       p.facing.y = moveVec.y / mag;
     }
@@ -236,6 +255,16 @@ EN.Player = (function () {
     if ((p.state === "attack" || p.state === "hurt" || p.state === "tool") && p.attackLock <= 0 && p.stateT > 0.22) {
       p.state = p.moving ? (mag > 0.85 ? "run" : "walk") : "idle";
     }
+
+    // "tem alguém no arco?" — usa o MESMO teste do golpe, então o
+    // indicador nunca promete um acerto que o ataque não entrega
+    if (p.aim) {
+      var reach = p.charging ? 68 : 52;
+      var spread = p.charging ? Math.PI / 2.1 : Math.PI / 3.4;
+      p.aimHot = EN.Classes.meleeHitTest(p.x, p.y, p.facing, reach, spread, enemies || []).length > 0;
+    } else {
+      p.aimHot = false;
+    }
   }
 
   function setState(p, state) {
@@ -243,13 +272,23 @@ EN.Player = (function () {
     p.stateT = 0;
   }
 
+  /*
+   * Auto-mira só entra quando o jogador NÃO está mirando de propósito.
+   * Com mouse, corrigir a direção "pra ajudar" é sabotagem: o jogador
+   * apontou exatamente onde queria. No toque, sem ponto de mira, ela
+   * continua sendo o que faz o combate funcionar com o polegar.
+   */
+  function assist(p, enemies, range) {
+    if (p.aim) return p.facing;
+    if (!enemies || !enemies.length) return p.facing;
+    return EN.Combat.autoAim(p.x, p.y, p.facing, enemies, range, AIM_ANGLE);
+  }
+
   // resolve um golpe corpo-a-corpo já com auto-mira, crítico, recuo,
   // hitstop e tremor — todo ataque do jogador passa por aqui pra que
   // nenhum caminho de dano esqueça o retorno visual
   function resolveMelee(p, enemies, dealDamage, cfg, baseDamage, heavy) {
-    if (enemies && enemies.length) {
-      p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, AIM_RANGE, AIM_ANGLE);
-    }
+    p.facing = assist(p, enemies, AIM_RANGE);
     var dmg = baseDamage;
     if (p.riposte > 0) {
       dmg *= RIPOSTE_MULT;
@@ -366,9 +405,7 @@ EN.Player = (function () {
       return { type: ab.type, ability: ab, hitCount: hits.length };
     }
     if (ab.type === "projectile" || ab.type === "projectile_magic") {
-      if (enemies && enemies.length) {
-        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
-      }
+      p.facing = assist(p, enemies, ab.range);
       var boost = 1;
       if (p.riposte > 0) {
         boost = RIPOSTE_MULT;
@@ -443,9 +480,7 @@ EN.Player = (function () {
     }
 
     if (ab.type === "projectile_multi") {
-      if (enemies && enemies.length) {
-        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
-      }
+      p.facing = assist(p, enemies, ab.range);
       p.attackLock = 0.22;
       var base = Math.atan2(p.facing.y, p.facing.x);
       var shots = [];
@@ -485,9 +520,7 @@ EN.Player = (function () {
     }
 
     if (ab.type === "projectile_magic" || ab.type === "projectile") {
-      if (enemies && enemies.length) {
-        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
-      }
+      p.facing = assist(p, enemies, ab.range);
       p.attackLock = 0.24;
       return {
         type: ab.type,
@@ -726,6 +759,50 @@ EN.Player = (function () {
       ctx.restore();
     } else {
       EN.Appearance.draw(ctx, x, y, p.appearance, anim);
+    }
+
+    /*
+     * INDICADOR DE MIRA. Duas partes, e as duas são necessárias:
+     *  - o arco na frente do personagem mostra o ALCANCE E A ABERTURA reais
+     *    do próximo golpe, então dá pra ver que um inimigo está fora antes
+     *    de gastar vigor com ele;
+     *  - a retícula no cursor confirma qual ponto o jogo entendeu.
+     * O arco acende quando tem alvo dentro dele — é a diferença entre
+     * "apontado pra lá" e "vai acertar".
+     */
+    if (p.aim && p.state !== "death") {
+      var aa = Math.atan2(p.facing.y, p.facing.x);
+      var reach = p.charging ? 68 : 52;
+      var spread = p.charging ? Math.PI / 2.1 : Math.PI / 3.4;
+      ctx.save();
+      ctx.strokeStyle = p.aimHot ? "rgba(242,183,5,.85)" : "rgba(220,235,230,.32)";
+      ctx.lineWidth = p.aimHot ? 2.2 : 1.4;
+      ctx.beginPath();
+      ctx.arc(x, y - 8, reach, aa - spread, aa + spread);
+      ctx.stroke();
+      // as duas bordas do arco: sem elas o setor não lê como setor
+      [aa - spread, aa + spread].forEach(function (edge) {
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(edge) * (reach - 12), y - 8 + Math.sin(edge) * (reach - 12));
+        ctx.lineTo(x + Math.cos(edge) * reach, y - 8 + Math.sin(edge) * reach);
+        ctx.stroke();
+      });
+
+      var rx = p.aim.x - camX,
+        ry = p.aim.y - camY;
+      ctx.strokeStyle = p.aimHot ? "rgba(242,183,5,.9)" : "rgba(220,235,230,.5)";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(rx, ry, 6, 0, Math.PI * 2);
+      ctx.stroke();
+      for (var ci = 0; ci < 4; ci++) {
+        var ca = (ci / 4) * Math.PI * 2 + Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(rx + Math.cos(ca) * 8, ry + Math.sin(ca) * 8);
+        ctx.lineTo(rx + Math.cos(ca) * 12, ry + Math.sin(ca) * 12);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
 
     if (EN.Combat.hasStatus(p, "enraizado")) {

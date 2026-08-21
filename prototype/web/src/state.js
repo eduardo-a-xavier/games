@@ -23,6 +23,8 @@ EN.State = (function () {
         xp: 0,
         attrPoints: 0,
         attrs: { forca: 0, vitalidade: 0, vigor: 0, magia: 0, defesa: 0 },
+        seen: {},      // bestiário: { defId: { kills } } — preenchido ao encontrar
+        menuNew: false, // ponto vermelho no botão do menu
         quests: {},
       },
       settings: {

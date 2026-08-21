@@ -23,6 +23,28 @@ EN.Controls = (function () {
   var mouseHoldTimer = null;
   var mouseHoldStartT = 0;
 
+  /*
+   * MIRA PELO CURSOR. `aim` guarda o ponto mirado em coordenadas de MUNDO
+   * (não de tela) — assim a mira continua correta enquanto a câmera anda,
+   * mesmo sem o mouse se mexer.
+   *
+   * `aimActive` liga no primeiro movimento de mouse e DESLIGA em qualquer
+   * toque: num celular não existe cursor, e deixar uma mira fantasma
+   * travaria a direção do personagem no último ponto tocado.
+   */
+  var aim = { x: 0, y: 0, sx: 0, sy: 0 };
+  var aimActive = false;
+  /*
+   * Navegadores de celular EMULAM mousemove/mouseenter logo depois de um
+   * toque. Sem essa trava, tocar na tela ligaria a mira e travaria a
+   * direção do personagem no ponto tocado — exatamente o oposto do que o
+   * jogador quis. Qualquer toque bloqueia a mira por um instante, o que
+   * cobre a rajada de eventos emulados sem atrapalhar um mouse de verdade
+   * (que nunca dispara touchstart).
+   */
+  var lastTouchT = -1e9;
+  var TOUCH_BLOCK_MS = 900;
+
   function bind(newCtx) {
     ctx = newCtx;
   }
@@ -277,12 +299,40 @@ EN.Controls = (function () {
     ctx.spawnFx("slash", { x: player.x, y: player.y, fx: player.facing.x, fy: player.facing.y, heavy: !!heavy, finisher: !!finisher });
   }
 
-  // ── MOUSE (ataque no clique esquerdo sobre o canvas) ─────────────────────
+  // ── MOUSE (mira pelo cursor + ataque no clique esquerdo) ─────────────────
   function wireMouse() {
     var canvas = document.getElementById("world-canvas");
     if (!canvas) return;
 
+    // o cursor vira ponto de mira em coordenadas de mundo. A conversão
+    // depende da câmera, então quem sabe fazê-la é o main (que tem o
+    // viewport e o zoom) — aqui só guardamos o resultado.
+    function trackAim(e) {
+      if (performance.now() - lastTouchT < TOUCH_BLOCK_MS) return;
+      aim.sx = e.clientX;
+      aim.sy = e.clientY;
+      var w = EN.Main.screenToWorld(e.clientX, e.clientY);
+      if (!w) return;
+      aim.x = w.x;
+      aim.y = w.y;
+      aimActive = true;
+    }
+    canvas.addEventListener("mousemove", trackAim);
+    canvas.addEventListener("mouseenter", trackAim);
+    canvas.addEventListener("mouseleave", function () { aimActive = false; });
+    // dedo na tela = sem cursor: a mira sai de cena e a direção volta a
+    // vir do movimento + auto-mira
+    document.addEventListener(
+      "touchstart",
+      function () {
+        lastTouchT = performance.now();
+        aimActive = false;
+      },
+      { passive: true }
+    );
+
     canvas.addEventListener("mousedown", function (e) {
+      trackAim(e);
       if (e.button !== 0) return;
       if (mouseAtkDown) return;
       mouseAtkDown = true;
@@ -328,6 +378,22 @@ EN.Controls = (function () {
       }
       pressFx(els["btn-dodge"]);
     });
+  }
+
+  /*
+   * Ponto de mira atual em coordenadas de mundo, ou null quando não há
+   * cursor (celular). Reconverte a partir da posição de TELA guardada a
+   * cada chamada porque a câmera se move sozinha: com o mouse parado, o
+   * mesmo pixel da tela é um ponto do mundo diferente a cada quadro.
+   */
+  function getAim() {
+    if (!aimActive) return null;
+    var w = EN.Main.screenToWorld(aim.sx, aim.sy);
+    if (w) {
+      aim.x = w.x;
+      aim.y = w.y;
+    }
+    return { x: aim.x, y: aim.y };
   }
 
   function getMoveVector() {
@@ -579,5 +645,5 @@ EN.Controls = (function () {
     el.style.setProperty("--pct", Math.max(0, Math.min(1, pct)) * 100 + "%");
   }
 
-  return { init: init, bind: bind, getMoveVector: getMoveVector, refreshVisuals: refreshVisuals };
+  return { init: init, bind: bind, getMoveVector: getMoveVector, getAim: getAim, refreshVisuals: refreshVisuals };
 })();

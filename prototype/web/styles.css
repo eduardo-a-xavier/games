@@ -121,47 +121,201 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 .sfx-icon { font-size: 9px; position: relative; z-index: 1; }
 .sfx-name { position: relative; z-index: 1; color: var(--mist-dim); }
 
-/* botão de atributos (aparece quando há pontos livres) */
-#btn-attrs {
-  display: none; background: none; border: none; cursor: pointer; padding: 0;
-  font-family: var(--font-display); font-size: 8px;
-  color: var(--ipe); letter-spacing: .02em; text-align: left;
-}
+/* barrinha de XP embaixo do nome no HUD */
+#xp-track { width: 100%; height: 3px; background: #000a; border-radius: 2px; overflow: hidden; margin-top: 3px; }
+#xp-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--ipe-dim), var(--ipe)); transition: width .3s ease; }
 
-/* painel de atributos (overlay centralizado) */
-#attr-panel {
-  display: none; position: absolute; left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  width: min(320px, 90vw); z-index: 20;
-  padding: 10px 12px 12px;
-  flex-direction: column; gap: 6px;
+/* botões do painel direito (som + menu) */
+.panel-btn-row { display: flex; gap: 4px; width: 100%; margin-top: 5px; }
+.panel-btn-row .mute-btn { margin-top: 0; flex: 1; position: relative; }
+/* ponto vermelho: tem ponto de atributo pra gastar ou bicho novo no bestiário */
+#menu-dot {
+  position: absolute; top: 1px; right: 3px; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--danger); display: none;
+  box-shadow: 0 0 5px var(--danger);
+}
+#menu-dot.on { display: block; }
+
+/* ============ MENU DO JOGO ============ */
+#screen-menu {
+  position: absolute; inset: 0; z-index: 60; display: none;
+  background: rgba(8, 14, 12, .82); backdrop-filter: blur(4px);
+  align-items: center; justify-content: center; padding: 16px;
   pointer-events: auto;
 }
-#attr-panel.open { display: flex; }
-.attr-panel-head {
-  display: flex; align-items: center; gap: 6px;
-  border-bottom: 1px solid var(--panel-line); padding-bottom: 7px; margin-bottom: 2px;
+#screen-menu.open { display: flex; }
+
+/* altura por CONTEÚDO com teto: a aba Status é curta e a do Bestiário é
+   longa — caixa de altura fixa deixaria um vazio enorme numa e cortaria
+   a outra */
+.menu-wrap {
+  width: min(880px, 100%); max-height: 100%;
+  background: var(--panel); border: 1px solid var(--panel-line);
+  border-radius: 4px 16px 4px 16px;
+  display: flex; flex-direction: column; overflow: hidden;
 }
-.attr-panel-title { font-family: var(--font-display); font-size: 10px; color: var(--ipe); letter-spacing: .06em; flex: 1; }
-#attr-pts { font-family: var(--font-display); font-size: 9px; color: var(--ipe); }
-#btn-attrs-close { background: none; border: none; color: var(--mist-dim); font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; }
-.attr-row {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 0; border-bottom: 1px solid #ffffff09;
+
+.menu-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid var(--panel-line);
+  background: #0b1512aa;
 }
-.attr-icon { font-size: 12px; width: 18px; text-align: center; flex-shrink: 0; }
-.attr-name { flex: 1; font-size: 10px; font-weight: 600; color: var(--mist); line-height: 1.25; }
-.attr-sub { font-size: 8px; font-weight: 400; color: var(--mist-dim); }
-.attr-bonus { font-family: var(--font-display); font-size: 9px; color: var(--ipe-dim); min-width: 20px; text-align: right; }
-.attr-val { font-family: var(--font-display); font-size: 9px; color: var(--mist-dim); min-width: 28px; text-align: right; }
+.menu-tabs { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+.menu-tab {
+  font-family: var(--font-display); font-size: 9px; letter-spacing: .05em;
+  padding: 6px 10px; border-radius: 2px 8px 2px 8px; cursor: pointer;
+  background: transparent; border: 1px solid transparent; color: var(--mist-dim);
+}
+.menu-tab.active { color: var(--ipe); border-color: var(--ipe-dim); background: #f2b7050f; }
+#menu-close {
+  background: none; border: none; color: var(--mist-dim);
+  font-size: 16px; cursor: pointer; padding: 2px 6px; line-height: 1;
+}
+#menu-close:active { color: var(--mist); }
+
+.menu-body { flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.menu-page { display: none; padding: 12px; }
+.menu-page.active { display: block; }
+.menu-empty { text-align: center; color: var(--mist-dim); font-size: 12px; padding: 40px 20px; line-height: 1.7; }
+
+/* ---------- STATUS ---------- */
+.status-grid { display: grid; grid-template-columns: 168px 1fr 1fr; gap: 10px; align-items: start; }
+.status-card {
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-radius: 3px 10px 3px 10px; padding: 10px;
+}
+.status-card-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-family: var(--font-display); font-size: 9px; letter-spacing: .06em;
+  color: var(--ipe); border-bottom: 1px solid var(--panel-line);
+  padding-bottom: 6px; margin-bottom: 7px;
+}
+.status-card.char { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0; }
+.char-text { display: flex; flex-direction: column; align-items: center; width: 100%; }
+#menu-portrait {
+  width: 120px; height: 140px; background: radial-gradient(ellipse at 50% 70%, #24382e, #0e1815);
+  border: 1px solid var(--panel-line); border-radius: 3px 10px 3px 10px;
+}
+#menu-name { font-family: var(--font-display); font-size: 13px; margin-top: 8px; }
+#menu-class { font-size: 11px; color: var(--mist-dim); font-weight: 600; }
+#menu-level { font-family: var(--font-display); font-size: 10px; color: var(--ipe); margin-top: 6px; }
+/* align-self: stretch — num container de coluna alinhado à esquerda a
+   barra encolheria pra largura zero (ela não tem conteúdo próprio) */
+.menu-xp { height: 5px; background: #000a; border: 1px solid var(--panel-line); border-radius: 2px; overflow: hidden; margin: 5px 0 3px; align-self: stretch; }
+#menu-xp-fill { height: 100%; width: 0; background: linear-gradient(90deg, var(--ipe-dim), var(--ipe)); }
+#menu-xp-text { font-size: 9px; color: var(--mist-dim); font-variant-numeric: tabular-nums; }
+
+#attr-pts { font-family: var(--font-display); font-size: 9px; color: var(--mist-dim); }
+#attr-pts.hot { color: var(--ipe); }
+.attr-row { display: flex; align-items: center; gap: 7px; padding: 5px 0; border-bottom: 1px solid #ffffff0a; }
+.attr-row:last-child { border-bottom: none; }
+.attr-icon { font-size: 13px; width: 20px; text-align: center; flex-shrink: 0; }
+.attr-name { flex: 1; font-size: 11px; font-weight: 600; line-height: 1.25; display: flex; flex-direction: column; }
+.attr-sub { font-size: 9px; font-weight: 400; color: var(--mist-dim); }
+.attr-bonus { font-family: var(--font-display); font-size: 9px; color: var(--ipe-dim); min-width: 22px; text-align: right; }
+.attr-val { font-family: var(--font-display); font-size: 11px; color: var(--mist); min-width: 34px; text-align: right; }
 .attr-add {
-  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  border: 1.5px solid var(--ipe-dim); background: #0006;
-  color: var(--ipe); font-size: 16px; line-height: 1; cursor: pointer;
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--ipe-dim); background: #0006; color: var(--ipe);
+  font-size: 15px; line-height: 1; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.attr-add:disabled { opacity: .28; cursor: not-allowed; }
-.attr-note { font-size: 8px; color: var(--mist-dim); text-align: center; margin-top: 4px; opacity: .7; }
+.attr-add:disabled { opacity: .22; cursor: default; }
+.attr-add:not(:disabled):active { background: var(--ipe); color: #101b18; }
+.attr-note { font-size: 9px; color: var(--mist-dim); text-align: center; margin-top: 8px; opacity: .75; }
+
+.derived-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 11px; padding: 4px 0; border-bottom: 1px solid #ffffff0a;
+}
+.derived-row:last-child { border-bottom: none; }
+.derived-row span { color: var(--mist-dim); }
+.derived-row b { font-family: var(--font-display); font-size: 10px; color: var(--mist); }
+
+/* ---------- MISSÕES ---------- */
+.menu-section-title {
+  font-family: var(--font-display); font-size: 9px; letter-spacing: .06em;
+  color: var(--ipe); margin: 4px 0 8px;
+}
+.menu-section-title:not(:first-child) { margin-top: 18px; }
+.quest-card {
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-left: 3px solid var(--ipe-dim);
+  border-radius: 0 10px 10px 0; padding: 9px 11px; margin-bottom: 7px;
+}
+.quest-card.done { border-left-color: var(--mata); opacity: .55; }
+.quest-card-title { font-family: var(--font-display); font-size: 10px; margin-bottom: 5px; }
+.quest-obj { font-size: 11px; padding: 2px 0; display: flex; gap: 7px; color: var(--mist-dim); }
+.quest-obj span { width: 10px; flex-shrink: 0; text-align: center; }
+.quest-obj.done { opacity: .5; text-decoration: line-through; }
+.quest-obj.now { color: var(--mist); font-weight: 600; }
+.quest-obj.now span { color: var(--ipe); }
+.quest-obj.todo { opacity: .38; font-style: italic; }
+
+/* ---------- BESTIÁRIO ---------- */
+#bestiary-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; }
+.beast-card {
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-top: 2px solid var(--mata);
+  border-radius: 3px 10px 3px 10px; padding: 9px 11px;
+}
+.beast-card.boss { border-top-color: var(--danger); }
+.beast-card.guardian, .beast-card.narrative { border-top-color: var(--mp); }
+.beast-card.neutral { border-top-color: var(--ipe-dim); }
+.beast-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.beast-head b { font-family: var(--font-display); font-size: 10px; }
+.beast-cat { font-size: 8px; text-transform: uppercase; letter-spacing: .05em; color: var(--mist-dim); flex-shrink: 0; }
+.beast-meta { font-size: 9px; color: var(--mist-dim); margin: 3px 0 5px; }
+.beast-lore { font-size: 11px; line-height: 1.45; color: #c4dcd0; }
+.beast-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.tag { font-size: 8px; padding: 2px 5px; border-radius: 2px 6px 2px 6px; border: 1px solid; }
+.tag.weak { color: #ff9a5a; border-color: #ff9a5a55; background: #ff9a5a12; }
+.tag.res { color: #7fb8e0; border-color: #7fb8e055; background: #7fb8e012; }
+
+/* ---------- OPÇÕES ---------- */
+.opt-list { display: flex; flex-direction: column; gap: 6px; }
+.opt-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-radius: 3px 10px 3px 10px; padding: 10px 12px;
+}
+.opt-row div { display: flex; flex-direction: column; }
+.opt-row b { font-size: 12px; font-weight: 700; }
+.opt-row span { font-size: 10px; color: var(--mist-dim); }
+.opt-row.danger { border-color: #e0483a44; }
+.opt-btn {
+  font-family: var(--font-display); font-size: 9px; padding: 8px 14px;
+  border-radius: 2px 8px 2px 8px; cursor: pointer; flex-shrink: 0;
+  background: transparent; border: 1px solid var(--ipe-dim); color: var(--ipe);
+}
+.opt-btn.off { border-color: var(--panel-line); color: var(--mist-dim); }
+.opt-btn.danger { border-color: #e0483a88; color: var(--danger); }
+.opt-btn:active { background: #ffffff14; }
+
+.opt-keys { margin-top: 16px; }
+.opt-keys-title { font-family: var(--font-display); font-size: 9px; color: var(--ipe); letter-spacing: .06em; margin-bottom: 8px; }
+.key-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 5px 12px; }
+.key-grid span { font-size: 10px; color: var(--mist-dim); display: flex; align-items: center; gap: 5px; }
+kbd {
+  font-family: var(--font-display); font-size: 8px; padding: 3px 5px;
+  background: #0008; border: 1px solid var(--panel-line);
+  border-bottom-width: 2px; border-radius: 3px; color: var(--mist);
+}
+
+/* telas curtas (celular deitado): o menu vira coluna única e rola */
+@media (max-height: 470px), (max-width: 700px) {
+  .menu-wrap { border-radius: 3px 10px 3px 10px; }
+  /* uma coluna: em tela deitada de celular três colunas espremem tudo */
+  .status-grid { grid-template-columns: 1fr; }
+  /* o card do personagem vira retrato + bloco de texto lado a lado, e o
+     texto continua empilhado — sem isso nome/classe/nível/XP se espalham
+     numa linha só, cada um num canto da tela */
+  .status-card.char { flex-direction: row; align-items: center; gap: 12px; text-align: left; }
+  #menu-portrait { width: 76px; height: 92px; flex-shrink: 0; }
+  .char-text { align-items: flex-start; flex: 1; min-width: 0; }
+  .menu-tab { font-size: 8px; padding: 5px 7px; }
+  #bestiary-list { grid-template-columns: 1fr 1fr; }
+}
 
 #status-panel { padding: 6px 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 #clock-row { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }

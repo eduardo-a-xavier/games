@@ -28,7 +28,7 @@ EN.Main = (function () {
 
     EN.Controls.init();
     wireToast();
-    wireAttrPanel();
+    EN.Menu.init();
     wireDespertarScreen();
     wireDeathScreen();
     wireLandscapeLock();
@@ -511,6 +511,7 @@ EN.Main = (function () {
           : 9
         );
         EN.Story.enemyKilled(killed.defId);
+        EN.Menu.recordSeen(killed.defId, true);
         if (EN.Enemy.isBoss(killed) && session.onBossDefeated) {
           session.boss = null;
           session.onBossDefeated();
@@ -600,10 +601,31 @@ EN.Main = (function () {
     requestAnimationFrame(loop);
   }
 
+  /*
+   * Converte um ponto de TELA (px CSS, como vem de um evento de mouse) pro
+   * ponto correspondente no MUNDO. É o inverso exato do que render() faz:
+   * lá o contexto recebe scale(zoom) e o mundo é desenhado a partir de
+   * `origin`, então aqui divide-se pelo zoom e soma-se a origem.
+   *
+   * O tremor de câmera é ignorado de propósito: ele é um efeito visual de
+   * poucos pixels, e deixar a mira tremer junto tornaria acertar durante
+   * um impacto uma questão de sorte.
+   */
+  function screenToWorld(sx, sy) {
+    if (!currentSession || !vw) return null;
+    var s = currentSession;
+    var origin = EN.Camera.getViewOrigin(s.camera, vw, vh, s.worldW, s.worldH);
+    var zoom = s.camera.zoom;
+    return { x: origin.x + sx / zoom, y: origin.y + sy / zoom };
+  }
+
   function update(s, dt) {
     var p = s.player;
     var move = EN.Controls.getMoveVector();
     p.pendingMove = move;
+    // mira do cursor (nula no toque) — o jogador desenha e ataca na
+    // direção dela, ver EN.Player.update
+    p.aim = EN.Controls.getAim();
     EN.Player.update(p, dt, move, s.enemies);
     EN.Combat.updateKnockback(p, dt);
     p.x = Math.max(20, Math.min(s.worldW - 20, p.x));
@@ -644,6 +666,13 @@ EN.Main = (function () {
 
     s.enemies.forEach(function (e) {
       EN.Enemy.update(e, dt, p, api);
+      // bestiário se preenche sozinho: ver a criatura de perto já basta,
+      // não precisa matar. Fora da arena, que é sessão descartável.
+      if (!s.isArena && !e.dead && e.state !== "disguised" && Math.hypot(e.x - p.x, e.y - p.y) < 260) {
+        if (EN.Menu.recordSeen(e.defId, false)) {
+          toast("📖 " + e.def.name + " entrou no bestiário");
+        }
+      }
       // mini-chefe entra na barra grande do HUD assim que engaja, e sai
       // dela se o jogador conseguir se descolar — não é uma luta trancada
       if (EN.Enemy.isMiniBoss(e) && !e.dead) {
@@ -1095,69 +1124,6 @@ EN.Main = (function () {
       : "Fase " + boss.phase;
   }
 
-  // ---------- painel de atributos ----------
-  function wireAttrPanel() {
-    var ATTR_DEFS = [
-      { key: "forca",      stat: "atk",  sub: "+2 Ataque / pt"     },
-      { key: "vitalidade", stat: "hpMax",sub: "+5 Vida máx / pt"   },
-      { key: "vigor",      stat: "stMax",sub: "+4 Vigor máx / pt"  },
-      { key: "magia",      stat: "mpMax",sub: "+3 Magia máx / pt"  },
-      { key: "defesa",     stat: "def",  sub: "+1 Defesa / pt"     },
-    ];
-    var panel = document.getElementById("attr-panel");
-    if (!panel) return;
-
-    function refreshPanel() {
-      var pr = EN.State.data.progress;
-      pr.attrs = pr.attrs || {};
-      var pts = pr.attrPoints || 0;
-      document.getElementById("attr-pts").textContent = pts + " pt" + (pts !== 1 ? "s" : "") + " disponíveis";
-      var player = mainSession ? mainSession.player : null;
-      ATTR_DEFS.forEach(function (def) {
-        var row = panel.querySelector("[data-attr='" + def.key + "']");
-        if (!row) return;
-        var spent = pr.attrs[def.key] || 0;
-        row.querySelector(".attr-bonus").textContent = spent > 0 ? "×" + spent : "—";
-        if (player) {
-          var val = player[def.stat];
-          row.querySelector(".attr-val").textContent = typeof val === "number" ? Math.ceil(val) : "—";
-        }
-        row.querySelector(".attr-add").disabled = pts <= 0;
-      });
-    }
-
-    document.getElementById("btn-attrs").addEventListener("pointerdown", function (e) {
-      e.preventDefault(); e.stopPropagation();
-      panel.classList.toggle("open");
-      if (panel.classList.contains("open")) refreshPanel();
-    });
-
-    document.getElementById("btn-attrs-close").addEventListener("pointerdown", function (e) {
-      e.preventDefault(); e.stopPropagation();
-      panel.classList.remove("open");
-    });
-
-    ATTR_DEFS.forEach(function (def) {
-      var row = panel.querySelector("[data-attr='" + def.key + "']");
-      if (!row) return;
-      row.querySelector(".attr-add").addEventListener("pointerdown", function (e) {
-        e.preventDefault(); e.stopPropagation();
-        var pr = EN.State.data.progress;
-        if (!pr.attrPoints || pr.attrPoints <= 0) return;
-        pr.attrPoints--;
-        pr.attrs[def.key] = (pr.attrs[def.key] || 0) + 1;
-        if (mainSession) {
-          var player = mainSession.player;
-          var hpPct = player.hp / player.hpMax;
-          EN.Player.applyClass(player, player.classId, false, pr.level);
-          player.hp = Math.min(player.hpMax, Math.max(player.hp, Math.round(player.hpMax * hpPct)));
-        }
-        EN.State.persist();
-        refreshPanel();
-      });
-    });
-  }
-
   // ---------- toast ----------
   var toastEl, toastTimer;
   function wireToast() {
@@ -1180,6 +1146,12 @@ EN.Main = (function () {
     confirmClassFromArena: confirmClassFromArena,
     toast: toast,
     refreshQuestTracker: refreshQuestTracker,
+    screenToWorld: screenToWorld,
+    // o menu congela a sessão enquanto está aberto — distribuir ponto de
+    // atributo com um inimigo em cima não é escolha, é acidente
+    setPaused: function (v) {
+      paused = !!v;
+    },
     getSession: function () {
       return currentSession;
     },

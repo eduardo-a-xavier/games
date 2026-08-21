@@ -38,7 +38,7 @@
             <div class="portrait-text">
               <div id="hud-name">Viajante</div>
               <div id="hud-classline">Sem classe</div>
-              <button id="btn-attrs" aria-label="Atributos" style="display:none"></button>
+              <div id="xp-track"><div id="xp-fill"></div></div>
             </div>
           </div>
           <div class="bar-row"><span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill hp" id="fill-hp"></div></div><span class="bar-num" id="num-hp">-/-</span></div>
@@ -51,7 +51,10 @@
           <div id="clock-row"><span id="day-glyph">☀</span><span id="clock-time" class="tnum">08:00</span></div>
           <div id="clock-day" class="tnum">Dia 1</div>
           <div id="coin-row"><span id="coin-icon"></span><span id="coin-count" class="tnum">0</span></div>
-          <button id="btn-mute" class="mute-btn" aria-label="Ligar/desligar som">🔊</button>
+          <div class="panel-btn-row">
+            <button id="btn-mute" class="mute-btn" aria-label="Ligar/desligar som">🔊</button>
+            <button id="btn-menu" class="mute-btn" aria-label="Abrir menu">☰<span id="menu-dot"></span></button>
+          </div>
         </div>
       </div>
 
@@ -109,48 +112,94 @@
 
       <div id="toast"></div>
 
-      <div id="attr-panel" class="panel">
-        <div class="attr-panel-head">
-          <span class="attr-panel-title">ATRIBUTOS</span>
-          <span id="attr-pts">0 pts disponíveis</span>
-          <button id="btn-attrs-close">✕</button>
+      <!-- ===== MENU DO JOGO (status / missões / bestiário / opções) ===== -->
+      <div id="screen-menu">
+        <div class="menu-wrap">
+          <div class="menu-head">
+            <div class="menu-tabs">
+              <button class="menu-tab active" data-tab="status">STATUS</button>
+              <button class="menu-tab" data-tab="quests">MISSÕES</button>
+              <button class="menu-tab" data-tab="bestiary">BESTIÁRIO</button>
+              <button class="menu-tab" data-tab="options">OPÇÕES</button>
+            </div>
+            <button id="menu-close" aria-label="Fechar menu">✕</button>
+          </div>
+
+          <div class="menu-body">
+            <!-- ---------- STATUS ---------- -->
+            <section class="menu-page active" data-page="status">
+              <div class="status-grid">
+                <div class="status-card char">
+                  <canvas id="menu-portrait" width="120" height="140"></canvas>
+                  <div class="char-text">
+                    <div id="menu-name">Viajante</div>
+                    <div id="menu-class">Sem classe</div>
+                    <div id="menu-level">Nível 1</div>
+                    <div class="menu-xp"><div id="menu-xp-fill"></div></div>
+                    <div id="menu-xp-text">0 / 18 XP</div>
+                  </div>
+                </div>
+
+                <div class="status-card attrs">
+                  <div class="status-card-head">
+                    <span>ATRIBUTOS</span>
+                    <span id="attr-pts">0 pts</span>
+                  </div>
+                  <div id="attr-rows"></div>
+                  <div class="attr-note">Você ganha 3 pontos por nível</div>
+                </div>
+
+                <div class="status-card derived">
+                  <div class="status-card-head"><span>COMBATE</span></div>
+                  <div id="derived-rows"></div>
+                </div>
+              </div>
+            </section>
+
+            <!-- ---------- MISSÕES ---------- -->
+            <section class="menu-page" data-page="quests">
+              <div id="quest-list"></div>
+            </section>
+
+            <!-- ---------- BESTIÁRIO ---------- -->
+            <section class="menu-page" data-page="bestiary">
+              <div id="bestiary-list"></div>
+            </section>
+
+            <!-- ---------- OPÇÕES ---------- -->
+            <section class="menu-page" data-page="options">
+              <div class="opt-list">
+                <div class="opt-row">
+                  <div><b>Som</b><span>Música ambiente e efeitos</span></div>
+                  <button id="opt-mute" class="opt-btn">Ligado</button>
+                </div>
+                <div class="opt-row">
+                  <div><b>Tela cheia</b><span>Recomendado no celular</span></div>
+                  <button id="opt-fullscreen" class="opt-btn">Ativar</button>
+                </div>
+                <div class="opt-row danger">
+                  <div><b>Apagar progresso</b><span>Recomeça do zero. Não tem volta.</span></div>
+                  <button id="opt-reset" class="opt-btn danger">Apagar</button>
+                </div>
+              </div>
+              <div class="opt-keys">
+                <div class="opt-keys-title">TECLADO</div>
+                <div class="key-grid">
+                  <span><kbd>WASD</kbd> mover</span>
+                  <span><kbd>Mouse</kbd> mirar</span>
+                  <span><kbd>Clique</kbd> atacar (segure = carregar)</span>
+                  <span><kbd>Botão dir.</kbd> esquivar</span>
+                  <span><kbd>Espaço</kbd> esquivar</span>
+                  <span><kbd>Q</kbd> habilidade 1</span>
+                  <span><kbd>R</kbd> habilidade 2</span>
+                  <span><kbd>H</kbd> curar</span>
+                  <span><kbd>E</kbd> interagir</span>
+                  <span><kbd>Tab</kbd> / <kbd>Esc</kbd> menu</span>
+                </div>
+              </div>
+            </section>
+          </div>
         </div>
-        <div class="attr-row" data-attr="forca">
-          <span class="attr-icon">⚔️</span>
-          <span class="attr-name">Força<br><span class="attr-sub">+2 Ataque / pt</span></span>
-          <span class="attr-bonus">—</span>
-          <span class="attr-val">—</span>
-          <button class="attr-add" disabled>+</button>
-        </div>
-        <div class="attr-row" data-attr="vitalidade">
-          <span class="attr-icon">❤️</span>
-          <span class="attr-name">Vitalidade<br><span class="attr-sub">+5 Vida máx / pt</span></span>
-          <span class="attr-bonus">—</span>
-          <span class="attr-val">—</span>
-          <button class="attr-add" disabled>+</button>
-        </div>
-        <div class="attr-row" data-attr="vigor">
-          <span class="attr-icon">⚡</span>
-          <span class="attr-name">Vigor<br><span class="attr-sub">+4 Vigor máx / pt</span></span>
-          <span class="attr-bonus">—</span>
-          <span class="attr-val">—</span>
-          <button class="attr-add" disabled>+</button>
-        </div>
-        <div class="attr-row" data-attr="magia">
-          <span class="attr-icon">✦</span>
-          <span class="attr-name">Magia<br><span class="attr-sub">+3 Magia máx / pt</span></span>
-          <span class="attr-bonus">—</span>
-          <span class="attr-val">—</span>
-          <button class="attr-add" disabled>+</button>
-        </div>
-        <div class="attr-row" data-attr="defesa">
-          <span class="attr-icon">🛡️</span>
-          <span class="attr-name">Defesa<br><span class="attr-sub">+1 Defesa / pt</span></span>
-          <span class="attr-bonus">—</span>
-          <span class="attr-val">—</span>
-          <button class="attr-add" disabled>+</button>
-        </div>
-        <div class="attr-note">Pontos ganhos ao subir de nível (3 por nível)</div>
       </div>
     </div>
 
@@ -281,6 +330,7 @@
 <script src="src/camera.js"></script>
 <script src="src/world.js"></script>
 <script src="src/hud.js"></script>
+<script src="src/menu.js"></script>
 <script src="src/dialogue.js"></script>
 <script src="src/quests.js"></script>
 <script src="src/story.js"></script>

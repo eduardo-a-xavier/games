@@ -23,7 +23,7 @@ EN.HUD = (function () {
       "clock-day",
       "day-glyph",
       "status-effects",
-      "btn-attrs",
+      "xp-fill",
     ].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
@@ -57,12 +57,14 @@ EN.HUD = (function () {
     el.innerHTML = html;
   }
 
-  function updateAttrBadge() {
-    var el = els["btn-attrs"];
+  // barrinha de XP embaixo do nome: progresso de nível sempre visível,
+  // sem ocupar uma linha inteira do painel
+  function updateXP() {
+    var el = els["xp-fill"];
     if (!el) return;
-    var pts = (EN.State.data.progress.attrPoints || 0);
-    el.textContent = pts > 0 ? "▲ " + pts + " pts" : "";
-    el.style.display = pts > 0 ? "block" : "none";
+    var pr = EN.State.data.progress;
+    var need = 18 + ((pr.level || 1) - 1) * 10;
+    el.style.width = Math.min(100, (Math.max(0, pr.xp || 0) / need) * 100) + "%";
   }
 
   function setBar(key, v, max) {
@@ -88,7 +90,8 @@ EN.HUD = (function () {
     els["hud-classline"].textContent = "Nv. " + (pr.level || 1) + " • " + className;
     drawPortrait(appearance, p.classId);
     updateStatusEffects(p);
-    updateAttrBadge();
+    updateXP();
+    EN.Menu.refreshBadge();
 
     if (world.showClock !== false) {
       els["coin-count"].textContent = world.vintem;
