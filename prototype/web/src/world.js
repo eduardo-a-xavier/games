@@ -260,10 +260,11 @@ EN.World = (function () {
    * cor — o suficiente pra ler "tem gente ali" numa tela de celular.
    */
   function drawNpcs(ctx, camX, camY, t) {
+    var SA = EN.SpriteAtlas;
+    var flavioReady = SA.npcSheetReady("flavio");
     NPC_SPOTS.forEach(function (spot, i) {
       var x = spot.x - camX,
         y = spot.y - camY;
-      var bob = Math.sin(t * 1.6 + i * 1.7) * 1.6;
 
       var sh = ctx.createRadialGradient(x, y + 10, 1, x, y + 10, 13);
       sh.addColorStop(0, "rgba(0,0,0,.34)");
@@ -273,41 +274,47 @@ EN.World = (function () {
       ctx.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(20,14,10,.5)";
-      ctx.lineWidth = 1;
+      if (flavioReady) {
+        var facing = { x: 0, y: 1 };
+        SA.drawNpcAnim(ctx, "flavio", "idle", x, y, t * 0.6 + i * 0.3, facing, 52);
+      } else {
+        var bob = Math.sin(t * 1.6 + i * 1.7) * 1.6;
+        ctx.strokeStyle = "rgba(20,14,10,.5)";
+        ctx.lineWidth = 1;
 
-      ctx.fillStyle = "#3a3a44";
-      ctx.fillRect(x - 6, y - 2 + bob, 5, 12);
-      ctx.fillRect(x + 1, y - 2 + bob, 5, 12);
+        ctx.fillStyle = "#3a3a44";
+        ctx.fillRect(x - 6, y - 2 + bob, 5, 12);
+        ctx.fillRect(x + 1, y - 2 + bob, 5, 12);
 
-      ctx.fillStyle = spot.shirt;
-      roundRectPath(ctx, x - 8, y - 16 + bob, 16, 17, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = spot.skin;
-      ctx.beginPath();
-      ctx.arc(x, y - 22 + bob, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = "#2a1c14";
-      ctx.beginPath();
-      ctx.arc(x - 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
-      ctx.arc(x + 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (spot.hat) {
-        ctx.fillStyle = spot.hat;
-        ctx.beginPath();
-        ctx.ellipse(x, y - 27 + bob, 12, 4, 0, 0, Math.PI * 2);
+        ctx.fillStyle = spot.shirt;
+        roundRectPath(ctx, x - 8, y - 16 + bob, 16, 17, 4);
         ctx.fill();
         ctx.stroke();
-      } else {
-        ctx.fillStyle = "#d8d2cc";
+
+        ctx.fillStyle = spot.skin;
         ctx.beginPath();
-        ctx.arc(x, y - 25 + bob, 7, Math.PI, Math.PI * 2);
+        ctx.arc(x, y - 22 + bob, 7, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#2a1c14";
+        ctx.beginPath();
+        ctx.arc(x - 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
+        ctx.arc(x + 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (spot.hat) {
+          ctx.fillStyle = spot.hat;
+          ctx.beginPath();
+          ctx.ellipse(x, y - 27 + bob, 12, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = "#d8d2cc";
+          ctx.beginPath();
+          ctx.arc(x, y - 25 + bob, 7, Math.PI, Math.PI * 2);
+          ctx.fill();
+        }
       }
 
       // marcador flutuante de conversa
@@ -438,10 +445,11 @@ EN.World = (function () {
    * a história pedir isso dele.
    */
   var NPC_SPOTS = [
-    { id: "ze", x: 420, y: 210, shirt: "#4a7a52", hat: "#c9a227", skin: "#b07a4e" },
+    { id: "ze",      x: 420,  y: 210, shirt: "#4a7a52", hat: "#c9a227", skin: "#b07a4e" },
     { id: "osvaldo", x: 1180, y: 640, shirt: "#6b5240", hat: "#3a3a3f", skin: "#8a5c3a" },
-    { id: "micaela", x: 690, y: 900, shirt: "#7a5a82", hat: null, skin: "#7a5236" },
+    { id: "micaela", x: 690,  y: 900, shirt: "#7a5a82", hat: null,      skin: "#7a5236" },
     { id: "batista", x: 1420, y: 260, shirt: "#4a4a3a", hat: "#5a4a2a", skin: "#9a6a44" },
+    { id: "flavio",  x: 560,  y: 380, shirt: "#3a5a8a", hat: null,      skin: "#c09070" },
   ];
 
   var MINE_ENTRANCE = { x: 1440, y: 120 };

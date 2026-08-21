@@ -177,6 +177,56 @@ EN.SpriteAtlas = (function () {
   loadSheet("mateiro",   "mateiro_sheet");
   loadSheet("encantado", "encantado_sheet");
 
+  // NPC spritesheets — mesma estrutura de linhas do player sheet padrão.
+  // Configs ajustados depois que o arquivo é analisado pixel a pixel.
+  var NPC_BASE = "assets/npcs/";
+  var npcSheets = {};
+  var NPC_CONFIGS = {
+    flavio: {
+      idleH: 17,
+      rows: {
+        idle: { y: 19, h: 17, frames: 6, x0: 12, fw: 11, stride: 36 },
+        walk: { y: 54, h: 18, frames: 6, x0: 12, fw: 11, stride: 36 },
+        hurt: { y: 200, h: 16, frames: 3, x0: 12, fw: 11, stride: 37 },
+      },
+    },
+  };
+
+  function loadNpcSheet(id) {
+    var img = new Image();
+    var s = { img: img, loaded: false, failed: false };
+    npcSheets[id] = s;
+    img.onload = function () { s.loaded = true; };
+    img.onerror = function () { s.failed = true; };
+    img.src = (window.__SPRITE_DATA_URIS__ && window.__SPRITE_DATA_URIS__[id + "_npc"]) || NPC_BASE + id + "_sheet.png";
+  }
+
+  function npcSheetReady(id) {
+    return npcSheets[id] !== undefined && npcSheets[id].loaded;
+  }
+
+  function drawNpcAnim(ctx, npcId, rowKey, cx, cy, cyclePhase, facing, drawHeight) {
+    var cfg = NPC_CONFIGS[npcId];
+    var s = npcSheets[npcId];
+    if (!cfg || !s || !s.loaded) return false;
+    var r = cfg.rows[rowKey];
+    if (!r) return false;
+    var frac = cyclePhase - Math.floor(cyclePhase);
+    var frameIndex = Math.min(r.frames - 1, Math.floor(frac * r.frames));
+    var scale = drawHeight / cfg.idleH;
+    var dw = r.fw * scale;
+    var dh = r.h * scale;
+    var sx = r.x0 + frameIndex * r.stride;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (pickDirection(facing) === "left") ctx.scale(-1, 1);
+    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
+    ctx.restore();
+    return true;
+  }
+
+  loadNpcSheet("flavio");
+
   function ready(key) {
     if (single[key]) return single[key].loaded;
     var s = directional[key];
@@ -237,5 +287,7 @@ EN.SpriteAtlas = (function () {
     drawSingle: drawSingle,
     sheetReady: sheetReady,
     drawSheetAnim: drawSheetAnim,
+    npcSheetReady: npcSheetReady,
+    drawNpcAnim: drawNpcAnim,
   };
 })();
