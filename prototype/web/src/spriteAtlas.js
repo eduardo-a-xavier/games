@@ -20,6 +20,22 @@ EN.SpriteAtlas = (function () {
   var directional = {};
   var single = {};
 
+  // flat spritesheet (player_sheet.png) — one image, all animations as rows.
+  // SHEET_IDLE_H is the idle row height: used as the scale reference so the
+  // robot renders at ~52px regardless of each row's actual pixel height.
+  var sheet = null;
+  var SHEET_ROWS = {
+    idle:   { y: 17,  h: 18, frames: 6  },
+    walk:   { y: 53,  h: 18, frames: 6  },
+    run:    { y: 89,  h: 11, frames: 3  },
+    attack: { y: 124, h: 19, frames: 8  },
+    heavy:  { y: 161, h: 18, frames: 5  },
+    hurt:   { y: 199, h: 8,  frames: 3  },
+    dodge:  { y: 239, h: 13, frames: 8  },
+    defeat: { y: 258, h: 30, frames: 10 },
+  };
+  var SHEET_X_START = 10, SHEET_STRIDE = 36, SHEET_FRAME_W = 21, SHEET_IDLE_H = 18;
+
   function resolveSrc(name) {
     // build_bundle.py injeta window.__SPRITE_DATA_URIS__ no HTML
     // autocontido (Artifact); servido normalmente, usa o caminho relativo
@@ -75,6 +91,41 @@ EN.SpriteAtlas = (function () {
   // pontas atravessavam as duas fileiras e saíam cortadas)
   loadDirectional("dodge", { down: 4, left: 3, right: 4, up: 4 });
   loadSingle("defeat", 4);
+
+  function loadPlayerSheet() {
+    var img = new Image();
+    sheet = { img: img, loaded: false, failed: false };
+    img.onload = function () { sheet.loaded = true; };
+    img.onerror = function () { sheet.failed = true; };
+    img.src = resolveSrc("player_sheet");
+  }
+
+  function sheetReady() {
+    return sheet !== null && sheet.loaded;
+  }
+
+  // draws one frame from the flat spritesheet, anchored at feet (cx, cy).
+  // mirrors horizontally for the left direction so the sprite faces the right way.
+  function drawSheetAnim(ctx, rowKey, cx, cy, cyclePhase, facing, drawHeight) {
+    var r = SHEET_ROWS[rowKey];
+    if (!r || !sheet || !sheet.loaded) return false;
+    var frac = cyclePhase - Math.floor(cyclePhase);
+    var frameIndex = Math.min(r.frames - 1, Math.floor(frac * r.frames));
+    var scale = drawHeight / SHEET_IDLE_H;
+    var dw = SHEET_FRAME_W * scale;
+    var dh = r.h * scale;
+    var sx = SHEET_X_START + frameIndex * SHEET_STRIDE;
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
+    if (pickDirection(facing) === "left") ctx.scale(-1, 1);
+    // cx=0 in all drawFromAtlas calls; formula centers sprite around cx in both
+    // normal and flipped space (scale(-1,1) mirrors the x-axis around origin)
+    ctx.drawImage(sheet.img, sx, r.y, SHEET_FRAME_W, r.h, cx - dw / 2, cy - dh, dw, dh);
+    ctx.restore();
+    return true;
+  }
+
+  loadPlayerSheet();
 
   function ready(key) {
     if (single[key]) return single[key].loaded;
@@ -134,5 +185,7 @@ EN.SpriteAtlas = (function () {
     pickDirection: pickDirection,
     drawDirectional: drawDirectional,
     drawSingle: drawSingle,
+    sheetReady: sheetReady,
+    drawSheetAnim: drawSheetAnim,
   };
 })();

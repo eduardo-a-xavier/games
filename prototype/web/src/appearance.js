@@ -118,6 +118,24 @@ EN.Appearance = (function () {
 
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
+
+    // flat player spritesheet has priority when loaded
+    if (SA.sheetReady()) {
+      if (state === "idle")  return SA.drawSheetAnim(ctx, "idle",   0, 15, t * 0.6,                         facing, 52);
+      if (state === "walk")  return SA.drawSheetAnim(ctx, "walk",   0, 15, (t * 8) / (2 * Math.PI),         facing, 52);
+      if (state === "run")   return SA.drawSheetAnim(ctx, "run",    0, 15, (t * 13) / (2 * Math.PI),        facing, 52);
+      if (state === "hurt")  return SA.drawSheetAnim(ctx, "hurt",   0, 15, t * 2,                           facing, 52);
+      if (state === "dodge") return SA.drawSheetAnim(ctx, "dodge",  0, 15, Math.min(0.999, t / DODGE_DUR),  facing, 52);
+      if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t / 1.0),        facing, 52);
+      if (state === "attack" || state === "chargeAttack") {
+        var p = state === "chargeAttack"
+          ? Math.min(0.999, anim.chargeProgress || 0)
+          : Math.min(0.999, t / 0.3);
+        return SA.drawSheetAnim(ctx, "attack", 0, 15, p, facing, 52);
+      }
+      // "tool" has no sheet row — falls through to directional atlas or procedural
+    }
+
     if (state === "idle" && SA.ready("idle")) {
       return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
     }
