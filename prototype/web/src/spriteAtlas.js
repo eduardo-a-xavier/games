@@ -20,22 +20,63 @@ EN.SpriteAtlas = (function () {
   var directional = {};
   var single = {};
 
-  // flat spritesheets por classe — mesma grade de linhas para todos.
-  // "default" é o fallback; sheets específicos carregam quando o arquivo existe.
+  // flat spritesheets por classe. Dados verificados pixel a pixel.
+  // Cada linha: { y, h, frames, x0, fw, stride }. idleH = referência de escala.
   var sheets = {};
-  // Dados verificados pixel a pixel (ver análise PIL acima).
-  // Cada linha: { y, h, frames, x0, fw, stride }
-  var SHEET_ROWS = {
-    idle:   { y: 15,  h: 21, frames: 6,  x0: 10, fw: 21, stride: 36 },
-    walk:   { y: 51,  h: 21, frames: 6,  x0: 10, fw: 21, stride: 36 },
-    run:    { y: 88,  h: 20, frames: 3,  x0: 10, fw: 21, stride: 35 },
-    attack: { y: 120, h: 24, frames: 8,  x0: 9,  fw: 22, stride: 36 },
-    heavy:  { y: 159, h: 21, frames: 5,  x0: 10, fw: 20, stride: 36 },
-    hurt:   { y: 196, h: 20, frames: 3,  x0: 10, fw: 21, stride: 36 },
-    defeat: { y: 235, h: 53, frames: 10, x0: 10, fw: 23, stride: 30 },
+  var SHEET_CONFIGS = {
+    "default": {
+      idleH: 17,
+      rows: {
+        idle:   { y: 19,  h: 17, frames: 6,  x0: 12, fw: 11, stride: 36 },
+        walk:   { y: 54,  h: 18, frames: 6,  x0: 12, fw: 11, stride: 36 },
+        run:    { y: 90,  h: 18, frames: 3,  x0: 12, fw: 11, stride: 35 },
+        attack: { y: 127, h: 17, frames: 8,  x0: 12, fw: 11, stride: 36 },
+        heavy:  { y: 163, h: 17, frames: 5,  x0: 12, fw: 11, stride: 36 },
+        hurt:   { y: 200, h: 16, frames: 3,  x0: 12, fw: 11, stride: 37 },
+        dodge:  { y: 237, h: 15, frames: 8,  x0: 13, fw: 10, stride: 36 },
+        defeat: { y: 270, h: 18, frames: 10, x0: 12, fw: 11, stride: 36 },
+      },
+    },
+    "guerreiro": {
+      idleH: 19,
+      rows: {
+        idle:   { y: 17,  h: 19, frames: 6,  x0: 10, fw: 23, stride: 36 },
+        walk:   { y: 53,  h: 19, frames: 6,  x0: 10, fw: 23, stride: 36 },
+        run:    { y: 89,  h: 19, frames: 3,  x0: 10, fw: 23, stride: 35 },
+        attack: { y: 122, h: 22, frames: 8,  x0: 9,  fw: 14, stride: 35 },
+        heavy:  { y: 162, h: 18, frames: 5,  x0: 10, fw: 21, stride: 36 },
+        hurt:   { y: 198, h: 18, frames: 3,  x0: 10, fw: 23, stride: 36 },
+        dodge:  { y: 235, h: 17, frames: 8,  x0: 10, fw: 20, stride: 36 },
+        defeat: { y: 265, h: 23, frames: 10, x0: 10, fw: 24, stride: 36 },
+      },
+    },
+    "mateiro": {
+      idleH: 19,
+      rows: {
+        idle:   { y: 17,  h: 19, frames: 6,  x0: 10, fw: 16, stride: 36 },
+        walk:   { y: 53,  h: 19, frames: 6,  x0: 10, fw: 16, stride: 36 },
+        run:    { y: 89,  h: 19, frames: 3,  x0: 10, fw: 16, stride: 35 },
+        attack: { y: 124, h: 20, frames: 8,  x0: 3,  fw: 20, stride: 42 },
+        heavy:  { y: 162, h: 18, frames: 5,  x0: 10, fw: 19, stride: 36 },
+        hurt:   { y: 198, h: 18, frames: 3,  x0: 10, fw: 17, stride: 35 },
+        dodge:  { y: 235, h: 17, frames: 9,  x0: 10, fw: 19, stride: 36 },
+        defeat: { y: 269, h: 19, frames: 16, x0: 10, fw: 17, stride: 36 },
+      },
+    },
+    "encantado": {
+      idleH: 23,
+      rows: {
+        idle:   { y: 13,  h: 23, frames: 6,  x0: 10, fw: 17, stride: 36 },
+        walk:   { y: 49,  h: 23, frames: 6,  x0: 10, fw: 17, stride: 36 },
+        run:    { y: 85,  h: 23, frames: 3,  x0: 10, fw: 16, stride: 35 },
+        attack: { y: 122, h: 22, frames: 8,  x0: 9,  fw: 18, stride: 36 },
+        heavy:  { y: 157, h: 23, frames: 5,  x0: 10, fw: 15, stride: 36 },
+        hurt:   { y: 193, h: 23, frames: 3,  x0: 10, fw: 16, stride: 36 },
+        dodge:  { y: 235, h: 17, frames: 8,  x0: 10, fw: 23, stride: 36 },
+        defeat: { y: 264, h: 24, frames: 14, x0: 10, fw: 17, stride: 36 },
+      },
+    },
   };
-  // altura do frame idle — referência de escala para todas as animações
-  var SHEET_IDLE_H = 21;
 
   function resolveSrc(name) {
     // build_bundle.py injeta window.__SPRITE_DATA_URIS__ no HTML
@@ -103,21 +144,23 @@ EN.SpriteAtlas = (function () {
   }
 
   function sheetReady(classId) {
-    var s = sheets[classId] || sheets["default"];
-    return s !== undefined && s.loaded;
+    var key = (classId && SHEET_CONFIGS[classId] && sheets[classId] && sheets[classId].loaded) ? classId : "default";
+    return sheets[key] !== undefined && sheets[key].loaded;
   }
 
   // draws one frame from the flat spritesheet, anchored at feet (cx, cy).
-  // picks class-specific sheet when loaded, falls back to default.
-  // mirrors horizontally for the left direction so the sprite faces the right way.
+  // picks class-specific config+sheet; falls back to "default".
+  // mirrors horizontally for the left direction.
   function drawSheetAnim(ctx, rowKey, cx, cy, cyclePhase, facing, drawHeight, classId) {
-    var r = SHEET_ROWS[rowKey];
-    if (!r) return false;
-    var s = (classId && sheets[classId] && sheets[classId].loaded) ? sheets[classId] : sheets["default"];
+    var key = (classId && SHEET_CONFIGS[classId] && sheets[classId] && sheets[classId].loaded) ? classId : "default";
+    var cfg = SHEET_CONFIGS[key];
+    var s = sheets[key];
     if (!s || !s.loaded) return false;
+    var r = cfg.rows[rowKey];
+    if (!r) return false;
     var frac = cyclePhase - Math.floor(cyclePhase);
     var frameIndex = Math.min(r.frames - 1, Math.floor(frac * r.frames));
-    var scale = drawHeight / SHEET_IDLE_H;
+    var scale = drawHeight / cfg.idleH;
     var dw = r.fw * scale;
     var dh = r.h * scale;
     var sx = r.x0 + frameIndex * r.stride;

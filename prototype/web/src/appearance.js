@@ -125,8 +125,8 @@ EN.Appearance = (function () {
       if (state === "idle")  return SA.drawSheetAnim(ctx, "idle",   0, 15, t * 0.6,                        facing, 52, cid);
       if (state === "walk")  return SA.drawSheetAnim(ctx, "walk",   0, 15, (t * 8) / (2 * Math.PI),        facing, 52, cid);
       if (state === "run")   return SA.drawSheetAnim(ctx, "run",    0, 15, (t * 13) / (2 * Math.PI),       facing, 52, cid);
-      if (state === "hurt")  return SA.drawSheetAnim(ctx, "hurt",   0, 15, t * 2,                          facing, 52, cid);
-      if (state === "dodge") return SA.drawSheetAnim(ctx, "run",    0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
+      if (state === "hurt")  return SA.drawSheetAnim(ctx, "hurt",  0, 15, t * 2,                          facing, 52, cid);
+      if (state === "dodge") return SA.drawSheetAnim(ctx, "dodge", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
       if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t / 1.0),       facing, 52, cid);
       if (state === "attack" || state === "chargeAttack") {
         var p = state === "chargeAttack"
