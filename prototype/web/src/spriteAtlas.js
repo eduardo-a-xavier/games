@@ -24,17 +24,19 @@ EN.SpriteAtlas = (function () {
   // SHEET_IDLE_H is the idle row height: used as the scale reference so the
   // robot renders at ~52px regardless of each row's actual pixel height.
   var sheet = null;
+  // Dados verificados pixel a pixel (ver análise PIL acima).
+  // Cada linha: { y, h, frames, x0, fw, stride }
   var SHEET_ROWS = {
-    idle:   { y: 17,  h: 18, frames: 6  },
-    walk:   { y: 53,  h: 18, frames: 6  },
-    run:    { y: 89,  h: 11, frames: 3  },
-    attack: { y: 124, h: 19, frames: 8  },
-    heavy:  { y: 161, h: 18, frames: 5  },
-    hurt:   { y: 199, h: 8,  frames: 3  },
-    dodge:  { y: 239, h: 13, frames: 8  },
-    defeat: { y: 258, h: 30, frames: 10 },
+    idle:   { y: 15,  h: 21, frames: 6,  x0: 10, fw: 21, stride: 36 },
+    walk:   { y: 51,  h: 21, frames: 6,  x0: 10, fw: 21, stride: 36 },
+    run:    { y: 88,  h: 20, frames: 3,  x0: 10, fw: 21, stride: 35 },
+    attack: { y: 120, h: 24, frames: 8,  x0: 9,  fw: 22, stride: 36 },
+    heavy:  { y: 159, h: 21, frames: 5,  x0: 10, fw: 20, stride: 36 },
+    hurt:   { y: 196, h: 20, frames: 3,  x0: 10, fw: 21, stride: 36 },
+    defeat: { y: 235, h: 53, frames: 10, x0: 10, fw: 23, stride: 30 },
   };
-  var SHEET_X_START = 10, SHEET_STRIDE = 36, SHEET_FRAME_W = 21, SHEET_IDLE_H = 18;
+  // altura do frame idle — referência de escala para todas as animações
+  var SHEET_IDLE_H = 21;
 
   function resolveSrc(name) {
     // build_bundle.py injeta window.__SPRITE_DATA_URIS__ no HTML
@@ -112,15 +114,13 @@ EN.SpriteAtlas = (function () {
     var frac = cyclePhase - Math.floor(cyclePhase);
     var frameIndex = Math.min(r.frames - 1, Math.floor(frac * r.frames));
     var scale = drawHeight / SHEET_IDLE_H;
-    var dw = SHEET_FRAME_W * scale;
+    var dw = r.fw * scale;
     var dh = r.h * scale;
-    var sx = SHEET_X_START + frameIndex * SHEET_STRIDE;
+    var sx = r.x0 + frameIndex * r.stride;
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (pickDirection(facing) === "left") ctx.scale(-1, 1);
-    // cx=0 in all drawFromAtlas calls; formula centers sprite around cx in both
-    // normal and flipped space (scale(-1,1) mirrors the x-axis around origin)
-    ctx.drawImage(sheet.img, sx, r.y, SHEET_FRAME_W, r.h, cx - dw / 2, cy - dh, dw, dh);
+    ctx.drawImage(sheet.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
     ctx.restore();
     return true;
   }
