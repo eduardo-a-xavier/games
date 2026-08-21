@@ -62,14 +62,22 @@ EN.HUD = (function () {
     var canvas = els["hud-portrait"];
     if (!canvas || canvas.tagName !== "CANVAS") return;
     var ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    var cw = canvas.width, ch = canvas.height;
+    ctx.clearRect(0, 0, cw, ch);
     ctx.imageSmoothingEnabled = false;
-    EN.Appearance.draw(ctx, canvas.width / 2, canvas.height / 2 + 16, appearance, {
+    // scale down so the full character (sprite height ~52px) fits inside the
+    // small portrait canvas; anchor so feet sit near the bottom with a 2px gap
+    var s = 0.72;
+    var canvasCy = ch - 2 - 15 * s;
+    ctx.save();
+    ctx.scale(s, s);
+    EN.Appearance.draw(ctx, (cw / 2) / s, canvasCy / s, appearance, {
       state: "idle",
       t: performance.now() / 600,
       facing: { x: 0, y: 1 },
       classId: classId,
     });
+    ctx.restore();
   }
 
   return { update: update };

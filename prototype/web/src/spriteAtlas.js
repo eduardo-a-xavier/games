@@ -115,8 +115,14 @@ EN.SpriteAtlas = (function () {
     return blit(ctx, e, frameIndex, cx, cy, drawHeight);
   }
 
+  // IDLE_REF_H: idle sprite frame height used as the universal scale reference.
+  // All animations are scaled as if their frame were this tall, so the character
+  // renders at the same real size regardless of how much empty space each
+  // spritesheet has above/below the character.
+  var IDLE_REF_H = 306;
+
   function blit(ctx, e, frameIndex, cx, cy, drawHeight) {
-    var scale = drawHeight / e.frameH;
+    var scale = drawHeight / IDLE_REF_H;
     var w = e.frameW * scale,
       h = e.frameH * scale;
     ctx.drawImage(e.img, frameIndex * e.frameW, 0, e.frameW, e.frameH, cx - w / 2, cy - h, w, h);
