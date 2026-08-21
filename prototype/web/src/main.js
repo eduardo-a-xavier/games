@@ -23,6 +23,7 @@ EN.Main = (function () {
     EN.Controls.init();
     wireToast();
     wireDespertarScreen();
+    wireLandscapeLock();
 
     if (EN.State.hasProfile()) {
       startMainWorld();
@@ -33,6 +34,31 @@ EN.Main = (function () {
     }
 
     requestAnimationFrame(loop);
+  }
+
+  // Encantaria é desenhado para paisagem (ver docs/GDD.md "UX MOBILE"). Em
+  // navegadores/contextos que permitem, o primeiro toque tenta fullscreen +
+  // travar a orientação; onde isso não é permitido (ex.: dentro de um
+  // iframe sem permissão), o CSS de #rotate-prompt garante que o jogo só
+  // aparece quando o aparelho já está em paisagem — nunca deixa o jogador
+  // preso num layout espremido.
+  function wireLandscapeLock() {
+    document.addEventListener(
+      "pointerdown",
+      function () {
+        try {
+          var el = document.documentElement;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen;
+          var fsPromise = req ? req.call(el) : Promise.resolve();
+          Promise.resolve(fsPromise)
+            .then(function () {
+              return screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape");
+            })
+            .catch(function () {});
+        } catch (e) {}
+      },
+      { once: true }
+    );
   }
 
   function resize() {

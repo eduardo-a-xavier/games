@@ -42,6 +42,28 @@ h1, p { margin: 0; }
 
 #app { position: fixed; inset: 0; }
 
+/* ============ prompt de girar o aparelho ============ */
+/* Encantaria é pensado pra paisagem (ver PRIORIDADE de layout); em telas de
+   toque ainda em retrato, cobrimos o jogo com este aviso em vez de tentar
+   espremer o HUD numa proporção que não foi desenhada pra ele. Gate por
+   (pointer:coarse)+(hover:none) pra não disparar num desktop com a janela
+   estreita -- só telas de toque contam. */
+#rotate-prompt {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: var(--sky-dusk); color: var(--mist);
+  flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  text-align: center; padding: 24px; font-family: var(--font-body);
+}
+.rotate-icon { font-size: 40px; animation: rotate-hint 1.8s ease-in-out infinite; }
+@keyframes rotate-hint { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } }
+#rotate-prompt p { font-size: 14px; font-weight: 600; }
+.rotate-sub { color: var(--mist-dim); font-weight: 500 !important; font-size: 12px !important; }
+@media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+  #rotate-prompt { display: flex; }
+  #app { visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) { .rotate-icon { animation: none; } }
+
 .safe-top { padding-top: max(10px, env(safe-area-inset-top)); }
 .safe-bottom { padding-bottom: max(10px, env(safe-area-inset-bottom)); }
 .safe-left { padding-left: max(10px, env(safe-area-inset-left)); }
@@ -100,11 +122,21 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 #coin-icon { width: 11px; height: 11px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--ipe) 55%, var(--ipe-dim)); box-shadow: 0 0 5px #f2b70588; }
 #coin-count { font-family: var(--font-display); font-size: 12px; color: var(--ipe); }
 
-/* joystick */
+/* joystick: anel fino sempre visível em repouso (referência de ARPGs
+   mobile comuns), acende e ganha uma base preenchida ao ser tocado */
 #joy-zone { position: absolute; left: 0; bottom: 0; width: 42vw; max-width: 220px; height: 42vw; max-height: 220px; }
-#joy-base { position: absolute; width: 96px; height: 96px; border-radius: 50%; border: 2px solid var(--panel-line); background: #0006; left: 24px; bottom: 24px; opacity: 0; transition: opacity .15s; }
-#joy-base.active { opacity: 1; }
-#joy-knob { position: absolute; width: 42px; height: 42px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #4a7a63, var(--mata) 70%); border: 2px solid var(--ipe-dim); left: 0; top: 0; transform: translate(-50%, -50%); }
+#joy-base {
+  position: absolute; width: 100px; height: 100px; border-radius: 50%;
+  border: 3px solid var(--panel-line); background: radial-gradient(circle, #0004, transparent 70%);
+  left: 24px; bottom: 24px; opacity: .55; transition: opacity .15s, border-color .15s;
+}
+#joy-base.active { opacity: 1; border-color: var(--ipe-dim); }
+#joy-knob {
+  position: absolute; width: 44px; height: 44px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #5a8a71, var(--mata) 75%);
+  border: 2px solid var(--ipe-dim); box-shadow: inset 0 2px 3px #ffffff33, 0 2px 4px #0006;
+  left: 0; top: 0; transform: translate(-50%, -50%);
+}
 
 /* cluster de botões: arco solto ao redor do ataque (botão principal, maior
    e mais baixo -- alcance natural do polegar), inspirado no padrão comum de
@@ -115,20 +147,25 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 .icon-btn {
   --accent: var(--ipe-dim);
   position: absolute; border-radius: 50%;
-  border: 2px solid var(--panel-line); background: var(--panel); color: var(--mist);
+  border: 2.5px solid var(--panel-line);
+  background: radial-gradient(circle at 34% 28%, #2a3e35, #0d1512 78%);
+  color: var(--mist);
   display: flex; align-items: center; justify-content: center;
   transition: transform .08s ease, border-color .12s ease, box-shadow .12s ease;
+  box-shadow: inset 0 1px 2px #ffffff14, 0 2px 5px #0007;
   overflow: hidden;
 }
 .icon-btn span, .icon-btn .atk-icon { font-size: 20px; position: relative; z-index: 2; filter: drop-shadow(0 1px 1px #0008); }
 .icon-btn.small { width: 50px; height: 50px; }
 .icon-btn.small span { font-size: 17px; }
-.icon-btn.big { width: 78px; height: 78px; border-color: var(--ipe-dim); box-shadow: 0 2px 10px #0006; }
+.icon-btn.big { width: 78px; height: 78px; border-color: var(--ipe-dim); box-shadow: inset 0 1px 3px #ffffff22, 0 3px 12px #0008; }
 .icon-btn.big .atk-icon { font-size: 30px; }
 .icon-btn:active, .icon-btn.pressed { transform: scale(.9); }
 .icon-btn.locked { opacity: .5; }
 .icon-btn.charging { border-color: var(--ipe); }
-.icon-btn.has-accent:not(.locked) { border-color: var(--accent); box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 55%, transparent); }
+.icon-btn.has-accent:not(.locked) { border-color: var(--accent); box-shadow: inset 0 1px 2px #ffffff14, 0 0 9px color-mix(in srgb, var(--accent) 60%, transparent); }
+#btn-dodge { --accent: #3fb8c9; }
+#btn-dodge:not(.locked) { border-color: var(--accent); box-shadow: inset 0 1px 2px #ffffff14, 0 0 7px color-mix(in srgb, var(--accent) 45%, transparent); }
 
 /* arco: skill2 no topo, skill1 diagonal acima-esquerda do ataque, ataque
    maior embaixo-direita (alcance direto do polegar), esquiva mais próxima
@@ -274,9 +311,39 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
   .bar-fill, .icon-btn, .swatch, #toast, .primary-btn { transition: none; }
 }
 
+/* ============ paisagem em tela curta (celular deitado) ============ */
+@media (orientation: landscape) and (max-height: 520px) {
+  .cc-wrap { padding: 14px 22px; gap: 10px; }
+  .screen-title { font-size: 16px; }
+  .cc-layout { flex-direction: row; align-items: flex-start; gap: 18px; }
+  .cc-preview { width: 120px; height: 150px; flex: 0 0 auto; }
+  .cc-form { gap: 8px; }
+  .swatch { min-height: 34px; padding: 4px 7px; }
+  .swatch-color { width: 16px; height: 16px; }
+
+  .cs-wrap { padding: 12px 20px 20px; gap: 10px; }
+  .cs-cards { grid-template-columns: repeat(3, 100px); justify-content: center; }
+  .class-card { padding: 8px 6px; }
+  .cs-detail { flex-direction: row; flex-wrap: wrap; padding: 10px 14px; gap: 8px 20px; }
+  .cs-detail-head { width: 100%; }
+  .cs-detail-desc { display: none; }
+  .cs-detail-stats { flex: 1 1 180px; }
+  .cs-detail-equip { flex: 1 1 180px; }
+  .cs-detail-actions { width: 100%; margin-top: 0; }
+
+  .desp-wrap { gap: 8px; }
+  .desp-title { font-size: 20px; }
+  .desp-text { font-size: 12.5px; }
+}
+
 </style>
 </head>
 <body>
+<div id="rotate-prompt">
+  <div class="rotate-icon">📱</div>
+  <p>Gire seu aparelho para jogar</p>
+  <p class="rotate-sub">Encantaria é feito para tela paisagem</p>
+</div>
 <div id="app">
 
   <!-- ===================== TELA DE JOGO (mundo + arena compartilham este DOM) ===================== -->
@@ -2967,6 +3034,7 @@ EN.Main = (function () {
     EN.Controls.init();
     wireToast();
     wireDespertarScreen();
+    wireLandscapeLock();
 
     if (EN.State.hasProfile()) {
       startMainWorld();
@@ -2977,6 +3045,31 @@ EN.Main = (function () {
     }
 
     requestAnimationFrame(loop);
+  }
+
+  // Encantaria é desenhado para paisagem (ver docs/GDD.md "UX MOBILE"). Em
+  // navegadores/contextos que permitem, o primeiro toque tenta fullscreen +
+  // travar a orientação; onde isso não é permitido (ex.: dentro de um
+  // iframe sem permissão), o CSS de #rotate-prompt garante que o jogo só
+  // aparece quando o aparelho já está em paisagem — nunca deixa o jogador
+  // preso num layout espremido.
+  function wireLandscapeLock() {
+    document.addEventListener(
+      "pointerdown",
+      function () {
+        try {
+          var el = document.documentElement;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen;
+          var fsPromise = req ? req.call(el) : Promise.resolve();
+          Promise.resolve(fsPromise)
+            .then(function () {
+              return screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape");
+            })
+            .catch(function () {});
+        } catch (e) {}
+      },
+      { once: true }
+    );
   }
 
   function resize() {
