@@ -8,3 +8,12 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+
+# Cópias geradas dos assets canônicos para preview/GitHub Pages. As fontes
+# ficam em /assets; rode prototype/web/prepare_web_assets.py para prepará-las.
+prototype/web/assets/player/*_down.png
+prototype/web/assets/player/*_left.png
+prototype/web/assets/player/*_right.png
+prototype/web/assets/player/*_up.png
+prototype/web/assets/player/defeat.png
+prototype/web/assets/npcs/*.png

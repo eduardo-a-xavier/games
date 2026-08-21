@@ -274,7 +274,10 @@ EN.World = (function () {
       ctx.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      if (flavioReady) {
+      // Não reutiliza o Flávio como se fosse todos os moradores. Só ele já
+      // tem arte própria; os demais continuam placeholders identificáveis
+      // até receberem seus sprites individuais (ASSET_REQUIRED).
+      if (spot.id === "flavio" && flavioReady) {
         var facing = { x: 0, y: 1 };
         SA.drawNpcAnim(ctx, "flavio", "idle", x, y, t * 0.6 + i * 0.3, facing, 52);
       } else {

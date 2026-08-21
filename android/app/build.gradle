@@ -51,8 +51,23 @@ tasks.register("copyGame", Copy) {
   from("$rootDir/../prototype/web") {
     exclude "dist/**"
     exclude "**/*.py"
+    exclude "tests/**"
   }
   into layout.buildDirectory.dir("gameAssets/www")
+
+  // Sprites de alta resolução têm uma única fonte da verdade em /assets.
+  // Eles eram citados pelo JS e pelo service worker, mas nunca entravam no
+  // APK; o jogo caía silenciosamente para o boneco compacto de fallback.
+  from("$rootDir/../assets/characters/player/base") {
+    include "idle_*.png", "walk_*.png", "run_*.png", "hurt_*.png"
+    include "dodge_*.png", "heavy_*.png", "attack_*_*.png", "defeat.png"
+    into "assets/player"
+  }
+
+  from("$rootDir/../assets/characters/npcs/Npc_flavio.png") {
+    rename { "flavio_sheet.png" }
+    into "assets/npcs"
+  }
 }
 
 android.sourceSets.main.assets.srcDirs += [layout.buildDirectory.dir("gameAssets").get().asFile]

@@ -8,6 +8,8 @@ import base64
 import re
 from pathlib import Path
 
+from prepare_web_assets import expected_assets
+
 ROOT = Path(__file__).parent
 html = (ROOT / "index.html").read_text(encoding="utf-8")
 css = (ROOT / "styles.css").read_text(encoding="utf-8")
@@ -23,12 +25,28 @@ html = html.replace(
 # junto com o resto no passo seguinte. Chave = nome do arquivo sem
 # extensão (ex.: "walk_down", "attack_guerreiro_up", "defeat"), o mesmo
 # nome que spriteAtlas.js#resolveSrc() usa pra procurar no mapa.
+sprite_sources = {}
+
+# fallbacks compactos que já pertencem ao app web
 sprite_dir = ROOT / "assets" / "player"
-sprite_entries = []
 if sprite_dir.exists():
     for png in sorted(sprite_dir.glob("*.png")):
-        data = base64.b64encode(png.read_bytes()).decode("ascii")
-        sprite_entries.append(f'"{png.stem}":"data:image/png;base64,{data}"')
+        sprite_sources[png.stem] = png
+
+# arte direcional e NPCs vêm da fonte canônica em /assets, mesmo que o
+# diretório web ainda não tenha sido preparado. Isso impede gerar de novo
+# um bundle "funcionando" com arquivos que o Pages/APK não recebem.
+for source, relative_target in expected_assets():
+    if relative_target.parts[0] == "npcs":
+        key = relative_target.stem.removesuffix("_sheet") + "_npc"
+    else:
+        key = relative_target.stem
+    sprite_sources[key] = source
+
+sprite_entries = []
+for key, png in sorted(sprite_sources.items()):
+    data = base64.b64encode(png.read_bytes()).decode("ascii")
+    sprite_entries.append(f'"{key}":"data:image/png;base64,{data}"')
 if sprite_entries:
     sprite_script = "<script>window.__SPRITE_DATA_URIS__={" + ",".join(sprite_entries) + "};</script>\n"
     html = html.replace('<script src="src/spriteAtlas.js"></script>', sprite_script + '<script src="src/spriteAtlas.js"></script>')

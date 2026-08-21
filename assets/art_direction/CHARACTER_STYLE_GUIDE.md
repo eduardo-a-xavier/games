@@ -41,7 +41,7 @@ O design abaixo já está em produção e substitui o placeholder procedural par
 
 Referências completas nesta pasta: `player_concept_turnaround.jpg` (down/left/up + poses duplicadas), `player_concept_sheet.jpg` (frente/costas/lados + grid de proporção + close-up de rosto + demonstração em escala de jogo), `player_concept_walkcycles_source.jpg` (a planilha-fonte de onde os frames reais foram recortados — 4 direções × 5 frames, fundo em xadrez removido por chroma-key de borda).
 
-**Arquivos já em uso no jogo** (`prototype/web/src/spriteAtlas.js` + `assets/characters/player/base/`, cópia local em `prototype/web/assets/player/`), todos spritesheet horizontal, 4 direções (`_down/_left/_right/_up`) exceto `defeat` que não tem direção, fundo transparente:
+**Arquivos já em uso no jogo** (`prototype/web/src/spriteAtlas.js` + `assets/characters/player/base/`; cópias web geradas por `prototype/web/prepare_web_assets.py`), todos spritesheet horizontal, 4 direções (`_down/_left/_right/_up`) exceto `defeat` que não tem direção, fundo transparente:
 
 - `walk_{down,left,right,up}.png` — 5 frames cada, ~137×306px por frame.
 - `idle_{down,left,right,up}.png` — 4 frames cada.

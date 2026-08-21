@@ -119,7 +119,9 @@ EN.SpriteAtlas = (function () {
   loadDirectional("walk", 5);
   loadDirectional("run", 6);
   loadDirectional("hurt", 3);
-  loadDirectional("attack_guerreiro", 8);
+  // a planilha do Guerreiro tem 6 poses (684 / 6 = 114 px por frame).
+  // Tratar como 8 cortava cada pose no meio e fazia o ataque "piscar".
+  loadDirectional("attack_guerreiro", 6);
   loadDirectional("attack_mateiro", 8);
   loadDirectional("attack_encantado", { down: 6, left: 6, right: 6, up: 4 });
   // golpe carregado: contagem irregular porque a planilha-fonte tinha
@@ -272,7 +274,14 @@ EN.SpriteAtlas = (function () {
     var scale = drawHeight / IDLE_REF_H;
     var w = e.frameW * scale,
       h = e.frameH * scale;
+    ctx.save();
+    // Estes atlases são ilustrações grandes reduzidas para a tela, não
+    // pixel art nativa. Sem interpolação, a redução produz serrilhado e
+    // blocos — exatamente a aparência "quadrada" que queremos remover.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(e.img, frameIndex * e.frameW, 0, e.frameW, e.frameH, cx - w / 2, cy - h, w, h);
+    ctx.restore();
     return true;
   }
 

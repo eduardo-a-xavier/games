@@ -11,7 +11,7 @@
  * do jogo e ele já tem pilha de fontes de reserva, então tentar cacheá-las
  * só faria a instalação falhar quando a rede estiver ruim.
  */
-var CACHE = "encantaria-v5";
+var CACHE = "encantaria-v6";
 
 var PRECACHE = [
   "./",
@@ -36,6 +36,7 @@ var PRECACHE = [
   "src/hud.js",
   "src/interactable.js",
   "src/main.js",
+  "src/menu.js",
   "src/mine.js",
   "src/player.js",
   "src/quests.js",
@@ -43,6 +44,10 @@ var PRECACHE = [
   "src/state.js",
   "src/story.js",
   "src/world.js",
+  "assets/player/player_sheet.png",
+  "assets/player/guerreiro_sheet.png",
+  "assets/player/mateiro_sheet.png",
+  "assets/player/encantado_sheet.png",
   "assets/player/attack_encantado_down.png",
   "assets/player/attack_encantado_left.png",
   "assets/player/attack_encantado_right.png",
@@ -79,7 +84,8 @@ var PRECACHE = [
   "assets/player/walk_down.png",
   "assets/player/walk_left.png",
   "assets/player/walk_right.png",
-  "assets/player/walk_up.png"
+  "assets/player/walk_up.png",
+  "assets/npcs/flavio_sheet.png"
 ];
 
 self.addEventListener("install", function (e) {

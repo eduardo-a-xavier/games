@@ -118,27 +118,11 @@ EN.Appearance = (function () {
 
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
-
-    // flat player spritesheet has priority when loaded
     var cid = anim.classId || null;
-    if (SA.sheetReady(cid)) {
-      if (state === "idle")  return SA.drawSheetAnim(ctx, "idle",   0, 15, t * 0.6,                        facing, 52, cid);
-      if (state === "walk")  return SA.drawSheetAnim(ctx, "walk",   0, 15, (t * 8) / (2 * Math.PI),        facing, 52, cid);
-      if (state === "run")   return SA.drawSheetAnim(ctx, "run",    0, 15, (t * 13) / (2 * Math.PI),       facing, 52, cid);
-      if (state === "hurt")  return SA.drawSheetAnim(ctx, "hurt",  0, 15, t * 2,                          facing, 52, cid);
-      // linha "dodge" dos sheets aponta pra frames de morte — usa "run" que
-      // está bem calibrado e lê como corrida/dash no tempo do rolamento
-      if (state === "dodge") return SA.drawSheetAnim(ctx, "run", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
-      if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t / 1.0),       facing, 52, cid);
-      if (state === "attack" || state === "chargeAttack") {
-        var p = state === "chargeAttack"
-          ? Math.min(0.999, anim.chargeProgress || 0)
-          : Math.min(0.999, t / 0.3);
-        return SA.drawSheetAnim(ctx, "attack", 0, 15, p, facing, 52, cid);
-      }
-      // "tool" has no sheet row — falls through to directional atlas or procedural
-    }
 
+    // A arte direcional de alta resolução é a versão principal. Antes ela
+    // vinha depois das planilhas compactas de fallback e, por isso, nunca
+    // chegava a ser desenhada mesmo quando estava carregada.
     if (state === "idle" && SA.ready("idle")) {
       return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
     }
@@ -179,15 +163,30 @@ EN.Appearance = (function () {
     }
 
     if ((state === "attack" || state === "chargeAttack") && anim.classId && ATTACK_ART_CLASSES[anim.classId]) {
-      // ataque leve: guerreiro e mateiro usam a mesma arte (facão),
-      // só encantado tem animação própria (magia)
-      var key = anim.classId === "encantado" ? "attack_encantado" : "attack_guerreiro";
-      if (!SA.ready(key)) return false;
-      var progress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
-      return SA.drawDirectional(ctx, key, 0, 15, facing, progress, 52);
+      var key = "attack_" + anim.classId;
+      if (SA.ready(key)) {
+        var progress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
+        return SA.drawDirectional(ctx, key, 0, 15, facing, progress, 52);
+      }
     }
     if (state === "death" && SA.ready("defeat")) {
       return SA.drawSingle(ctx, "defeat", 0, 15, t / 1.0, 52);
+    }
+
+    // As planilhas 360x288 continuam como fallback leve para execução sem
+    // os assets preparados (checkout antigo, preview rápido ou download
+    // incompleto). Assim o jogo nunca vira uma tela vazia por falha de PNG.
+    if (SA.sheetReady(cid)) {
+      if (state === "idle") return SA.drawSheetAnim(ctx, "idle", 0, 15, t * 0.6, facing, 52, cid);
+      if (state === "walk") return SA.drawSheetAnim(ctx, "walk", 0, 15, (t * 8) / (2 * Math.PI), facing, 52, cid);
+      if (state === "run") return SA.drawSheetAnim(ctx, "run", 0, 15, (t * 13) / (2 * Math.PI), facing, 52, cid);
+      if (state === "hurt") return SA.drawSheetAnim(ctx, "hurt", 0, 15, t * 2, facing, 52, cid);
+      if (state === "dodge") return SA.drawSheetAnim(ctx, "run", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
+      if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t), facing, 52, cid);
+      if (state === "attack" || state === "chargeAttack") {
+        var fallbackProgress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
+        return SA.drawSheetAnim(ctx, "attack", 0, 15, fallbackProgress, facing, 52, cid);
+      }
     }
     return false;
   }

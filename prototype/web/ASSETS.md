@@ -6,12 +6,14 @@
 > `/assets/art_direction/CHARACTER_STYLE_GUIDE.md`. Este arquivo continua
 > sendo o contrato rápido, específico do código deste protótipo.
 
-Nada neste protótipo usa arte de terceiros. Todo personagem, inimigo e
-cenário é desenhado por primitivas de canvas (retângulos/círculos/curvas)
-em runtime — ver `src/appearance.js`, `src/enemy.js` e `src/world.js`. Isso
-mantém o protótipo 100% autoral e testável sem depender de nenhum asset
-pack, mas precisa ser substituído por pixel art definitiva antes do
-lançamento. Esta lista é o contrato de substituição.
+O jogador e o NPC Flávio já possuem sprites próprios. Inimigos, os demais
+NPCs e o cenário ainda são desenhados por primitivas de canvas em runtime —
+ver `src/appearance.js`, `src/enemy.js` e `src/world.js`. Esta lista separa
+o que já é arte utilizada do que continua sendo placeholder.
+
+Os assets canônicos ficam em `/assets`. Para servir o app web localmente,
+rode `python3 prototype/web/prepare_web_assets.py`; GitHub Pages executa o
+mesmo passo automaticamente e o Gradle copia as fontes direto para o APK.
 
 ## Personagem do jogador (`src/appearance.js`, `src/spriteAtlas.js`)
 
@@ -68,25 +70,27 @@ lançamento. Esta lista é o contrato de substituição.
 
 ## Inimigos (`src/enemy.js`, dados em `src/bestiary.js`)
 
-- Implementados com desenho próprio (não sprite), **7 no total**:
-  Rato-do-Mato Corrompido, Cão da Estrada, Cipó Vivo, Morcego da Mina,
-  Vagalume de Defunto, Sapo de Pedra e o chefe Carcará de Ferro. Mesmo
+- Implementados com desenho procedural próprio (não sprite), **14 no total**:
+  incluindo Rato-do-Mato Corrompido, Cão da Estrada, Cipó Vivo, Morcego da
+  Mina, Vagalume de Defunto, Sapo de Pedra, Onça de Bruma, Boitatá e
+  Carcará de Ferro. Mesmo
   contrato de ancoragem que o jogador. Cada um segue um *arquétipo* de
   comportamento (`charger`/`zoner`/`flyer`/`ranged`/`brute`/`boss`) — a
   arte final precisa comunicar o arquétipo à primeira vista, porque é ele
   que o jogador aprende a ler, não a espécie.
 - Saci é parcial: só ponto de interação narrativo (`implemented: "interactable"`),
   sem combate/sprite de ação.
-- As outras 11 entradas do bestiário (19 no total — ver também
+- Três entradas do bestiário (19 no total — ver também
   `/assets/creatures/`, uma pasta por criatura com README próprio) têm
   dados completos (habitat, comportamento, ataques, lore etc.) mas
   **nenhuma arte ou IA ainda** — campo `implemented: false`.
 
 ## NPCs (`src/world.js#drawNpcs`, conteúdo em `src/story.js`)
 
-- 4 moradores presentes no mundo (Zé, Seu Osvaldo, Dona Micaela, Batista),
-  desenhados proceduralmente como figuras simples diferenciadas só por
-  cor de roupa/pele/chapéu. **Placeholder** — o GDD Seção 24 descreve 12
+- 5 moradores presentes no mundo. Flávio já usa seu spritesheet próprio;
+  Zé, Seu Osvaldo, Dona Micaela e Batista continuam desenhados
+  proceduralmente como figuras simples diferenciadas por cor de
+  roupa/pele/chapéu. **Placeholder** — o GDD Seção 24 descreve 12
   NPCs com idade, rotina e personalidade próprias, e cada um precisa de
   sprite e retrato próprios (o retrato aparece na caixa de diálogo, hoje
   substituído por emoji).
