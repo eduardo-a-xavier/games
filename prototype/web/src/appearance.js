@@ -158,7 +158,9 @@ EN.Appearance = (function () {
     }
 
     if ((state === "attack" || state === "chargeAttack") && anim.classId && ATTACK_ART_CLASSES[anim.classId]) {
-      var key = "attack_" + anim.classId;
+      // ataque leve: guerreiro e mateiro usam a mesma arte (facão),
+      // só encantado tem animação própria (magia)
+      var key = anim.classId === "encantado" ? "attack_encantado" : "attack_guerreiro";
       if (!SA.ready(key)) return false;
       var progress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
       return SA.drawDirectional(ctx, key, 0, 15, facing, progress, 52);
