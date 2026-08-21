@@ -65,7 +65,7 @@ EN.SpriteAtlas = (function () {
   loadDirectional("walk", 5);
   loadDirectional("run", 6);
   loadDirectional("hurt", 3);
-  loadDirectional("attack_guerreiro", 6);
+  loadDirectional("attack_guerreiro", 8);
   loadDirectional("attack_mateiro", 8);
   loadDirectional("attack_encantado", { down: 6, left: 6, right: 6, up: 4 });
   // golpe carregado: contagem irregular porque a planilha-fonte tinha
