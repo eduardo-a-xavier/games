@@ -142,11 +142,14 @@ EN.Combat = (function () {
       var st = entity.status[k];
       if (st.t <= 0) continue;
       st.t -= dt;
-      if (k === "sangramento") {
+      if (k === "sangramento" || k === "queimando") {
+        // queimando pulsa mais rápido que o sangramento — dano por segundo
+        // parecido mas mais agressivo visualmente (fogo não espera)
+        var interval = k === "queimando" ? 0.3 : 0.6;
         st.tick -= dt;
         if (st.tick <= 0) {
-          st.tick = 0.6;
-          if (onBleedTick) onBleedTick(st.power);
+          st.tick = interval;
+          if (onBleedTick) onBleedTick(st.power, k);
         }
       }
     }

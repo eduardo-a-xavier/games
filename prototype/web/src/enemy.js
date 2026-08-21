@@ -105,8 +105,11 @@ EN.Enemy = (function () {
     if (e.attackCd > 0) e.attackCd -= dt;
 
     EN.Combat.updateKnockback(e, dt);
-    EN.Combat.updateStatus(e, dt, function (power) {
+    EN.Combat.updateStatus(e, dt, function (power, kind) {
       e.hp -= power;
+      // número flutuante pro tick de sangramento/queimando — sem ele o
+      // jogador não sabe se o efeito ainda está ativo depois de sair de perto
+      api.spawnFx("dmgnum", { x: e.x, y: e.y - 14, value: Math.ceil(power), bleed: kind === "sangramento", burn: kind === "queimando" });
       if (e.hp <= 0) kill(e, api);
     });
     if (e.dead) return;

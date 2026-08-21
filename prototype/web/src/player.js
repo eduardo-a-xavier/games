@@ -78,6 +78,8 @@ EN.Player = (function () {
       heavySwing: 0,
       dodgeVX: 0,
       dodgeVY: 0,
+      dodgeTrail: [],
+      _trailT: 0,
       status: {},
       lastHitBy: null,
       parryT: 0,
@@ -144,6 +146,11 @@ EN.Player = (function () {
     });
     if (p.invuln > 0) p.invuln -= dt;
     if (p.attackLock > 0) p.attackLock -= dt;
+    // envelhece e limpa snapshots do rastro de esquiva
+    if (p.dodgeTrail && p.dodgeTrail.length) {
+      for (var gi = 0; gi < p.dodgeTrail.length; gi++) p.dodgeTrail[gi].age += dt;
+      p.dodgeTrail = p.dodgeTrail.filter(function (g) { return g.age < 0.2; });
+    }
     if (p.riposte > 0) p.riposte -= dt;
     if (p.parryT > 0) p.parryT -= dt;
     if (p.heavySwing > 0) p.heavySwing -= dt;
@@ -178,6 +185,13 @@ EN.Player = (function () {
       p.y += p.dodgeVY * DODGE_SPEED * k * dt;
       p.moving = false;
       p.walkT += dt * 10;
+      // captura snapshot de posição para o rastro visual
+      p._trailT -= dt;
+      if (p._trailT <= 0) {
+        p._trailT = 0.055;
+        p.dodgeTrail = p.dodgeTrail || [];
+        p.dodgeTrail.push({ x: p.x, y: p.y, vx: p.dodgeVX, vy: p.dodgeVY, age: 0 });
+      }
       if (p.dodgeT <= 0) setState(p, "idle");
       return;
     }
@@ -589,6 +603,8 @@ EN.Player = (function () {
     }
 
     p.hp = Math.max(0, p.hp - real);
+    // levar golpe interrompe a recarga de vigor — punição por ficar parado
+    p.st = Math.max(0, p.st - 8);
     p.invuln = 0.5;
     p.charging = false;
     p.combo = 0;
@@ -616,6 +632,43 @@ EN.Player = (function () {
     };
     var x = p.x - camX,
       y = p.y - camY;
+
+    // afterimage do rolamento — ghost desenhado ANTES do personagem pra ficar atrás
+    if (p.dodgeTrail && p.dodgeTrail.length) {
+      for (var gi = 0; gi < p.dodgeTrail.length; gi++) {
+        var ghost = p.dodgeTrail[gi];
+        var gx = ghost.x - camX, gy = ghost.y - camY;
+        var gAlpha = Math.max(0, 1 - ghost.age / 0.2) * 0.28;
+        ctx.save();
+        ctx.globalAlpha = gAlpha;
+        ctx.fillStyle = p.riposte > 0 ? "#ffd66b" : "#88bbff";
+        ctx.beginPath();
+        ctx.arc(gx, gy - 16, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(gx - 5, gy - 12, 10, 14);
+        ctx.restore();
+      }
+    }
+
+    // linhas de velocidade durante o rolamento — lidas em 0,1s a 430 px/s
+    if (p.state === "dodge" && p.dodgeT > 0) {
+      var frac = p.dodgeT / DODGE_DUR;
+      ctx.save();
+      ctx.lineCap = "round";
+      for (var li = 0; li < 5; li++) {
+        var perp = li - 2; // -2 a 2
+        var ox = p.dodgeVY * perp * 3.5, oy = -p.dodgeVX * perp * 3.5;
+        var lineLen = (20 - Math.abs(perp) * 3) * frac;
+        ctx.globalAlpha = (0.55 - Math.abs(perp) * 0.08) * frac;
+        ctx.strokeStyle = p.riposte > 0 ? "#ffd66b" : "#c8e8ff";
+        ctx.lineWidth = Math.max(0.5, 1.5 - Math.abs(perp) * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(x + ox, y - 14 + oy);
+        ctx.lineTo(x - p.dodgeVX * lineLen + ox, y - 14 - p.dodgeVY * lineLen + oy);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // aura de contra-ataque: mostra que a esquiva perfeita ainda está valendo
     if (p.riposte > 0) {

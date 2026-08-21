@@ -407,11 +407,40 @@ EN.Main = (function () {
     if (lost > 0) toast("Você perdeu " + lost + " Vintém no caminho de volta.");
   }
 
+  // tabela simples de labels por tipo de ataque, espelhando o bestiário
+  var ELEM_LABELS = {
+    magic:    ["Dano mágico", "Magia"],
+    fire:     ["Fogo"],
+    cut:      ["Corte"],
+    pierce:   ["Perfuração"],
+    physical: ["Dano físico"],
+  };
+
+  function getElementalMult(def, atkType) {
+    var labels = ELEM_LABELS[atkType] || [];
+    function matchList(list) {
+      return (list || []).some(function (entry) {
+        return labels.some(function (l) { return entry.indexOf(l) >= 0 || l.indexOf(entry) >= 0; });
+      });
+    }
+    if (matchList(def.weaknesses)) return 1.5;
+    if (matchList(def.resistances)) return 0.65;
+    return 1;
+  }
+
   // Único funil de dano a inimigo: aplica o dano E o feedback visual
   // (número flutuante + estouro de impacto) no mesmo lugar, pra nenhum
   // caminho de dano (corpo-a-corpo, projétil, especial) esquecer o
   // feedback -- essa era exatamente a reclamação de "não sei se acertei".
-  function applyDamage(session, enemy, dmg, heavy, crit) {
+  function applyDamage(session, enemy, dmg, heavy, crit, opts) {
+    opts = opts || {};
+    if (opts.atkType && enemy.def) {
+      var mult = getElementalMult(enemy.def, opts.atkType);
+      if (mult !== 1) {
+        dmg = Math.max(1, Math.round(dmg * mult));
+        heavy = heavy || mult > 1; // fraqueza visual = peso de heavy
+      }
+    }
     var wasDead = enemy.dead;
     EN.Enemy.damage(enemy, dmg, function (killed) {
       if (session.isArena) return;
@@ -607,8 +636,9 @@ EN.Main = (function () {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
           var roll = EN.Combat.rollDamage(proj.dmg);
-          applyDamage(s, e, roll.value, !!proj.burn, roll.crit);
-          if (proj.burn) EN.Combat.applyStatus(e, "sangramento", 3, 4);
+          var atkType = proj.magic && proj.burn ? "fire" : proj.magic ? "magic" : proj.burn ? "fire" : "physical";
+          applyDamage(s, e, roll.value, !!proj.burn, roll.crit, { atkType: atkType });
+          if (proj.burn) EN.Combat.applyStatus(e, "queimando", 3, 3);
           EN.Combat.knockback(e, proj.x, proj.y, 160);
           EN.Combat.hitstop(0.035);
           proj.hit = true;
@@ -667,7 +697,9 @@ EN.Main = (function () {
     EN.Player.draw(ctx, s.player, origin.x, origin.y);
 
     s.projectiles.forEach(function (pr) {
-      drawProjectile(pr, origin.x, origin.y, pr.magic ? "#c9a8f2" : "#7fe0c9", pr.magic ? "#7c4fd1" : "#2f8f75");
+      var fill = pr.magic ? (pr.burn ? "#ff9a40" : "#c9a8f2") : (pr.burn ? "#ff6a20" : "#7fe0c9");
+      var stroke = pr.magic ? (pr.burn ? "#c04a00" : "#7c4fd1") : (pr.burn ? "#8a2a00" : "#2f8f75");
+      drawProjectile(pr, origin.x, origin.y, fill, stroke);
     });
     (s.enemyProjectiles || []).forEach(function (pr) {
       var isFeather = pr.kind === "pena";
@@ -690,13 +722,32 @@ EN.Main = (function () {
   }
 
   function drawProjectile(pr, camX, camY, fill, stroke) {
+    var px = pr.x - camX, py = pr.y - camY;
+    if (pr.magic) {
+      // halo de brilho por trás do núcleo
+      var g = ctx.createRadialGradient(px, py, 0, px, py, pr.r * 4.5);
+      g.addColorStop(0, pr.burn ? "rgba(255,130,20,.75)" : "rgba(190,110,255,.7)");
+      g.addColorStop(0.45, pr.burn ? "rgba(255,80,10,.3)" : "rgba(140,60,230,.25)");
+      g.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(px, py, pr.r * 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.fillStyle = fill;
     ctx.beginPath();
-    ctx.arc(pr.x - camX, pr.y - camY, pr.r, 0, Math.PI * 2);
+    ctx.arc(px, py, pr.r, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = stroke;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = pr.magic ? 1.5 : 1;
     ctx.stroke();
+    if (pr.magic) {
+      // núcleo branco central
+      ctx.fillStyle = "rgba(255,255,255,.55)";
+      ctx.beginPath();
+      ctx.arc(px, py, pr.r * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   // escuridão da mina: vinheta que segue o jogador, o suficiente pra
@@ -742,7 +793,7 @@ EN.Main = (function () {
       var size = f.crit ? 16 : f.heavy ? 13 : 11;
       ctx.font = "bold " + size + "px 'Silkscreen', monospace";
       ctx.textAlign = "center";
-      ctx.fillStyle = f.crit ? "#ff8a3a" : f.heavy ? "#f2b705" : "#fff3e0";
+      ctx.fillStyle = f.crit ? "#ff8a3a" : f.heavy ? "#f2b705" : f.burn ? "#ff6820" : f.bleed ? "#cc3333" : "#fff3e0";
       ctx.strokeStyle = "#1c1210";
       ctx.lineWidth = 3;
       var ny = y - 16 - t * 18;
