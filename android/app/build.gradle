@@ -25,6 +25,17 @@ android {
 }
 
 dependencies {
+  /*
+   * Alinha TODAS as versões do stdlib do Kotlin. Sem isso o build quebra em
+   * checkDebugDuplicateClasses: as dependências do AndroidX trazem
+   * kotlin-stdlib numa versão e os artefatos kotlin-stdlib-jdk7/jdk8 numa
+   * versão antiga, e a partir do Kotlin 1.8 o stdlib principal absorveu o
+   * conteúdo desses dois — ter os dois lados no classpath duplica as
+   * mesmas classes. O BOM força os três à mesma versão, onde jdk7/jdk8 são
+   * apenas cascas vazias que apontam para o principal.
+   */
+  implementation platform("org.jetbrains.kotlin:kotlin-bom:1.9.24")
+
   implementation "androidx.appcompat:appcompat:1.7.0"
   implementation "androidx.core:core:1.13.1"
   implementation "androidx.webkit:webkit:1.11.0"

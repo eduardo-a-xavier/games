@@ -7,7 +7,7 @@
 
 ## Sumário
 
-1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história) · 60-C. Protótipo jogável (v4: áudio e talentos) · 60-D. Protótipo jogável (v5: controles fixos e animação completa)
+1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história) · 60-C. Protótipo jogável (v4: áudio e talentos) · 60-D. Protótipo jogável (v5: controles fixos e animação completa) · 60-E. Distribuição: instalar no celular
 
 ---
 
@@ -878,6 +878,38 @@ O rolamento passou a usar arte real (4/3/4/4 frames por direção), percorrida u
 ### Ferramenta de extração — aprendizados registrados
 
 O extrator de planilhas (`assets/tools/extract_pose_sheet.py`) ganhou faixas explícitas por linha de comando e janela horizontal por fileira, porque as planilhas geradas variam de layout entre si e entre direções da mesma folha. Duas armadilhas foram medidas e estão documentadas em `CHARACTER_STYLE_GUIDE.md` Seção 8: o limiar de densidade precisa ficar acima do ruído do JPEG (3–4% numa linha vazia), e "pose encostada na borda" não é sinal de corte — o sinal é o desenho continuar do outro lado dela.
+
+---
+
+---
+
+## 60-E. Distribuição: instalar no celular
+
+O protótipo roda no navegador, mas "jogar no celular de verdade" precisa de um caminho de instalação. Dois foram montados, e eles servem a públicos diferentes.
+
+### PWA — o caminho imediato
+
+`prototype/web/manifest.webmanifest` + `prototype/web/sw.js` + ícones gerados a partir da própria arte do personagem. Abrindo o endereço no Chrome do Android e usando "Adicionar à tela inicial", o jogo instala com ícone próprio, abre em tela cheia travado em paisagem e **funciona offline**.
+
+O service worker faz pré-cache dos 66 arquivos do jogo, com duas decisões que valem registrar:
+
+- **Cada arquivo é adicionado de forma independente**, não por `addAll()`. O `addAll()` falha inteiro se um único recurso falhar, e uma imagem que não baixou não pode impedir a instalação do app.
+- **As fontes do Google ficam de fora de propósito.** São o único recurso externo do jogo e já existe pilha de fontes de reserva no CSS; tentar cacheá-las só faria a instalação falhar em rede ruim, trocando um problema cosmético por um problema real.
+
+### APK — para quem quer o app de verdade
+
+`android/` é uma casca fina de WebView, **sem nenhuma lógica de jogo**. O `build.gradle` copia `prototype/web/` para os assets na hora de compilar, então não existe código duplicado nem passo manual de sincronizar: mexer no jogo e recompilar já leva a mudança para o app.
+
+Duas escolhas técnicas que não são óbvias:
+
+- **Os assets são servidos por `WebViewAssetLoader`** (em `appassets.androidplatform.net`), não por `file://`. A diferença importa porque `file://` é uma origem opaca onde `localStorage` é pouco confiável entre versões do Android — e o save inteiro do jogo vive em `localStorage`.
+- **O service worker é pulado dentro do app**, por checagem de hostname. Lá os arquivos já são locais, e o service worker só concorreria com o `WebViewAssetLoader` que serve os assets.
+
+### Por que o APK é compilado no CI
+
+`.github/workflows/android.yml` compila e publica o APK como artefato do workflow. A razão é prática: o ambiente onde este código é escrito não alcança os domínios do Google, então o SDK do Android não pode ser instalado ali — mas o runner do GitHub já vem com ele. O efeito colateral é bom para o projeto: qualquer pessoa baixa o APK pelo próprio navegador do celular, sem montar ambiente Android em lugar nenhum.
+
+O APK gerado é **de debug**, assinado com a chave de debug padrão: instala num aparelho comum liberando "instalar de fontes desconhecidas", e não serve para publicar na Play Store. Para loja seria preciso um `assembleRelease` com keystore própria guardada nos secrets do repositório — decisão de produção, fora do escopo do protótipo.
 
 ---
 
