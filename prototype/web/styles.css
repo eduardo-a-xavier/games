@@ -102,6 +102,67 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
 .bar-num { font-family: var(--font-display); font-size: 8px; width: 34px; text-align: right; color: var(--mist-dim); }
 .tnum { font-variant-numeric: tabular-nums; }
 
+/* janela de status (efeitos ativos) */
+#status-effects { display: flex; flex-wrap: wrap; gap: 3px; min-height: 0; }
+.sfx-pill {
+  position: relative; display: flex; align-items: center; gap: 3px;
+  background: #000a; border: 1px solid var(--panel-line);
+  border-radius: 2px 6px 2px 6px; padding: 2px 5px;
+  font-size: 8px; font-weight: 600; overflow: hidden;
+}
+.sfx-pill-bar {
+  position: absolute; left: 0; top: 0; bottom: 0; opacity: .22;
+  border-radius: inherit; pointer-events: none;
+}
+.sfx-pill.sangramento .sfx-pill-bar { background: var(--hp); }
+.sfx-pill.queimando   .sfx-pill-bar { background: #ff6820; }
+.sfx-pill.enraizado   .sfx-pill-bar { background: #3daa5a; }
+.sfx-pill.atordoado   .sfx-pill-bar { background: var(--st); }
+.sfx-icon { font-size: 9px; position: relative; z-index: 1; }
+.sfx-name { position: relative; z-index: 1; color: var(--mist-dim); }
+
+/* botão de atributos (aparece quando há pontos livres) */
+#btn-attrs {
+  display: none; background: none; border: none; cursor: pointer; padding: 0;
+  font-family: var(--font-display); font-size: 8px;
+  color: var(--ipe); letter-spacing: .02em; text-align: left;
+}
+
+/* painel de atributos (overlay centralizado) */
+#attr-panel {
+  display: none; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(320px, 90vw); z-index: 20;
+  padding: 10px 12px 12px;
+  flex-direction: column; gap: 6px;
+  pointer-events: auto;
+}
+#attr-panel.open { display: flex; }
+.attr-panel-head {
+  display: flex; align-items: center; gap: 6px;
+  border-bottom: 1px solid var(--panel-line); padding-bottom: 7px; margin-bottom: 2px;
+}
+.attr-panel-title { font-family: var(--font-display); font-size: 10px; color: var(--ipe); letter-spacing: .06em; flex: 1; }
+#attr-pts { font-family: var(--font-display); font-size: 9px; color: var(--ipe); }
+#btn-attrs-close { background: none; border: none; color: var(--mist-dim); font-size: 14px; cursor: pointer; padding: 0 2px; line-height: 1; }
+.attr-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 0; border-bottom: 1px solid #ffffff09;
+}
+.attr-icon { font-size: 12px; width: 18px; text-align: center; flex-shrink: 0; }
+.attr-name { flex: 1; font-size: 10px; font-weight: 600; color: var(--mist); line-height: 1.25; }
+.attr-sub { font-size: 8px; font-weight: 400; color: var(--mist-dim); }
+.attr-bonus { font-family: var(--font-display); font-size: 9px; color: var(--ipe-dim); min-width: 20px; text-align: right; }
+.attr-val { font-family: var(--font-display); font-size: 9px; color: var(--mist-dim); min-width: 28px; text-align: right; }
+.attr-add {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  border: 1.5px solid var(--ipe-dim); background: #0006;
+  color: var(--ipe); font-size: 16px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.attr-add:disabled { opacity: .28; cursor: not-allowed; }
+.attr-note { font-size: 8px; color: var(--mist-dim); text-align: center; margin-top: 4px; opacity: .7; }
+
 #status-panel { padding: 6px 10px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }
 #clock-row { display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; }
 #clock-day { font-size: 9px; color: var(--mist-dim); text-transform: uppercase; letter-spacing: .04em; }

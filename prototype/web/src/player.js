@@ -32,7 +32,16 @@ EN.Player = (function () {
   var PER_LEVEL = { hp: 6, st: 3, mp: 2, atk: 1, def: 0.4 };
   function levelBonus(level) {
     var n = Math.max(0, (level || 1) - 1);
-    return { hp: n * PER_LEVEL.hp, st: n * PER_LEVEL.st, mp: n * PER_LEVEL.mp, atk: n * PER_LEVEL.atk, def: n * PER_LEVEL.def };
+    var b = { hp: n * PER_LEVEL.hp, st: n * PER_LEVEL.st, mp: n * PER_LEVEL.mp, atk: n * PER_LEVEL.atk, def: n * PER_LEVEL.def };
+    var pr = EN.State && EN.State.data && EN.State.data.progress;
+    if (pr && pr.attrs) {
+      b.hp  += (pr.attrs.vitalidade || 0) * 5;
+      b.st  += (pr.attrs.vigor      || 0) * 4;
+      b.mp  += (pr.attrs.magia      || 0) * 3;
+      b.atk += (pr.attrs.forca      || 0) * 2;
+      b.def += (pr.attrs.defesa     || 0) * 1;
+    }
+    return b;
   }
 
   var DODGE_DUR = 0.28;

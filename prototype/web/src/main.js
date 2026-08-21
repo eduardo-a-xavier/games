@@ -28,6 +28,7 @@ EN.Main = (function () {
 
     EN.Controls.init();
     wireToast();
+    wireAttrPanel();
     wireDespertarScreen();
     wireDeathScreen();
     wireLandscapeLock();
@@ -468,13 +469,14 @@ EN.Main = (function () {
     var pr = EN.State.data.progress;
     if (pr.level >= 30) return;
     pr.xp += amount;
-    var leveled = false;
+    var levelsGained = 0;
     while (pr.level < 30 && pr.xp >= xpForLevel(pr.level)) {
       pr.xp -= xpForLevel(pr.level);
       pr.level++;
-      leveled = true;
+      levelsGained++;
     }
-    if (leveled) {
+    if (levelsGained > 0) {
+      pr.attrPoints = (pr.attrPoints || 0) + levelsGained * 3;
       // preserva a vida atual proporcionalmente em vez de curar tudo: subir
       // de nível no meio da luta não pode ser uma cura grátis
       var p = mainSession.player;
@@ -482,7 +484,7 @@ EN.Main = (function () {
       EN.Player.applyClass(p, p.classId, false, pr.level);
       p.hp = Math.max(p.hp, Math.round(p.hpMax * hpPct));
       EN.Audio.play("levelup");
-      toast("✦ Subiu para o nível " + pr.level + "!");
+      toast("✦ Nível " + pr.level + "! +" + (levelsGained * 3) + " pontos de atributo");
       maybeOpenTalentChoice();
     }
     EN.State.persist();
@@ -903,6 +905,69 @@ EN.Main = (function () {
     bossEls.name.textContent = boss.def.name;
     bossEls.fill.style.transform = "scaleX(" + Math.max(0, boss.hp / boss.hpMax) + ")";
     bossEls.phase.textContent = "Fase " + boss.phase;
+  }
+
+  // ---------- painel de atributos ----------
+  function wireAttrPanel() {
+    var ATTR_DEFS = [
+      { key: "forca",      stat: "atk",  sub: "+2 Ataque / pt"     },
+      { key: "vitalidade", stat: "hpMax",sub: "+5 Vida máx / pt"   },
+      { key: "vigor",      stat: "stMax",sub: "+4 Vigor máx / pt"  },
+      { key: "magia",      stat: "mpMax",sub: "+3 Magia máx / pt"  },
+      { key: "defesa",     stat: "def",  sub: "+1 Defesa / pt"     },
+    ];
+    var panel = document.getElementById("attr-panel");
+    if (!panel) return;
+
+    function refreshPanel() {
+      var pr = EN.State.data.progress;
+      pr.attrs = pr.attrs || {};
+      var pts = pr.attrPoints || 0;
+      document.getElementById("attr-pts").textContent = pts + " pt" + (pts !== 1 ? "s" : "") + " disponíveis";
+      var player = mainSession ? mainSession.player : null;
+      ATTR_DEFS.forEach(function (def) {
+        var row = panel.querySelector("[data-attr='" + def.key + "']");
+        if (!row) return;
+        var spent = pr.attrs[def.key] || 0;
+        row.querySelector(".attr-bonus").textContent = spent > 0 ? "×" + spent : "—";
+        if (player) {
+          var val = player[def.stat];
+          row.querySelector(".attr-val").textContent = typeof val === "number" ? Math.ceil(val) : "—";
+        }
+        row.querySelector(".attr-add").disabled = pts <= 0;
+      });
+    }
+
+    document.getElementById("btn-attrs").addEventListener("pointerdown", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      panel.classList.toggle("open");
+      if (panel.classList.contains("open")) refreshPanel();
+    });
+
+    document.getElementById("btn-attrs-close").addEventListener("pointerdown", function (e) {
+      e.preventDefault(); e.stopPropagation();
+      panel.classList.remove("open");
+    });
+
+    ATTR_DEFS.forEach(function (def) {
+      var row = panel.querySelector("[data-attr='" + def.key + "']");
+      if (!row) return;
+      row.querySelector(".attr-add").addEventListener("pointerdown", function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var pr = EN.State.data.progress;
+        if (!pr.attrPoints || pr.attrPoints <= 0) return;
+        pr.attrPoints--;
+        pr.attrs[def.key] = (pr.attrs[def.key] || 0) + 1;
+        if (mainSession) {
+          var player = mainSession.player;
+          var hpPct = player.hp / player.hpMax;
+          EN.Player.applyClass(player, player.classId, false, pr.level);
+          player.hp = Math.min(player.hpMax, Math.max(player.hp, Math.round(player.hpMax * hpPct)));
+        }
+        EN.State.persist();
+        refreshPanel();
+      });
+    });
   }
 
   // ---------- toast ----------

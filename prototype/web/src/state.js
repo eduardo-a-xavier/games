@@ -21,6 +21,8 @@ EN.State = (function () {
         talentId: null, // talento de nível 5 escolhido (GDD Seção 11)
         level: 1,
         xp: 0,
+        attrPoints: 0,
+        attrs: { forca: 0, vitalidade: 0, vigor: 0, magia: 0, defesa: 0 },
         quests: {},
       },
       settings: {

@@ -22,9 +22,47 @@ EN.HUD = (function () {
       "clock-time",
       "clock-day",
       "day-glyph",
+      "status-effects",
+      "btn-attrs",
     ].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
+  }
+
+  var STATUS_DEFS = {
+    sangramento: { icon: "🩸", label: "Sangr." },
+    queimando:   { icon: "🔥", label: "Fogo"   },
+    enraizado:   { icon: "🌿", label: "Raiz"   },
+    atordoado:   { icon: "💫", label: "Ato."   },
+  };
+  var statusMaxT = {};
+
+  function updateStatusEffects(p) {
+    var el = els["status-effects"];
+    if (!el) return;
+    if (!p.status) { el.innerHTML = ""; return; }
+    var html = "";
+    for (var k in p.status) {
+      var st = p.status[k];
+      if (!st || st.t <= 0) continue;
+      if (!statusMaxT[k] || statusMaxT[k] < st.t) statusMaxT[k] = st.t;
+      var pct = Math.max(0, Math.min(100, (st.t / statusMaxT[k]) * 100)).toFixed(0);
+      var def = STATUS_DEFS[k] || { icon: "⚠", label: k };
+      html += '<div class="sfx-pill ' + k + '">' +
+        '<div class="sfx-pill-bar" style="width:' + pct + '%"></div>' +
+        '<span class="sfx-icon">' + def.icon + '</span>' +
+        '<span class="sfx-name">' + def.label + '</span>' +
+        '</div>';
+    }
+    el.innerHTML = html;
+  }
+
+  function updateAttrBadge() {
+    var el = els["btn-attrs"];
+    if (!el) return;
+    var pts = (EN.State.data.progress.attrPoints || 0);
+    el.textContent = pts > 0 ? "▲ " + pts + " pts" : "";
+    el.style.display = pts > 0 ? "block" : "none";
   }
 
   function setBar(key, v, max) {
@@ -44,10 +82,13 @@ EN.HUD = (function () {
     setBar("st", p.st, p.stMax);
     setBar("mp", p.mp, p.mpMax);
 
+    var pr = EN.State.data.progress;
     els["hud-name"].textContent = appearance.name || "Viajante";
     var className = p.classDef ? p.classDef.name : "Sem classe";
-    els["hud-classline"].textContent = (world.level ? "Nv. " + world.level + " • " : "") + className;
+    els["hud-classline"].textContent = "Nv. " + (pr.level || 1) + " • " + className;
     drawPortrait(appearance, p.classId);
+    updateStatusEffects(p);
+    updateAttrBadge();
 
     if (world.showClock !== false) {
       els["coin-count"].textContent = world.vintem;

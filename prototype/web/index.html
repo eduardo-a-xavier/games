@@ -38,11 +38,13 @@
             <div class="portrait-text">
               <div id="hud-name">Viajante</div>
               <div id="hud-classline">Sem classe</div>
+              <button id="btn-attrs" aria-label="Atributos" style="display:none"></button>
             </div>
           </div>
           <div class="bar-row"><span class="bar-icon">❤️</span><div class="bar-track"><div class="bar-fill hp" id="fill-hp"></div></div><span class="bar-num" id="num-hp">-/-</span></div>
           <div class="bar-row"><span class="bar-icon">⚡</span><div class="bar-track"><div class="bar-fill st" id="fill-st"></div></div><span class="bar-num" id="num-st">-/-</span></div>
           <div class="bar-row"><span class="bar-icon">✦</span><div class="bar-track"><div class="bar-fill mp" id="fill-mp"></div></div><span class="bar-num" id="num-mp">-/-</span></div>
+          <div id="status-effects"></div>
         </div>
 
         <div id="status-panel" class="panel safe-right">
@@ -106,6 +108,50 @@
       <div id="combo-meter"><span id="combo-text"></span></div>
 
       <div id="toast"></div>
+
+      <div id="attr-panel" class="panel">
+        <div class="attr-panel-head">
+          <span class="attr-panel-title">ATRIBUTOS</span>
+          <span id="attr-pts">0 pts disponíveis</span>
+          <button id="btn-attrs-close">✕</button>
+        </div>
+        <div class="attr-row" data-attr="forca">
+          <span class="attr-icon">⚔️</span>
+          <span class="attr-name">Força<br><span class="attr-sub">+2 Ataque / pt</span></span>
+          <span class="attr-bonus">—</span>
+          <span class="attr-val">—</span>
+          <button class="attr-add" disabled>+</button>
+        </div>
+        <div class="attr-row" data-attr="vitalidade">
+          <span class="attr-icon">❤️</span>
+          <span class="attr-name">Vitalidade<br><span class="attr-sub">+5 Vida máx / pt</span></span>
+          <span class="attr-bonus">—</span>
+          <span class="attr-val">—</span>
+          <button class="attr-add" disabled>+</button>
+        </div>
+        <div class="attr-row" data-attr="vigor">
+          <span class="attr-icon">⚡</span>
+          <span class="attr-name">Vigor<br><span class="attr-sub">+4 Vigor máx / pt</span></span>
+          <span class="attr-bonus">—</span>
+          <span class="attr-val">—</span>
+          <button class="attr-add" disabled>+</button>
+        </div>
+        <div class="attr-row" data-attr="magia">
+          <span class="attr-icon">✦</span>
+          <span class="attr-name">Magia<br><span class="attr-sub">+3 Magia máx / pt</span></span>
+          <span class="attr-bonus">—</span>
+          <span class="attr-val">—</span>
+          <button class="attr-add" disabled>+</button>
+        </div>
+        <div class="attr-row" data-attr="defesa">
+          <span class="attr-icon">🛡️</span>
+          <span class="attr-name">Defesa<br><span class="attr-sub">+1 Defesa / pt</span></span>
+          <span class="attr-bonus">—</span>
+          <span class="attr-val">—</span>
+          <button class="attr-add" disabled>+</button>
+        </div>
+        <div class="attr-note">Pontos ganhos ao subir de nível (3 por nível)</div>
+      </div>
     </div>
 
     <!-- caixa de diálogo (história) -->
