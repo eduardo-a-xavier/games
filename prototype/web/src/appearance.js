@@ -167,6 +167,20 @@ EN.Appearance = (function () {
     ctx.ellipse(0, 15, 12, 4.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // arte real (spritesheet) tem prioridade sobre o desenho procedural
+    // quando existe e o estado é andar/correr -- ver spriteAtlas.js. Os
+    // outros estados (ataque, esquiva, etc.) ainda não têm arte
+    // correspondente, então continuam procedurais mesmo com o atlas
+    // carregado.
+    if ((state === "walk" || state === "run") && window.EN.SpriteAtlas && EN.SpriteAtlas.ready()) {
+      var freq = state === "run" ? 13 : 8;
+      var cyclePhase = (t * freq) / (2 * Math.PI);
+      if (EN.SpriteAtlas.drawWalk(ctx, 0, 15, facing, cyclePhase, 52)) {
+        ctx.restore();
+        return;
+      }
+    }
+
     var y = -bob;
 
     // pernas (cantos arredondados + sombreado leve)

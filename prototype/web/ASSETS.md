@@ -13,11 +13,20 @@ mantém o protótipo 100% autoral e testável sem depender de nenhum asset
 pack, mas precisa ser substituído por pixel art definitiva antes do
 lançamento. Esta lista é o contrato de substituição.
 
-## Personagem do jogador (`src/appearance.js`)
+## Personagem do jogador (`src/appearance.js`, `src/spriteAtlas.js`)
 
-- **Formato alvo**: spritesheet 40×56px por frame, ancorado em (20,40)
-  (centro-x, próximo da base — ver `/assets/art_direction/proportions_reference.png`),
-  fundo transparente.
+- **`walk`/`run` já usam arte real**, não mais placeholder: 4 spritesheets
+  direcionais (`assets/player/walk_{down,left,right,up}.png`, cópia de
+  `/assets/characters/player/base/`), carregados por `src/spriteAtlas.js`
+  e escolhidos por `EN.SpriteAtlas.pickDirection()` a partir do vetor de
+  direção do jogador. `run` reaproveita os mesmos frames tocados mais
+  rápido. Ver `/assets/art_direction/CHARACTER_STYLE_GUIDE.md` Seção 3-A
+  para o design de referência completo.
+- **Todos os outros estados continuam placeholder procedural**:
+  `idle`, `attack`, `chargeAttack`, `dodge`, `hurt`, `tool`, `death`.
+- **Formato alvo do placeholder procedural**: spritesheet 40×56px por
+  frame, ancorado em (20,40) (centro-x, próximo da base — ver
+  `/assets/art_direction/proportions_reference.png`), fundo transparente.
 - **Camadas** (na ordem em que já são desenhadas — manter a ordem ao trocar
   por sprites reais): sombra → pernas/pants → torso/shirt → arma (se
   ataque) → cabeça/pele → olhos → cabelo → chapéu → arma (se idle).

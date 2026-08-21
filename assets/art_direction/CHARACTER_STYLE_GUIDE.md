@@ -1,6 +1,6 @@
 # Guia de Estilo — Personagens de Encantaria
 
-> Referência para quem for produzir a arte definitiva dos personagens. O protótipo (`prototype/web/`) usa um renderizador procedural como placeholder — ver `player_reference.png`, `proportions_reference.png` e `palette_reference.png` nesta pasta, todos gerados a partir do renderizador atual do jogo (`prototype/web/src/appearance.js`), não desenhados à mão. Eles mostram exatamente o que existe hoje, não uma meta estética definitiva.
+> Referência para quem for produzir a arte definitiva dos personagens. **O ciclo de caminhada do jogador já usa arte real** (Seção 3-A) — o resto (idle, ataque, esquiva, criaturas) ainda usa o renderizador procedural do protótipo como placeholder, ver `proportions_reference.png` e `palette_reference.png` nesta pasta (geradas a partir de `prototype/web/src/appearance.js`, não desenhadas à mão).
 
 ---
 
@@ -10,7 +10,7 @@ Pixel art 2D, vista top-down levemente angulada, colorida e aconchegante de dia,
 
 - **Legível em tela pequena.** O personagem ocupa poucos centímetros num celular; silhueta clara importa mais que detalhe fino. Teste sempre em ~40–60px de altura na tela, não só ampliado no editor.
 - **Charmoso, não infantilizado.** Proporções levemente estilizadas (cabeça um pouco maior que o realismo, corpo compacto) sem virar caricatura. Mistura arquitetura/roupa rural e urbana brasileira — evitar estereótipo.
-- **Silhueta > detalhe.** Cada estado de animação (Seção 3) precisa ser reconhecível só pela forma, mesmo sem cor.
+- **Silhueta > detalhe.** Cada estado de animação (Seção 3-B) precisa ser reconhecível só pela forma, mesmo sem cor.
 
 ## 2. Proporções
 
@@ -26,9 +26,26 @@ Ver `proportions_reference.png` para a régua visual. Medidas do rig atual (o qu
 | **Frame de exportação** | 40 × 56px |
 | **Ponto de ancoragem** | (20, 40) — centro-x, próximo da base, com folga abaixo pra sombra |
 
-Proporção cabeça:corpo ≈ 1:2.7 — mais "boneco" que realista, deliberadamente.
+Proporção cabeça:corpo ≈ 1:2.7 — mais "boneco" que realista, deliberadamente. **A arte real do `walk` (Seção 3-A) tem proporção mais naturalista** (cabeça proporcionalmente menor, corpo mais alongado) — as duas convivem hoje porque cobrem estados diferentes; alinhar as proporções entre os dois estilos é uma decisão de produção em aberto, não algo já resolvido.
 
-## 3. Estados de animação
+## 3-A. Design definitivo do personagem principal (arte real)
+
+O design abaixo já está em produção e substitui o placeholder procedural para o estado `walk`/`run` — é a referência que qualquer arte nova do protagonista deve seguir:
+
+- **Cabelo:** castanho, cacheado/volumoso.
+- **Pele:** tom médio.
+- **Roupa:** camisa manga curta terracota/ferrugem, lenço/bandana vermelho-escuro no pescoço.
+- **Acessório:** bolsa transversal (satchel) marrom-claro no quadril.
+- **Calça:** verde-oliva/cinza, barra dobrada (rolled cuffs).
+- **Calçado:** botas marrons.
+
+Referências completas nesta pasta: `player_concept_turnaround.jpg` (down/left/up + poses duplicadas), `player_concept_sheet.jpg` (frente/costas/lados + grid de proporção + close-up de rosto + demonstração em escala de jogo), `player_concept_walkcycles_source.jpg` (a planilha-fonte de onde os frames reais foram recortados — 4 direções × 5 frames, fundo em xadrez removido por chroma-key de borda).
+
+**Arquivos já em uso no jogo** (`prototype/web/src/spriteAtlas.js` + `assets/characters/player/base/`, cópia local em `prototype/web/assets/player/`): `walk_down.png`, `walk_left.png`, `walk_right.png`, `walk_up.png` — cada um um spritesheet horizontal de 5 frames, ~137×306px por frame, fundo transparente. `right` **não** é o espelho de `left` — é um frame desenhado à parte (a planilha-fonte já trazia as 4 direções separadas).
+
+**O que ainda falta pra esse design** (todos os outros estados da Seção 3-B continuam no placeholder procedural até existir arte equivalente): `idle`, `attack`, `chargeAttack`, `dodge`, `hurt`, `tool`, `death`. `run` hoje reaproveita os mesmos frames de `walk` tocados mais rápido — não é uma animação de corrida desenhada à parte.
+
+## 3-B. Estados de animação (contrato geral / placeholder procedural)
 
 Todos já existem como estados de máquina no código (`player.js`/`appearance.js`) — a arte final só precisa de frames para eles, a lógica de transição já funciona:
 
@@ -69,7 +86,7 @@ Cada camada = pasta própria em `characters/player/` (`hair/`, `clothes/`, `hats
 
 ## 6. Criaturas (`assets/creatures/`)
 
-Uma pasta por criatura do bestiário (`prototype/web/src/bestiary.js`), nomeada pelo mesmo `id` usado no código — isso é o que permite o jogo carregar o sprite certo pelo id sem mapeamento manual. Cada pasta recebe, no mínimo, um `idle.png` e um `attack.png`; o resto dos estados segue a mesma lista da Seção 3, conforme a criatura precisar (uma planta como o Cipó Vivo não precisa de `run`, por exemplo).
+Uma pasta por criatura do bestiário (`prototype/web/src/bestiary.js`), nomeada pelo mesmo `id` usado no código — isso é o que permite o jogo carregar o sprite certo pelo id sem mapeamento manual. Cada pasta recebe, no mínimo, um `idle.png` e um `attack.png`; o resto dos estados segue a mesma lista da Seção 3-B, conforme a criatura precisar (uma planta como o Cipó Vivo não precisa de `run`, por exemplo).
 
 **Antes de desenhar uma criatura do folclore**, ler a entrada correspondente em `bestiary.js` (lore, categoria, pistas de corrupção) — a arte precisa comunicar a categoria à primeira vista:
 
@@ -86,6 +103,8 @@ Criaturas afetadas pela corrupção do Encantado (ver `corruptionVisual` em cada
 - `abilities/` — um ícone por `AbilityDefinition` (`prototype/web/src/classes.js`), mesmo critério de tamanho.
 - `items/` — ícones de item/inventário (ainda não há um inventário completo no protótipo; reservado pra quando existir).
 
-## 8. Como isto foi gerado (placeholder atual)
+## 8. Como isto foi gerado
 
-`player_reference.png`, `proportions_reference.png` e `palette_reference.png`, além de todo o conteúdo de `characters/player/base/`, foram exportados automaticamente do renderizador procedural em `prototype/web/src/appearance.js` pela ferramenta `assets/tools/sprite_export.html` (abrir num navegador a partir da raiz do repositório; ela desenha os mesmos frames que o jogo usa hoje e os expõe prontos pra exportação). Rodar essa ferramenta de novo depois de qualquer mudança em `appearance.js` mantém os placeholders honestos com o que está realmente no jogo, até serem substituídos por arte definitiva.
+**Placeholder procedural** (`player_reference.png`, `proportions_reference.png`, `palette_reference.png`, e o conteúdo de `characters/player/base/` que não é `walk_*.png`): exportado automaticamente do renderizador procedural em `prototype/web/src/appearance.js` pela ferramenta `assets/tools/sprite_export.html` (abrir num navegador a partir da raiz do repositório). Rodar essa ferramenta de novo depois de qualquer mudança em `appearance.js` mantém os placeholders honestos com o que está realmente no jogo.
+
+**Arte real do `walk`** (`walk_down.png`, `walk_left.png`, `walk_right.png`, `walk_up.png`): recortada de `player_concept_walkcycles_source.jpg` (fornecida já como planilha de ciclo de caminhada em 4 direções × 5 frames) pela ferramenta `assets/tools/extract_walkcycle_sheet.py` (Python + Pillow). O fundo em xadrez (JPEG, sem canal alfa real) é removido por *flood fill* a partir das bordas da imagem — qualquer pixel alcançável a partir da borda e parecido com uma das cores do xadrez vira transparente, o que preserva bordas anti-aliased do personagem sem review manual. Reaproveitável pra próximas planilhas no mesmo layout (`python3 assets/tools/extract_walkcycle_sheet.py <planilha.jpg> <pasta_saida>`); layouts diferentes precisam recalibrar os parâmetros de seção/coluna do script.
