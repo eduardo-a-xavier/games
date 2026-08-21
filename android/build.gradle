@@ -1,20 +1,3 @@
 plugins {
-  id "com.android.application" version "7.4.2" apply false
-}
-
-allprojects {
-  repositories {
-    // Tenta Google primeiro, mas com fallback
-    maven { url "https://maven.google.com/" }
-    mavenCentral()
-    maven { url "https://repo.gradle.org/gradle/libs-releases" }
-  }
-}
-
-subprojects {
-  repositories {
-    maven { url "https://maven.google.com/" }
-    mavenCentral()
-    maven { url "https://repo.gradle.org/gradle/libs-releases" }
-  }
+  id "com.android.application" version "8.5.2" apply false
 }
