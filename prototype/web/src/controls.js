@@ -17,6 +17,12 @@ EN.Controls = (function () {
   var holdStartT = 0;
   var els = {};
 
+  // teclado: vetor de movimento independente do joystick
+  var keys = { up: false, down: false, left: false, right: false };
+  var mouseAtkDown = false;
+  var mouseHoldTimer = null;
+  var mouseHoldStartT = 0;
+
   function bind(newCtx) {
     ctx = newCtx;
   }
@@ -61,6 +67,8 @@ EN.Controls = (function () {
     cacheEls();
     wireJoystick();
     wireButtons();
+    wireKeyboard();
+    wireMouse();
   }
 
   /*
@@ -190,7 +198,146 @@ EN.Controls = (function () {
     }
   }
 
+  // ── TECLADO ──────────────────────────────────────────────────────────────
+  function wireKeyboard() {
+    var MAP = {
+      KeyW: "up", ArrowUp: "up",
+      KeyS: "down", ArrowDown: "down",
+      KeyA: "left", ArrowLeft: "left",
+      KeyD: "right", ArrowRight: "right",
+    };
+
+    document.addEventListener("keydown", function (e) {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+      if (MAP[e.code]) { keys[MAP[e.code]] = true; e.preventDefault(); return; }
+
+      if (!ctx) return;
+      switch (e.code) {
+        case "Space":
+          e.preventDefault();
+          var res = EN.Player.dodge(ctx.player, liveEnemies());
+          if (res) {
+            EN.Audio.play(res.perfect ? "perfect" : "dodge");
+            if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
+          }
+          pressFx(els["btn-dodge"]);
+          break;
+        case "KeyE": case "KeyF":
+          e.preventDefault();
+          var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
+          if (target) target.onInteract(target);
+          pressFx(els["btn-context"]);
+          break;
+        case "KeyQ":
+          e.preventDefault();
+          var r1 = EN.Player.useSkill1(ctx.player, liveEnemies(), ctx.dealDamage);
+          if (r1 && r1.projectile) ctx.spawnProjectile(r1.projectile);
+          if (r1 && (r1.type === "melee" || r1.type === "melee_heavy")) spawnSlashKb(ctx.player, r1.type === "melee_heavy");
+          if (r1) EN.Audio.play(r1.type === "projectile_magic" ? "magic" : r1.type === "projectile" ? "shot" : "swingHeavy");
+          pressFx(els["btn-skill1"]);
+          break;
+        case "KeyR":
+          e.preventDefault();
+          var r2 = EN.Player.useSkill2(ctx.player, liveEnemies(), ctx.dealDamage);
+          if (r2) {
+            if (r2.projectile) ctx.spawnProjectile(r2.projectile);
+            if (r2.projectiles) r2.projectiles.forEach(ctx.spawnProjectile);
+            if (r2.type === "melee_heavy" || r2.type === "melee") spawnSlashKb(ctx.player, true, false);
+            if (r2.type === "trap" && ctx.spawnFx) ctx.spawnFx("shock", { x: ctx.player.x, y: ctx.player.y, radius: r2.radius, friendly: true });
+            EN.Audio.play(r2.type === "parry" ? "ui" : r2.type === "shield" ? "magic" : r2.type === "trap" ? "dodge" : r2.type === "projectile_magic" ? "magic" : r2.type === "projectile_multi" ? "shot" : "swingHeavy");
+          }
+          pressFx(els["btn-skill2"]);
+          break;
+        case "KeyH":
+          e.preventDefault();
+          if (EN.Player.useHeal(ctx.player)) {
+            EN.Audio.play("heal");
+            if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+            if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
+          } else if (ctx.toast && ctx.player.healCharges <= 0) {
+            ctx.toast("Sem preparos de cura.");
+          }
+          pressFx(els["btn-heal"]);
+          break;
+      }
+    });
+
+    document.addEventListener("keyup", function (e) {
+      if (MAP[e.code]) { keys[MAP[e.code]] = false; e.preventDefault(); }
+    });
+
+    // solta tudo se janela perde foco
+    window.addEventListener("blur", function () {
+      keys.up = keys.down = keys.left = keys.right = false;
+    });
+  }
+
+  function spawnSlashKb(player, heavy, finisher) {
+    if (!ctx || !ctx.spawnFx) return;
+    ctx.spawnFx("slash", { x: player.x, y: player.y, fx: player.facing.x, fy: player.facing.y, heavy: !!heavy, finisher: !!finisher });
+  }
+
+  // ── MOUSE (ataque no clique esquerdo sobre o canvas) ─────────────────────
+  function wireMouse() {
+    var canvas = document.getElementById("world-canvas");
+    if (!canvas) return;
+
+    canvas.addEventListener("mousedown", function (e) {
+      if (e.button !== 0) return;
+      if (mouseAtkDown) return;
+      mouseAtkDown = true;
+      mouseHoldStartT = performance.now();
+      clearTimeout(mouseHoldTimer);
+      mouseHoldTimer = setTimeout(function () {
+        if (!ctx) return;
+        EN.Player.startCharge(ctx.player);
+        els["btn-attack"].classList.add("charging");
+      }, 150);
+      document.addEventListener("mouseup", onMouseAtkEnd);
+      window.addEventListener("blur", onMouseAtkEnd);
+    });
+
+    function onMouseAtkEnd() {
+      if (!mouseAtkDown) return;
+      mouseAtkDown = false;
+      document.removeEventListener("mouseup", onMouseAtkEnd);
+      window.removeEventListener("blur", onMouseAtkEnd);
+      clearTimeout(mouseHoldTimer);
+      if (!ctx) return;
+      var held = performance.now() - mouseHoldStartT;
+      els["btn-attack"].classList.remove("charging");
+      var res;
+      if (ctx.player.charging) {
+        res = EN.Player.releaseCharge(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) { spawnSlashKb(ctx.player, true, false); EN.Audio.play("swingHeavy"); }
+      } else if (held < 500) {
+        res = EN.Player.tapAttack(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) { spawnSlashKb(ctx.player, false, res.finisher); EN.Audio.play(res.finisher ? "swingHeavy" : "swing"); }
+      }
+      pressFx(els["btn-attack"]);
+    }
+
+    // botão direito do mouse = esquiva
+    canvas.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      if (!ctx) return;
+      var res = EN.Player.dodge(ctx.player, liveEnemies());
+      if (res) {
+        EN.Audio.play(res.perfect ? "perfect" : "dodge");
+        if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
+      }
+      pressFx(els["btn-dodge"]);
+    });
+  }
+
   function getMoveVector() {
+    // teclado tem prioridade quando alguma tecla está pressionada
+    var kx = (keys.right ? 1 : 0) - (keys.left ? 1 : 0);
+    var ky = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
+    if (kx !== 0 || ky !== 0) {
+      var kd = Math.hypot(kx, ky);
+      return { x: kx / kd, y: ky / kd };
+    }
     return { x: joy.dx * joy.mag, y: joy.dy * joy.mag };
   }
 
