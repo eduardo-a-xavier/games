@@ -1,0 +1,49 @@
+plugins { id "com.android.application" }
+
+android {
+  namespace "br.com.encantaria"
+  compileSdk 34
+
+  defaultConfig {
+    applicationId "br.com.encantaria"
+    minSdk 24
+    targetSdk 34
+    versionCode 5
+    versionName "0.5"
+  }
+
+  buildTypes {
+    release {
+      minifyEnabled false
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+dependencies {
+  implementation "androidx.appcompat:appcompat:1.7.0"
+  implementation "androidx.core:core:1.13.1"
+  implementation "androidx.webkit:webkit:1.11.0"
+}
+
+/*
+ * O jogo NÃO é duplicado no repositório: esta tarefa copia
+ * prototype/web/ para dentro dos assets do APK na hora de compilar.
+ * Assim existe uma fonte só da verdade — mexer no jogo e recompilar já
+ * leva a mudança pro app, sem ninguém precisar lembrar de sincronizar.
+ */
+tasks.register("copyGame", Copy) {
+  from("$rootDir/../prototype/web") {
+    exclude "dist/**"
+    exclude "**/*.py"
+  }
+  into layout.buildDirectory.dir("gameAssets/www")
+}
+
+android.sourceSets.main.assets.srcDirs += [layout.buildDirectory.dir("gameAssets").get().asFile]
+
+tasks.named("preBuild") { dependsOn("copyGame") }

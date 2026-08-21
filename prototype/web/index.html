@@ -11,6 +11,12 @@
   rel="stylesheet"
 />
 <link rel="stylesheet" href="styles.css" />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#16211f" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 </head>
 <body>
 <div id="rotate-prompt">
@@ -238,5 +244,19 @@
 <script src="src/arena.js"></script>
 <script src="src/mine.js"></script>
 <script src="src/main.js"></script>
+<script>
+// Instalação na tela inicial + jogo offline. Falha de propósito em silêncio:
+// no arquivo único de distribuição não existe sw.js do lado, e isso não é
+// erro nenhum — o jogo roda igual, só não fica instalável.
+//
+// Dentro do APK o registro é pulado: lá os arquivos já são locais, e o
+// service worker só concorreria com o WebViewAssetLoader que serve os
+// assets (ver android/app/src/main/java/.../MainActivity.java).
+if ("serviceWorker" in navigator && location.hostname !== "appassets.androidplatform.net") {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
 </body>
 </html>

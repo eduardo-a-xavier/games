@@ -1,0 +1,48 @@
+# Compila o APK de Encantaria.
+#
+# Existe porque o jogo é web mas o pedido é "instalar no celular": o
+# runner do GitHub já vem com o SDK do Android instalado, então dá pra
+# gerar o APK sem ninguém precisar montar um ambiente Android na própria
+# máquina. O resultado sai como artefato do workflow, e dá pra baixar
+# direto pelo navegador do celular.
+name: APK Android
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "android/**"
+      - "prototype/web/**"
+      - ".github/workflows/android.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Permissão de execução no wrapper
+        run: chmod +x android/gradlew
+
+      - name: Compilar APK de debug
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      # APK de debug é assinado com a chave de debug padrão: instala num
+      # aparelho comum liberando "instalar de fontes desconhecidas", e não
+      # serve pra publicar na Play Store. Para loja seria preciso um
+      # assembleRelease com keystore própria guardada em secrets.
+      - name: Publicar o APK como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: encantaria-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error

@@ -1,0 +1,19 @@
+{
+  "name": "Encantaria: Vila do Ipê",
+  "short_name": "Encantaria",
+  "description": "RPG brasileiro de folclore: combate tático, missões e o Encantado na Vila do Ipê.",
+  "lang": "pt-BR",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#16211f",
+  "theme_color": "#16211f",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
