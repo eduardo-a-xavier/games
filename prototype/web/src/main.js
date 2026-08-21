@@ -186,6 +186,23 @@ EN.Main = (function () {
       showNpcs: true,
     };
 
+    /*
+     * A Onça de Bruma guarda a trilha do sudoeste. Ela pode ser morta
+     * antes da missão que pede isso existir (o mundo é aberto, e é assim
+     * que tem que ser) — então enquanto a missão estiver ativa e ela não
+     * estiver no mapa, ela volta. Não é respawn de grinding: é a trilha
+     * continuar fechada até a missão certa mandar abrir.
+     */
+    session.tick = function (s) {
+      if (!EN.Quests.isActive("trilha")) return;
+      var present = s.enemies.some(function (e) {
+        return e.defId === "onca_de_bruma" && !e.dead;
+      });
+      if (!present && Math.hypot(s.player.x - 240, s.player.y - 720) > 420) {
+        s.enemies.push(EN.Enemy.spawn("onca_de_bruma", 240, 720));
+      }
+    };
+
     EN.World.populate({
       onDespertar: handleDespertarTrigger,
       onTalkNpc: handleTalkNpc,
@@ -194,6 +211,7 @@ EN.Main = (function () {
       onPickupItem: handlePickupItem,
       onCropInteract: handleCropInteract,
       onEnterMine: handleEnterMine,
+      onEnterBrejo: handleEnterBrejo,
     });
     mainSession = session;
     setSession(session);
@@ -271,6 +289,39 @@ EN.Main = (function () {
       },
     });
     EN.Story.reachArea("mina");
+    refreshQuestTracker();
+    return s;
+  }
+
+  // ---------- Brejo das Lanternas (Ato 3) ----------
+  function handleEnterBrejo() {
+    // o Brejo só abre depois do Carcará: entrar antes seria pular o ato
+    // inteiro que explica o que é um Veio envenenado
+    if (!EN.Quests.isDone("carcara")) {
+      toast("A trilha do brejo está tomada de mato. Ainda não é hora.");
+      return;
+    }
+    var s = EN.Brejo.enter(mainSession, {
+      onExit: function () {
+        toast("Você deixa o brejo pra trás. O cheiro de queimado fica.");
+        refreshQuestTracker();
+      },
+      onIara: function () {
+        EN.Story.talkToIara();
+      },
+      onBossStart: function () {
+        EN.Story.reachArea("poco");
+        EN.Story.playBoitataIntro(function () {});
+      },
+      onBossPhase: function (phase) {
+        toast(phase === 3 ? "O fogo do Boitatá fica branco de quente." : "O Boitatá se enrola — fase " + phase);
+      },
+      onBossDefeated: function () {
+        EN.Story.flag("boitata_apaziguado");
+        EN.Story.playBoitataDefeat(function () {});
+      },
+    });
+    EN.Story.reachArea("brejo");
     refreshQuestTracker();
     return s;
   }
@@ -435,6 +486,10 @@ EN.Main = (function () {
   // feedback -- essa era exatamente a reclamação de "não sei se acertei".
   function applyDamage(session, enemy, dmg, heavy, crit, opts) {
     opts = opts || {};
+    // guardado ANTES do ajuste elemental: fraqueza elemental engorda o
+    // número e pinta o dano como pesado, mas não é um golpe pesado de
+    // verdade — e é o golpe de verdade que abre a casca do Tatu
+    var realHeavy = !!heavy;
     if (opts.atkType && enemy.def) {
       var mult = getElementalMult(enemy.def, opts.atkType);
       if (mult !== 1) {
@@ -443,16 +498,29 @@ EN.Main = (function () {
       }
     }
     var wasDead = enemy.dead;
-    EN.Enemy.damage(enemy, dmg, function (killed) {
-      if (session.isArena) return;
-      session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
-      grantXP(EN.Enemy.isBoss(killed) ? 220 : killed.def && killed.def.category === "territorial" ? 12 : 9);
-      EN.Story.enemyKilled(killed.defId);
-      if (EN.Enemy.isBoss(killed) && session.onBossDefeated) {
-        session.boss = null;
-        session.onBossDefeated();
-      }
-    });
+    EN.Enemy.damage(
+      enemy,
+      dmg,
+      function (killed) {
+        if (session.isArena) return;
+        session.coins.push({ x: killed.x, y: killed.y, t: 0, taken: false });
+        grantXP(
+          EN.Enemy.isBoss(killed) ? 220
+          : EN.Enemy.isMiniBoss(killed) ? 90
+          : killed.def && killed.def.category === "territorial" ? 12
+          : 9
+        );
+        EN.Story.enemyKilled(killed.defId);
+        if (EN.Enemy.isBoss(killed) && session.onBossDefeated) {
+          session.boss = null;
+          session.onBossDefeated();
+        }
+        if (EN.Enemy.isMiniBoss(killed) && session.boss === killed) session.boss = null;
+      },
+      // o peso do golpe importa pro Tatu de Pedra: só o pesado abre a
+      // casca. Sem repassar isso aqui a blindagem dele nunca cederia.
+      { heavy: realHeavy }
+    );
     session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy, crit: !!crit });
     if (!wasDead) {
       session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
@@ -576,6 +644,12 @@ EN.Main = (function () {
 
     s.enemies.forEach(function (e) {
       EN.Enemy.update(e, dt, p, api);
+      // mini-chefe entra na barra grande do HUD assim que engaja, e sai
+      // dela se o jogador conseguir se descolar — não é uma luta trancada
+      if (EN.Enemy.isMiniBoss(e) && !e.dead) {
+        if (e.state !== "patrol" && !s.boss) s.boss = e;
+        else if (e.state === "patrol" && s.boss === e) s.boss = null;
+      }
     });
     s.enemies = s.enemies.filter(function (e) {
       if (e.dead) {
@@ -609,7 +683,10 @@ EN.Main = (function () {
 
     if (s.tick) s.tick(s, dt);
 
-    if (!s.isArena && !s.isMine) {
+    // só o mundo aberto avança o relógio e grava a posição do jogador —
+    // gravar as coordenadas da mina ou do brejo devolveria o jogador pro
+    // meio do nada ao recarregar o save
+    if (!s.isArena && !s.isMine && !s.isBrejo) {
       s.meta.dayT = (s.meta.dayT + dt * (24 / 240)) % 24;
       if (s.meta.dayT < 0.02) s.meta.day++;
       s.meta.x = p.x;
@@ -617,7 +694,7 @@ EN.Main = (function () {
       s.meta.level = EN.State.data.progress.level; // espelho só pra exibição no HUD
       s.meta.inventory.curas = p.healCharges;
       persistThrottled();
-      if (s.enemies.length < 2 && Math.random() > 0.997) {
+      if (s.enemies.length < 4 && Math.random() > 0.994) {
         s.enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 300 + Math.random() * 900, 300 + Math.random() * 500));
       }
     } else if (s.isArena && s.enemies.filter(function (e) { return !e.dead; }).length === 0 && !s._respawning) {
@@ -654,19 +731,52 @@ EN.Main = (function () {
 
   function updateEnemyProjectiles(s, dt, p) {
     s.enemyProjectiles = s.enemyProjectiles || [];
+    var born = [];
     s.enemyProjectiles.forEach(function (proj) {
       proj.x += proj.vx * dt;
       proj.y += proj.vy * dt;
+
+      /*
+       * FOGO QUE FICA (Boitatá). Uma poça de fogo não some ao encostar no
+       * jogador: ela continua lá e volta a queimar depois de um respiro
+       * curto. É o que transforma a arena num espaço que encolhe em vez de
+       * um projétil que se esquiva uma vez e acabou.
+       *
+       * Água apaga: no Brejo o fogo sobre a água some ~4x mais rápido, e
+       * é assim que o mapa ensina a resposta sem uma linha de tutorial.
+       */
+      if (proj.lingering) {
+        var onWater = s.isWater && s.isWater(proj.x, proj.y);
+        proj.life -= dt * (onWater ? 4.5 : 1);
+        if (proj.touchCd > 0) proj.touchCd -= dt;
+        if (proj.touchCd <= 0 && Math.hypot(p.x - proj.x, p.y - proj.y) < p.r + proj.r) {
+          proj.touchCd = 0.55;
+          EN.Player.takeDamage(p, proj.dmg, proj.x, proj.y);
+          EN.Combat.applyStatus(p, "queimando", 2, 2);
+        }
+        return;
+      }
+
       proj.life -= dt;
       if (proj.hit) return;
       if (Math.hypot(p.x - proj.x, p.y - proj.y) < p.r + proj.r) {
         EN.Player.takeDamage(p, proj.dmg, proj.x, proj.y);
+        if (proj.burns) EN.Combat.applyStatus(p, "queimando", 3, 3);
         proj.hit = true;
+      }
+      // chama do Boitatá: onde ela cai (por acerto ou por fim de voo)
+      // vira uma poça que continua queimando
+      if (proj.leavesFire && (proj.hit || proj.life <= 0)) {
+        born.push({
+          x: proj.x, y: proj.y, vx: 0, vy: 0, r: 16, dmg: 7,
+          kind: "fogo", lingering: true, touchCd: 0, life: 4.5,
+        });
       }
     });
     s.enemyProjectiles = s.enemyProjectiles.filter(function (pr) {
       return pr.life > 0 && !pr.hit;
     });
+    if (born.length) s.enemyProjectiles = s.enemyProjectiles.concat(born);
   }
 
   var persistTimer = null;
@@ -704,6 +814,9 @@ EN.Main = (function () {
       drawProjectile(pr, origin.x, origin.y, fill, stroke);
     });
     (s.enemyProjectiles || []).forEach(function (pr) {
+      if (pr.lingering) return drawFirePool(pr, origin.x, origin.y);
+      if (pr.kind === "chama") return drawProjectile(pr, origin.x, origin.y, "#ffb43a", "#a03a00");
+      if (pr.kind === "espinho") return drawThorn(pr, origin.x, origin.y);
       var isFeather = pr.kind === "pena";
       drawProjectile(pr, origin.x, origin.y, isFeather ? "#c9a227" : "#f2e05a", isFeather ? "#6b5220" : "#a08a1a");
     });
@@ -712,13 +825,24 @@ EN.Main = (function () {
       drawFx(f, origin.x, origin.y);
     });
 
-    if (!s.isArena && !s.isMine) {
+    if (!s.isArena && !s.isMine && !s.isBrejo) {
       if (!EN.State.data.progress.despertarSeen) {
         EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
       }
       EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
     } else if (s.isMine) {
       drawMineDarkness(ctx, s, origin);
+    } else if (s.isBrejo) {
+      // o Brejo é sempre noite: névoa fria por cima e uma vinheta mais
+      // aberta que a da mina (é céu aberto, não galeria)
+      ctx.fillStyle = "rgba(12,22,34,.42)";
+      ctx.fillRect(0, 0, origin.viewW, origin.viewH);
+      var bp = { x: s.player.x - origin.x, y: s.player.y - origin.y };
+      var bg = ctx.createRadialGradient(bp.x, bp.y, 120, bp.x, bp.y, 460);
+      bg.addColorStop(0, "rgba(6,14,20,0)");
+      bg.addColorStop(1, "rgba(6,14,20,.7)");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, origin.viewW, origin.viewH);
     }
     ctx.restore();
   }
@@ -750,6 +874,66 @@ EN.Main = (function () {
       ctx.arc(px, py, pr.r * 0.45, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  /*
+   * Poça de fogo do Boitatá. Precisa ser lida como PERIGO PERMANENTE, não
+   * como projétil: por isso não tem contorno duro, pulsa, e some por
+   * transparência conforme a vida acaba — o jogador consegue prever
+   * quando aquele pedaço de chão volta a ser seguro.
+   */
+  function drawFirePool(pr, camX, camY) {
+    var x = pr.x - camX,
+      y = pr.y - camY;
+    var t = performance.now() / 1000;
+    var fade = Math.min(1, pr.life / 1.2);
+    var pulse = 0.86 + Math.sin(t * 9 + pr.x) * 0.14;
+    var r = pr.r * pulse;
+
+    ctx.save();
+    ctx.globalAlpha = fade;
+    var g = ctx.createRadialGradient(x, y, 1, x, y, r);
+    g.addColorStop(0, "rgba(255,240,170,.9)");
+    g.addColorStop(0.35, "rgba(255,150,30,.75)");
+    g.addColorStop(0.75, "rgba(210,60,10,.4)");
+    g.addColorStop(1, "rgba(140,30,0,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.62, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // línguas de fogo subindo: dá altura ao que senão seria uma mancha
+    ctx.fillStyle = "rgba(255,190,70,.72)";
+    for (var i = 0; i < 5; i++) {
+      var a = (i / 5) * Math.PI * 2 + t * 1.3;
+      var fh = 8 + Math.abs(Math.sin(t * 7 + i * 1.9)) * 11;
+      var fx = x + Math.cos(a) * r * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(fx - 3, y);
+      ctx.quadraticCurveTo(fx, y - fh, fx + 3, y);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  function drawThorn(pr, camX, camY) {
+    var x = pr.x - camX,
+      y = pr.y - camY;
+    var a = Math.atan2(pr.vy, pr.vx);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(a);
+    ctx.fillStyle = "#4a6b30";
+    ctx.beginPath();
+    ctx.moveTo(7, 0);
+    ctx.lineTo(-5, 3.2);
+    ctx.lineTo(-5, -3.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#22381a";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
   }
 
   // escuridão da mina: vinheta que segue o jogador, o suficiente pra
@@ -904,7 +1088,11 @@ EN.Main = (function () {
     bossEls.box.classList.add("visible");
     bossEls.name.textContent = boss.def.name;
     bossEls.fill.style.transform = "scaleX(" + Math.max(0, boss.hp / boss.hpMax) + ")";
-    bossEls.phase.textContent = "Fase " + boss.phase;
+    // mini-chefe não tem fases: mostrar "Fase 1" o tempo todo mentiria
+    // sobre a estrutura da luta
+    bossEls.phase.textContent = EN.Enemy.isMiniBoss(boss)
+      ? boss.hp / boss.hpMax < 0.5 ? "Acuada" : "Espreitando"
+      : "Fase " + boss.phase;
   }
 
   // ---------- painel de atributos ----------

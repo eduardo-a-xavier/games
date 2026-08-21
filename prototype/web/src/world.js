@@ -453,6 +453,7 @@ EN.World = (function () {
   ];
 
   var MINE_ENTRANCE = { x: 1440, y: 120 };
+  var BREJO_ENTRANCE = { x: 180, y: 1000 };
 
   // ---------- povoamento de interativos + inimigos ----------
   function populate(handlers) {
@@ -482,6 +483,21 @@ EN.World = (function () {
       type: "mine",
       onInteract: function () {
         handlers.onEnterMine();
+      },
+    });
+
+    // Brejo das Lanternas: fica no canto oposto à mina, no ponto mais
+    // baixo e mais úmido do mapa — o caminho até lá já é a transição de
+    // clima entre os dois atos
+    EN.Interactable.register({
+      x: BREJO_ENTRANCE.x,
+      y: BREJO_ENTRANCE.y,
+      range: 58,
+      icon: "🏮",
+      label: "Seguir pro brejo",
+      type: "brejo",
+      onInteract: function () {
+        handlers.onEnterBrejo();
       },
     });
 
@@ -571,11 +587,35 @@ EN.World = (function () {
     });
   }
 
+  /*
+   * Povoamento do sítio em CAMADAS de dificuldade por distância da casa:
+   * perto do começo só ratos (o inimigo que ensina esquiva), e quanto
+   * mais longe você vai mais o bestiário abre. A Onça de Bruma fica no
+   * canto mais distante de todos, na trilha do brejo — é opcional, e
+   * encontrar ela é a recompensa de explorar.
+   */
   function spawnInitialEnemies() {
     var enemies = [];
+    // quintal: os dois ratos da primeira missão
     enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 560, 340));
     enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 820, 540));
     enemies.push(EN.Enemy.spawn("cipo_vivo", 520, 760));
+
+    // mata rasa: territoriais e emboscada
+    enemies.push(EN.Enemy.spawn("cipo_vivo", 1080, 830));
+    enemies.push(EN.Enemy.spawn("espantalho_possuido", 900, 700));
+    enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 1240, 420));
+
+    // pedreira, subindo pra mina: tatus (exigem golpe pesado)
+    enemies.push(EN.Enemy.spawn("tatu_de_pedra", 1300, 250));
+    enemies.push(EN.Enemy.spawn("tatu_de_pedra", 1180, 150));
+
+    // estrada velha, ao norte: o cão que circula e finta
+    enemies.push(EN.Enemy.spawn("cao_da_estrada", 1500, 500));
+
+    // trilha do brejo, sudoeste: o território da Onça
+    enemies.push(EN.Enemy.spawn("corpo_seco", 380, 890));
+    enemies.push(EN.Enemy.spawn("onca_de_bruma", 240, 720));
     return enemies;
   }
 
@@ -674,6 +714,7 @@ EN.World = (function () {
   return {
     WORLD_W: WORLD_W,
     WORLD_H: WORLD_H,
+    BREJO_ENTRANCE: BREJO_ENTRANCE,
     INVESTIGATE_POINT: INVESTIGATE_POINT,
     MINE_ENTRANCE: MINE_ENTRANCE,
     NPC_SPOTS: NPC_SPOTS,
