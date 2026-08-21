@@ -322,3 +322,174 @@ input:focus-visible, .swatch:focus-visible, .class-card:focus-visible {
   .desp-title { font-size: 20px; }
   .desp-text { font-size: 12.5px; }
 }
+
+/* ===================== HISTÓRIA E COMBATE (v3) ===================== */
+
+/* Rastreador de missão: canto superior, discreto, some quando não há
+   missão ativa. Fica abaixo do painel de vitals pra não brigar com ele. */
+#quest-tracker {
+  position: absolute;
+  top: 108px;
+  left: max(10px, env(safe-area-inset-left));
+  max-width: 44vw;
+  padding: 7px 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-left: 3px solid var(--ipe);
+  border-radius: 4px;
+  opacity: 0;
+  transform: translateX(-8px);
+  transition: opacity .25s, transform .25s;
+  pointer-events: none;
+  z-index: 6;
+}
+#quest-tracker.visible { opacity: 1; transform: none; }
+#quest-title {
+  font-family: var(--font-display);
+  font-size: 9px;
+  letter-spacing: .06em;
+  color: var(--ipe);
+  margin-bottom: 3px;
+}
+#quest-objective { font-family: var(--font-body); font-size: 11px; color: var(--mist); line-height: 1.3; }
+
+/* Barra do chefe: topo central, larga, só aparece durante a luta */
+#boss-bar {
+  position: absolute;
+  top: max(10px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translate(-50%, -14px);
+  width: min(420px, 60vw);
+  padding: 6px 10px 8px;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 5px;
+  opacity: 0;
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+  z-index: 7;
+}
+#boss-bar.visible { opacity: 1; transform: translate(-50%, 0); }
+#boss-name {
+  font-family: var(--font-display);
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: var(--danger);
+  text-align: center;
+  margin-bottom: 5px;
+}
+.boss-track { height: 9px; background: #00000066; border: 1px solid var(--panel-line); border-radius: 2px; overflow: hidden; }
+#boss-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8a2318, var(--danger));
+  transform-origin: left center;
+  transform: scaleX(1);
+  transition: transform .18s linear;
+}
+#boss-phase {
+  font-family: var(--font-display);
+  font-size: 8px;
+  color: var(--mist-dim);
+  text-align: center;
+  margin-top: 4px;
+  letter-spacing: .06em;
+}
+
+/* Botão de cura: fica sozinho, longe do cluster de ação, pra não ser
+   apertado por engano no meio de uma troca de golpes */
+.heal-btn {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  bottom: 148px;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  border-radius: 50%;
+  border: 1.5px solid #4f8a5e;
+  background: #14251ccc;
+  color: var(--mist);
+  cursor: pointer;
+  z-index: 5;
+  transition: transform .12s;
+}
+.heal-btn span:first-child { font-size: 16px; line-height: 1; }
+#heal-count { font-family: var(--font-display); font-size: 8px; color: var(--mist-dim); }
+.heal-btn:active, .heal-btn.pressed { transform: scale(.9); }
+.heal-btn.empty { opacity: .4; border-color: var(--panel-line); }
+
+/* Medidor da sequência de golpes */
+#combo-meter {
+  position: absolute;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: 210px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  background: #00000088;
+  border: 1px solid var(--panel-line);
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity .12s, transform .12s;
+  pointer-events: none;
+  z-index: 5;
+}
+#combo-meter.visible { opacity: 1; transform: none; }
+#combo-meter.ready { border-color: var(--ipe); box-shadow: 0 0 10px #f2b70566; }
+#combo-text { font-family: var(--font-display); font-size: 9px; color: var(--ipe); letter-spacing: .06em; }
+
+/* Caixa de diálogo */
+#dialogue {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0 14px max(14px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, #00000088, transparent 45%);
+  z-index: 40;
+}
+#dialogue.open { display: flex; }
+.dlg-box {
+  width: min(640px, 96%);
+  padding: 12px 14px 10px;
+  background: var(--panel);
+  border: 1px solid var(--panel-line);
+  border-radius: 6px;
+  box-shadow: 0 6px 26px #000a;
+}
+.dlg-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; min-height: 14px; }
+#dlg-icon { font-size: 15px; }
+#dlg-who { font-family: var(--font-display); font-size: 10px; letter-spacing: .07em; color: var(--ipe); }
+#dlg-text {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--mist);
+  min-height: 3.6em;
+  margin: 0;
+}
+#dlg-choices { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
+.dlg-choice {
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 7px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--panel-line);
+  background: #1a2b24;
+  color: var(--mist);
+  cursor: pointer;
+}
+.dlg-choice:active { background: var(--ipe); color: #101b18; }
+#dlg-hint {
+  font-family: var(--font-body);
+  font-size: 10px;
+  color: var(--mist-dim);
+  text-align: right;
+  margin-top: 6px;
+  opacity: .75;
+}
+
+.desp-title.death { color: var(--danger); }

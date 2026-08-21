@@ -57,7 +57,7 @@ EN.Bestiary = (function () {
       lore: "Diz-se que carregam a última luz de quem se perdeu na mata sem encontrar o caminho de volta.",
       veioRelation: "Naturalmente ligado ao Encantado — só fica hostil perto de Veios perturbados.",
       corruptionVisual: "Luz que pulsa em vermelho em vez de amarelo quando corrompido.",
-      implemented: false,
+      implemented: true,
     },
     {
       id: "cipo_vivo",
@@ -108,7 +108,7 @@ EN.Bestiary = (function () {
       lore: "Colônia comum na mina, agora agitada pelas raízes negras que avançam pelas galerias.",
       veioRelation: "Território diretamente afetado pela contaminação da mina.",
       corruptionVisual: "Pelagem com manchas escuras, voo mais errático que o normal.",
-      implemented: false,
+      implemented: true,
     },
     {
       id: "sapo_de_pedra",
@@ -125,7 +125,7 @@ EN.Bestiary = (function () {
       lore: "Guardião lento das poças mais fundas — quase nunca ataca primeiro.",
       veioRelation: "Nenhuma — inimigo comum, não corrompido.",
       corruptionVisual: null,
-      implemented: false,
+      implemented: true,
     },
     {
       id: "cao_da_estrada",
@@ -142,7 +142,7 @@ EN.Bestiary = (function () {
       lore: "Assombração de um cão que morreu protegendo seu dono numa estrada esquecida.",
       veioRelation: "Presença espiritual antiga, anterior aos Veios — não é corrompido, é assombração natural.",
       corruptionVisual: null,
-      implemented: false,
+      implemented: true,
     },
     {
       id: "espantalho_possuido",
@@ -227,7 +227,7 @@ EN.Bestiary = (function () {
       lore: "Vítima, não vilão — uma ave sobrenatural tomada por raízes negras vindas do fundo da mina.",
       veioRelation: "Guardião original do Veio da Mina Santa Luzia, corrompido em sua fonte.",
       corruptionVisual: "Raízes negras entrelaçadas nas asas e penas misturadas a minério.",
-      implemented: false,
+      implemented: true,
     },
     {
       id: "saci",

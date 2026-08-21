@@ -8,6 +8,22 @@ window.EN = window.EN || {};
  * "descritor" de projétil para quem chamou (world.js/arena.js) instanciar.
  * Isso mantém Player.js independente da cena em que está rodando (mundo
  * principal ou arena de teste).
+ *
+ * Desenho do combate (GDD Seção 14 — tático, não frenético):
+ *  - O ATAQUE do jogador é instantâneo, mas COMPROMETE: cada golpe trava o
+ *    movimento por um instante e custa vigor. Não dá pra sair trocando
+ *    golpe infinitamente enquanto anda.
+ *  - Quem telegrafa é o INIMIGO (0,4–0,8s de aviso). A perícia exigida é
+ *    leitura e posicionamento, não reflexo puro — por isso o golpe do
+ *    jogador não tem tempo de preparo próprio, que só somaria atraso de
+ *    input em cima do toque na tela.
+ *  - Sequência de 3 golpes: o terceiro é mais lento, mais largo e mais
+ *    forte. Escolher entre fechar a sequência ou recuar é a decisão
+ *    tática de cada troca.
+ *  - Esquiva com rolamento de verdade (deslocamento + invencibilidade) e
+ *    ESQUIVA PERFEITA: rolar dentro da janela de aviso de um inimigo
+ *    devolve vigor, desacelera o tempo e libera um contra-ataque bônus.
+ *    É a recompensa direta por ler o telegraph.
  */
 EN.Player = (function () {
   // bônus fixo por nível (progressão simples pro protótipo -- não é a
@@ -18,6 +34,21 @@ EN.Player = (function () {
     var n = Math.max(0, (level || 1) - 1);
     return { hp: n * PER_LEVEL.hp, st: n * PER_LEVEL.st, mp: n * PER_LEVEL.mp, atk: n * PER_LEVEL.atk, def: n * PER_LEVEL.def };
   }
+
+  var DODGE_DUR = 0.28;
+  var DODGE_SPEED = 430;
+  var RIPOSTE_MULT = 1.6;
+
+  // Passos da sequência de golpes. O terceiro é o "finalizador": trava
+  // mais tempo, custa mais vigor e empurra muito mais — é uma aposta.
+  var COMBO = [
+    { dmgMult: 1.0, range: 50, halfAngle: Math.PI / 3.4, lock: 0.16, st: 4, kb: 150, hitstop: 0.045, shake: 2.0 },
+    { dmgMult: 1.2, range: 52, halfAngle: Math.PI / 3.4, lock: 0.18, st: 5, kb: 190, hitstop: 0.05, shake: 2.6 },
+    { dmgMult: 1.75, range: 62, halfAngle: Math.PI / 2.3, lock: 0.3, st: 9, kb: 420, hitstop: 0.085, shake: 5.5 },
+  ];
+  var COMBO_WINDOW = 0.55;
+  var AIM_RANGE = 120,
+    AIM_ANGLE = Math.PI / 7;
 
   function create(appearance, classId, x, y, level) {
     var p = {
@@ -39,6 +70,15 @@ EN.Player = (function () {
       classId: null,
       classDef: null,
       level: level || 1,
+      combo: 0,
+      comboT: 0,
+      attackLock: 0,
+      riposte: 0,
+      dodgeT: 0,
+      dodgeVX: 0,
+      dodgeVY: 0,
+      status: {},
+      lastHitBy: null,
     };
     applyClass(p, classId, true, level);
     return p;
@@ -73,31 +113,66 @@ EN.Player = (function () {
     }
   }
 
-  var CD_MAX = { dodge: 0.9 };
+  var CD_MAX = { dodge: 0.62 };
   var COOLDOWN_TICK_KEYS = ["basic", "heavy", "skill1", "dodge"];
 
-  function update(p, dt, moveVec) {
+  function update(p, dt, moveVec, enemies) {
     COOLDOWN_TICK_KEYS.forEach(function (k) {
       if (p.cd[k] > 0) p.cd[k] = Math.max(0, p.cd[k] - dt);
     });
     if (p.invuln > 0) p.invuln -= dt;
+    if (p.attackLock > 0) p.attackLock -= dt;
+    if (p.riposte > 0) p.riposte -= dt;
+    if (p.comboT > 0) {
+      p.comboT -= dt;
+      if (p.comboT <= 0) p.combo = 0;
+    }
     p.stateT += dt;
 
-    p.st = Math.min(p.stMax, p.st + dt * 9);
+    EN.Combat.updateStatus(p, dt, function (power) {
+      p.hp = Math.max(1, p.hp - power);
+    });
+
+    // vigor volta bem devagar durante um golpe, pra sequência longa ter
+    // custo real em vez de ser sempre a escolha certa
+    var regenScale = p.attackLock > 0 || p.charging ? 0.3 : 1;
+    p.st = Math.min(p.stMax, p.st + dt * 11 * regenScale);
     p.mp = Math.min(p.mpMax, p.mp + dt * 4.5);
 
+    if (p.state === "death") return;
+
+    // o rolamento move o personagem sozinho, ignorando o joystick — é o
+    // que faz a esquiva ser um compromisso e não só um "andar mais rápido"
+    if (p.state === "dodge") {
+      p.dodgeT -= dt;
+      var k = Math.max(0.22, p.dodgeT / DODGE_DUR);
+      p.x += p.dodgeVX * DODGE_SPEED * k * dt;
+      p.y += p.dodgeVY * DODGE_SPEED * k * dt;
+      p.moving = false;
+      p.walkT += dt * 10;
+      if (p.dodgeT <= 0) setState(p, "idle");
+      return;
+    }
+
+    var rooted = EN.Combat.hasStatus(p, "enraizado");
     var mag = Math.hypot(moveVec.x, moveVec.y);
-    p.moving = mag > 0.08 && p.state !== "attack" && p.state !== "dodge" && p.state !== "hurt" && p.state !== "death";
-    if (p.moving) {
+    var canMove = !rooted && p.attackLock <= 0 && p.state !== "hurt";
+    p.moving = mag > 0.08 && canMove;
+
+    if (mag > 0.08 && !p.charging && p.attackLock <= 0) {
       p.facing.x = moveVec.x / mag;
       p.facing.y = moveVec.y / mag;
+    }
+
+    if (p.moving) {
       var running = mag > 0.85;
-      var spd = p.speed * (p.state === "dodge" ? 2.6 : 1);
+      // carregar o golpe pesado deixa o passo lento: reposicionar durante
+      // a carga é possível, mas fugir carregando não
+      var spd = p.speed * (p.charging ? 0.45 : 1);
       p.x += moveVec.x * spd * dt;
       p.y += moveVec.y * spd * dt;
       p.walkT += dt * (running ? 13 : 8);
-      if (p.state !== "attack" && p.state !== "chargeAttack" && p.state !== "dodge" && p.state !== "hurt")
-        p.state = running ? "run" : "walk";
+      if (!p.charging && p.state !== "hurt") p.state = running ? "run" : "walk";
     } else if (p.state === "walk" || p.state === "run") {
       p.state = "idle";
     }
@@ -107,7 +182,7 @@ EN.Player = (function () {
       p.state = "chargeAttack";
     }
 
-    if ((p.state === "attack" || p.state === "dodge" || p.state === "hurt" || p.state === "tool") && p.stateT > 0.32) {
+    if ((p.state === "attack" || p.state === "hurt" || p.state === "tool") && p.attackLock <= 0 && p.stateT > 0.22) {
       p.state = p.moving ? (mag > 0.85 ? "run" : "walk") : "idle";
     }
   }
@@ -117,20 +192,62 @@ EN.Player = (function () {
     p.stateT = 0;
   }
 
-  function tapAttack(p, enemies, dealDamage) {
-    if (p.cd.basic > 0 || p.hp <= 0 || p.charging) return false;
-    var ab = EN.Classes.universalAttack.basic;
-    p.cd.basic = ab.cooldown;
-    setState(p, "attack");
-    var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 2.1, enemies);
+  // resolve um golpe corpo-a-corpo já com auto-mira, crítico, recuo,
+  // hitstop e tremor — todo ataque do jogador passa por aqui pra que
+  // nenhum caminho de dano esqueça o retorno visual
+  function resolveMelee(p, enemies, dealDamage, cfg, baseDamage, heavy) {
+    if (enemies && enemies.length) {
+      p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, AIM_RANGE, AIM_ANGLE);
+    }
+    var dmg = baseDamage;
+    if (p.riposte > 0) {
+      dmg *= RIPOSTE_MULT;
+      p.riposte = 0;
+    }
+    var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, cfg.range, cfg.halfAngle, enemies || []);
     hits.forEach(function (e) {
-      dealDamage(e, ab.damage);
+      var roll = EN.Combat.rollDamage(dmg);
+      dealDamage(e, roll.value, heavy, roll.crit);
+      EN.Combat.knockback(e, p.x, p.y, cfg.kb);
+      if (heavy) EN.Combat.applyStatus(e, "sangramento", 2.4, 2);
     });
-    return { type: "melee", hitCount: hits.length };
+    if (hits.length) {
+      EN.Combat.hitstop(cfg.hitstop);
+      EN.Combat.shakeCamera(cfg.shake, 0.18);
+    }
+    return hits;
+  }
+
+  // dano base do golpe = valor da habilidade + parte do ataque do
+  // personagem, pra que o atributo ATK (e portanto o nível e a classe)
+  // realmente mude o combate — antes ele não era usado em lugar nenhum
+  function baseDamageOf(p, ability) {
+    return ability.damage + p.atk * 0.8;
+  }
+
+  function tapAttack(p, enemies, dealDamage) {
+    if (p.cd.basic > 0 || p.hp <= 0 || p.charging || p.state === "dodge" || p.attackLock > 0) return false;
+    var step = p.comboT > 0 ? Math.min(COMBO.length - 1, p.combo) : 0;
+    var cfg = COMBO[step];
+    if (p.st < cfg.st) return false;
+
+    var ab = EN.Classes.universalAttack.basic;
+    p.st -= cfg.st;
+    p.cd.basic = ab.cooldown;
+    p.attackLock = cfg.lock;
+    setState(p, "attack");
+
+    var hits = resolveMelee(p, enemies, dealDamage, cfg, baseDamageOf(p, ab) * cfg.dmgMult, step === 2);
+
+    // a sequência só avança se o golpe realmente saiu; ao fechar os três
+    // golpes ela reinicia, forçando uma pausa antes da próxima cadeia
+    p.combo = step >= COMBO.length - 1 ? 0 : step + 1;
+    p.comboT = p.combo === 0 ? 0 : COMBO_WINDOW;
+    return { type: "melee", hitCount: hits.length, step: step, finisher: step === 2 };
   }
 
   function startCharge(p) {
-    if (p.cd.heavy > 0 || p.hp <= 0 || p.st < 15) return false;
+    if (p.cd.heavy > 0 || p.hp <= 0 || p.st < 15 || p.state === "dodge") return false;
     p.charging = true;
     p.chargeT = 0;
     setState(p, "chargeAttack");
@@ -150,12 +267,19 @@ EN.Player = (function () {
     }
     p.st -= cost;
     p.cd.heavy = ab.cooldown;
+    p.attackLock = full ? 0.34 : 0.24;
     setState(p, "attack");
-    var dmg = full ? ab.damage : Math.round(ab.damage * 0.55);
-    var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, Math.PI / 1.7, enemies);
-    hits.forEach(function (e) {
-      dealDamage(e, dmg, true);
-    });
+    var cfg = {
+      range: full ? 68 : 56,
+      halfAngle: Math.PI / 2.1,
+      kb: full ? 520 : 300,
+      hitstop: full ? 0.095 : 0.06,
+      shake: full ? 7 : 3.5,
+    };
+    var dmg = baseDamageOf(p, ab) * (full ? 1 : 0.55);
+    var hits = resolveMelee(p, enemies, dealDamage, cfg, dmg, true);
+    p.combo = 0;
+    p.comboT = 0;
     return { type: "melee_heavy", full: full, hitCount: hits.length };
   }
 
@@ -165,7 +289,7 @@ EN.Player = (function () {
   function useSkill1(p, enemies, dealDamage) {
     if (!p.classDef || !p.classDef.abilities[0]) return false;
     var ab = p.classDef.abilities[0];
-    if (p.cd.skill1 > 0 || p.hp <= 0) return false;
+    if (p.cd.skill1 > 0 || p.hp <= 0 || p.state === "dodge") return false;
     if (ab.staminaCost && p.st < ab.staminaCost) return false;
     if (ab.manaCost && p.mp < ab.manaCost) return false;
 
@@ -173,16 +297,31 @@ EN.Player = (function () {
     p.mp -= ab.manaCost || 0;
     p.cd.skill1 = ab.cooldown;
     setState(p, ab.animation || "attack");
+    p.attackLock = 0.26;
+    p.combo = 0;
+    p.comboT = 0;
 
     if (ab.type === "melee_heavy" || ab.type === "melee") {
-      var halfAngle = ab.type === "melee_heavy" ? Math.PI / 1.6 : Math.PI / 2.1;
-      var hits = EN.Classes.meleeHitTest(p.x, p.y, p.facing, ab.range, halfAngle, enemies);
-      hits.forEach(function (e) {
-        dealDamage(e, ab.damage, ab.type === "melee_heavy");
-      });
+      var heavy = ab.type === "melee_heavy";
+      var cfg = {
+        range: ab.range,
+        halfAngle: heavy ? Math.PI / 1.9 : Math.PI / 3.2,
+        kb: heavy ? 480 : 220,
+        hitstop: heavy ? 0.09 : 0.05,
+        shake: heavy ? 6.5 : 3,
+      };
+      var hits = resolveMelee(p, enemies, dealDamage, cfg, baseDamageOf(p, ab), heavy);
       return { type: ab.type, ability: ab, hitCount: hits.length };
     }
     if (ab.type === "projectile" || ab.type === "projectile_magic") {
+      if (enemies && enemies.length) {
+        p.facing = EN.Combat.autoAim(p.x, p.y, p.facing, enemies, ab.range, AIM_ANGLE);
+      }
+      var boost = 1;
+      if (p.riposte > 0) {
+        boost = RIPOSTE_MULT;
+        p.riposte = 0;
+      }
       return {
         type: ab.type,
         ability: ab,
@@ -192,7 +331,7 @@ EN.Player = (function () {
           vx: p.facing.x * 380,
           vy: p.facing.y * 380,
           r: ab.type === "projectile_magic" ? 6 : 5,
-          dmg: ab.damage,
+          dmg: baseDamageOf(p, ab) * boost,
           magic: ab.type === "projectile_magic",
         },
       };
@@ -200,29 +339,90 @@ EN.Player = (function () {
     return false;
   }
 
-  function dodge(p) {
-    if (p.cd.dodge > 0 || p.hp <= 0 || p.st < 18) return false;
-    p.st -= 18;
+  /*
+   * Rolamento. Devolve "perfect" quando o jogador rolou dentro da janela
+   * de aviso de um inimigo prestes a acertar — nesse caso o custo de vigor
+   * volta, o tempo desacelera e o próximo golpe sai reforçado.
+   */
+  function dodge(p, enemies) {
+    if (p.cd.dodge > 0 || p.hp <= 0 || p.state === "dodge") return false;
+    if (EN.Combat.hasStatus(p, "enraizado")) return false;
+    var cost = 16;
+    if (p.st < cost) return false;
+
+    var mv = p.pendingMove && Math.hypot(p.pendingMove.x, p.pendingMove.y) > 0.15 ? p.pendingMove : p.facing;
+    var m = Math.hypot(mv.x, mv.y) || 1;
+    p.dodgeVX = mv.x / m;
+    p.dodgeVY = mv.y / m;
+    p.facing.x = p.dodgeVX;
+    p.facing.y = p.dodgeVY;
+
+    p.st -= cost;
     p.cd.dodge = CD_MAX.dodge;
-    p.invuln = 0.32;
+    p.invuln = 0.3;
+    p.dodgeT = DODGE_DUR;
+    p.attackLock = 0;
+    p.charging = false;
+    p.combo = 0;
+    p.comboT = 0;
     setState(p, "dodge");
-    return true;
+    EN.Combat.clearStatus(p);
+
+    var perfect = isPerfectDodge(p, enemies);
+    if (perfect) {
+      p.st = Math.min(p.stMax, p.st + cost + 10);
+      p.riposte = 2.2;
+      p.invuln = 0.45;
+      EN.Combat.slowmo(0.35, 0.42);
+      EN.Combat.shakeCamera(2.5, 0.2);
+    }
+    return { perfect: perfect };
+  }
+
+  // "prestes a acertar" = inimigo já avisou e está no fim do aviso, ou já
+  // está no meio do bote. Fora dessa janela rolar é só rolar.
+  function isPerfectDodge(p, enemies) {
+    if (!enemies) return false;
+    for (var i = 0; i < enemies.length; i++) {
+      var e = enemies[i];
+      if (e.dead) continue;
+      var d = Math.hypot(e.x - p.x, e.y - p.y);
+      if (d > 90) continue;
+      if (e.state === "telegraph" && e.telegraph <= 0.3) return true;
+      if (e.state === "lunge" || e.state === "gripping" || e.state === "slam") return true;
+    }
+    return false;
   }
 
   function useHeal(p) {
     if (p.healCharges <= 0 || p.hp <= 0) return false;
+    if (p.hp >= p.hpMax) return false;
     p.healCharges--;
     p.hp = Math.min(p.hpMax, p.hp + 40);
+    EN.Combat.clearStatus(p);
     return true;
   }
 
-  function takeDamage(p, dmg) {
+  function takeDamage(p, dmg, sourceX, sourceY) {
     if (p.invuln > 0 || p.hp <= 0) return false;
-    p.hp = Math.max(0, p.hp - dmg);
+    // defesa reduz o dano recebido, com piso pra nenhum inimigo virar
+    // inofensivo por acúmulo de nível
+    var real = Math.max(1, Math.round(dmg - p.def * 0.35));
+    p.hp = Math.max(0, p.hp - real);
     p.invuln = 0.5;
+    p.charging = false;
+    p.combo = 0;
+    p.comboT = 0;
+    p.attackLock = 0.18;
     setState(p, "hurt");
-    if (p.hp <= 0) setState(p, "death");
-    return true;
+    if (sourceX !== undefined) EN.Combat.knockback(p, sourceX, sourceY, 190);
+    EN.Combat.hitstop(0.05);
+    EN.Combat.shakeCamera(4, 0.22);
+    if (p.hp <= 0) {
+      setState(p, "death");
+      EN.Combat.shakeCamera(8, 0.5);
+    }
+    return { damage: real };
   }
 
   function draw(ctx, p, camX, camY) {
@@ -233,13 +433,42 @@ EN.Player = (function () {
       classId: p.classId,
       chargeProgress: p.chargeT,
     };
+    var x = p.x - camX,
+      y = p.y - camY;
+
+    // aura de contra-ataque: mostra que a esquiva perfeita ainda está valendo
+    if (p.riposte > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.25 + Math.sin(performance.now() / 90) * 0.1;
+      ctx.strokeStyle = "#ffd66b";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 6, 17, 7, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (p.invuln > 0 && p.state !== "hurt" && Math.floor(p.invuln * 20) % 2 === 0) {
       ctx.save();
       ctx.globalAlpha = 0.5;
-      EN.Appearance.draw(ctx, p.x - camX, p.y - camY, p.appearance, anim);
+      EN.Appearance.draw(ctx, x, y, p.appearance, anim);
       ctx.restore();
     } else {
-      EN.Appearance.draw(ctx, p.x - camX, p.y - camY, p.appearance, anim);
+      EN.Appearance.draw(ctx, x, y, p.appearance, anim);
+    }
+
+    if (EN.Combat.hasStatus(p, "enraizado")) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(58,90,44,.9)";
+      ctx.lineWidth = 2.5;
+      for (var i = 0; i < 4; i++) {
+        var a = (i / 4) * Math.PI * 2 + p.stateT;
+        ctx.beginPath();
+        ctx.moveTo(x + Math.cos(a) * 14, y + 8 + Math.sin(a) * 5);
+        ctx.lineTo(x + Math.cos(a) * 5, y - 4);
+        ctx.stroke();
+      }
+      ctx.restore();
     }
   }
 
@@ -256,5 +485,6 @@ EN.Player = (function () {
     takeDamage: takeDamage,
     draw: draw,
     CD_MAX: CD_MAX,
+    COMBO_LEN: COMBO.length,
   };
 })();

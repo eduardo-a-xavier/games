@@ -62,6 +62,7 @@ EN.World = (function () {
     drawPath(c);
     drawHouse(c, 160, 120);
     drawField(c, 700, 760, 300, 180);
+    drawMineEntrance(c, 1440, 120);
 
     var treeSpots = [
       [560, 140],
@@ -203,6 +204,132 @@ EN.World = (function () {
     c.stroke();
   }
 
+  /*
+   * Boca da Mina Santa Luzia. Fica no alto do mapa, encostada no
+   * paredão de pedra — visível de longe pelo contraste escuro, pra o
+   * jogador saber que existe um "lá dentro" antes de a missão mandar.
+   */
+  function drawMineEntrance(c, x, y) {
+    c.fillStyle = "#5a5148";
+    c.beginPath();
+    c.ellipse(x, y + 20, 130, 78, 0, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = "#6b6157";
+    c.beginPath();
+    c.ellipse(x - 20, y + 6, 96, 58, 0, 0, Math.PI * 2);
+    c.fill();
+
+    var mouth = c.createRadialGradient(x, y + 34, 4, x, y + 34, 54);
+    mouth.addColorStop(0, "#080608");
+    mouth.addColorStop(1, "#241d1c");
+    c.fillStyle = mouth;
+    c.beginPath();
+    c.moveTo(x - 46, y + 62);
+    c.quadraticCurveTo(x - 46, y - 6, x, y - 6);
+    c.quadraticCurveTo(x + 46, y - 6, x + 46, y + 62);
+    c.closePath();
+    c.fill();
+
+    c.fillStyle = "#4a3a26";
+    c.fillRect(x - 56, y - 4, 12, 68);
+    c.fillRect(x + 44, y - 4, 12, 68);
+    c.fillRect(x - 60, y - 14, 120, 14);
+    c.fillStyle = "#5a4830";
+    c.fillRect(x - 60, y - 14, 120, 5);
+
+    for (var i = 0; i < 5; i++) {
+      drawRock(c, x - 90 + i * 46, y + 78 + rand(i * 3.3) * 16, 7 + rand(i) * 7);
+    }
+
+    // raízes negras já escapando pra fora: pista visual de que a
+    // corrupção da mina não está contida
+    c.strokeStyle = "rgba(20,10,22,.8)";
+    for (var r = 0; r < 7; r++) {
+      c.lineWidth = 2 + rand(r * 2.2) * 2;
+      var sx = x - 30 + rand(r * 4.1) * 60;
+      c.beginPath();
+      c.moveTo(sx, y + 60);
+      c.quadraticCurveTo(sx + (rand(r * 5) - 0.5) * 40, y + 92, sx + (rand(r * 7) - 0.5) * 70, y + 120);
+      c.stroke();
+    }
+  }
+
+  /*
+   * Moradores desenhados em runtime (não no fundo assado) porque
+   * respiram e viram pro jogador. São figuras simples e distintas por
+   * cor — o suficiente pra ler "tem gente ali" numa tela de celular.
+   */
+  function drawNpcs(ctx, camX, camY, t) {
+    NPC_SPOTS.forEach(function (spot, i) {
+      var x = spot.x - camX,
+        y = spot.y - camY;
+      var bob = Math.sin(t * 1.6 + i * 1.7) * 1.6;
+
+      var sh = ctx.createRadialGradient(x, y + 10, 1, x, y + 10, 13);
+      sh.addColorStop(0, "rgba(0,0,0,.34)");
+      sh.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = sh;
+      ctx.beginPath();
+      ctx.ellipse(x, y + 10, 13, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(20,14,10,.5)";
+      ctx.lineWidth = 1;
+
+      ctx.fillStyle = "#3a3a44";
+      ctx.fillRect(x - 6, y - 2 + bob, 5, 12);
+      ctx.fillRect(x + 1, y - 2 + bob, 5, 12);
+
+      ctx.fillStyle = spot.shirt;
+      roundRectPath(ctx, x - 8, y - 16 + bob, 16, 17, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = spot.skin;
+      ctx.beginPath();
+      ctx.arc(x, y - 22 + bob, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#2a1c14";
+      ctx.beginPath();
+      ctx.arc(x - 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
+      ctx.arc(x + 2.5, y - 23 + bob, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+
+      if (spot.hat) {
+        ctx.fillStyle = spot.hat;
+        ctx.beginPath();
+        ctx.ellipse(x, y - 27 + bob, 12, 4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = "#d8d2cc";
+        ctx.beginPath();
+        ctx.arc(x, y - 25 + bob, 7, Math.PI, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // marcador flutuante de conversa
+      var pulse = Math.sin(t * 3 + i) * 2;
+      ctx.globalAlpha = 0.75;
+      ctx.font = "11px system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("💬", x, y - 34 + pulse);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
   function drawField(c, x, y, w, h) {
     c.strokeStyle = "#7a5a3a";
     c.lineWidth = 6;
@@ -304,19 +431,49 @@ EN.World = (function () {
     c.fill();
   }
 
+  /*
+   * Moradores da Vila do Ipê presentes no protótipo (GDD Seção 24). Cada
+   * um fica num canto distinto do mapa de propósito: conversar com todos
+   * obriga o jogador a atravessar o sítio e conhecer o terreno antes de
+   * a história pedir isso dele.
+   */
+  var NPC_SPOTS = [
+    { id: "ze", x: 420, y: 210, shirt: "#4a7a52", hat: "#c9a227", skin: "#b07a4e" },
+    { id: "osvaldo", x: 1180, y: 640, shirt: "#6b5240", hat: "#3a3a3f", skin: "#8a5c3a" },
+    { id: "micaela", x: 690, y: 900, shirt: "#7a5a82", hat: null, skin: "#7a5236" },
+    { id: "batista", x: 1420, y: 260, shirt: "#4a4a3a", hat: "#5a4a2a", skin: "#9a6a44" },
+  ];
+
+  var MINE_ENTRANCE = { x: 1440, y: 120 };
+
   // ---------- povoamento de interativos + inimigos ----------
-  function populate(onDespertar, onSayNpc, onOpenChest, onPickupItem, onCropInteract) {
+  function populate(handlers) {
     EN.Interactable.unregisterAll();
 
+    NPC_SPOTS.forEach(function (spot) {
+      EN.Interactable.register({
+        x: spot.x,
+        y: spot.y,
+        range: 52,
+        icon: "💬",
+        label: "Conversar",
+        type: "npc",
+        npcId: spot.id,
+        onInteract: function () {
+          handlers.onTalkNpc(spot.id);
+        },
+      });
+    });
+
     EN.Interactable.register({
-      x: 420,
-      y: 210,
-      range: 50,
-      icon: "💬",
-      label: "Conversar",
-      type: "npc",
+      x: MINE_ENTRANCE.x,
+      y: MINE_ENTRANCE.y + 46,
+      range: 56,
+      icon: "⛰️",
+      label: "Entrar na mina",
+      type: "mine",
       onInteract: function () {
-        onSayNpc("zé");
+        handlers.onEnterMine();
       },
     });
 
@@ -331,7 +488,7 @@ EN.World = (function () {
       used: false,
       onInteract: function (obj) {
         obj.used = true;
-        onPickupItem();
+        handlers.onPickupItem();
       },
     });
 
@@ -346,7 +503,7 @@ EN.World = (function () {
       used: false,
       onInteract: function (obj) {
         obj.used = true;
-        onOpenChest();
+        handlers.onOpenChest();
       },
     });
 
@@ -358,7 +515,7 @@ EN.World = (function () {
       label: "Colher",
       type: "crop",
       onInteract: function () {
-        onCropInteract();
+        handlers.onCropInteract();
       },
     });
 
@@ -370,7 +527,7 @@ EN.World = (function () {
       label: "Entrar",
       type: "door",
       onInteract: function () {
-        onSayNpc("porta");
+        handlers.onSay("porta");
       },
     });
 
@@ -382,7 +539,7 @@ EN.World = (function () {
       label: "Observar",
       type: "saci",
       onInteract: function () {
-        onSayNpc("saci");
+        handlers.onSay("saci");
       },
     });
 
@@ -401,7 +558,7 @@ EN.World = (function () {
       used: false,
       onInteract: function (obj) {
         obj.used = true;
-        onDespertar();
+        handlers.onDespertar();
       },
     });
   }
@@ -510,6 +667,9 @@ EN.World = (function () {
     WORLD_W: WORLD_W,
     WORLD_H: WORLD_H,
     INVESTIGATE_POINT: INVESTIGATE_POINT,
+    MINE_ENTRANCE: MINE_ENTRANCE,
+    NPC_SPOTS: NPC_SPOTS,
+    drawNpcs: drawNpcs,
     bake: bake,
     populate: populate,
     spawnInitialEnemies: spawnInitialEnemies,

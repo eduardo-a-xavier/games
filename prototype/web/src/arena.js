@@ -49,11 +49,19 @@ EN.Arena = (function () {
 
     var player = EN.Player.create(appearance, classId, ARENA_W / 2, ARENA_H / 2 + 140, EN.State.data.progress.level);
 
-    var enemies = [
-      EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
-      EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 + 140, ARENA_H / 2 - 60),
-      EN.Enemy.spawn("cipo_vivo", ARENA_W / 2, ARENA_H / 2 - 180),
-    ];
+    // um de cada arquétipo que o jogador vai encontrar de verdade: dá pra
+    // sentir como a classe responde a quem investe, a quem prende no lugar
+    // e a quem atira de longe antes de escolher pra valer
+    function makeEnemies() {
+      return [
+        EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
+        EN.Enemy.spawn("cao_da_estrada", ARENA_W / 2 + 150, ARENA_H / 2 - 60),
+        EN.Enemy.spawn("cipo_vivo", ARENA_W / 2, ARENA_H / 2 - 180),
+        EN.Enemy.spawn("vagalume_de_defunto", ARENA_W / 2 - 250, ARENA_H / 2 - 190),
+      ];
+    }
+
+    var enemies = makeEnemies();
 
     var session = {
       isArena: true,
@@ -62,6 +70,7 @@ EN.Arena = (function () {
       enemies: enemies,
       coins: [],
       projectiles: [],
+      enemyProjectiles: [],
       fx: [],
       worldCanvas: bakeGround(),
       worldW: ARENA_W,
@@ -69,12 +78,7 @@ EN.Arena = (function () {
       camera: EN.Camera.create(player.x, player.y),
       meta: { vintem: 0, day: 0, dayT: 13, level: null, showClock: false },
       respawnEnemies: function () {
-        enemies.length = 0;
-        enemies.push(
-          EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 - 140, ARENA_H / 2 - 80),
-          EN.Enemy.spawn("rato_mato_corrompido", ARENA_W / 2 + 140, ARENA_H / 2 - 60),
-          EN.Enemy.spawn("cipo_vivo", ARENA_W / 2, ARENA_H / 2 - 180)
-        );
+        session.enemies = makeEnemies();
       },
     };
 

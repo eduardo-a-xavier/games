@@ -21,6 +21,15 @@ EN.Controls = (function () {
     ctx = newCtx;
   }
 
+  // A lista de inimigos é RECRIADA a cada quadro em main.js (filter dos
+  // mortos), então guardar a referência recebida no bind() daria uma
+  // lista velha — auto-mira e esquiva perfeita passariam a olhar pra
+  // inimigos que já sumiram. Sempre lê a lista atual da sessão.
+  function liveEnemies() {
+    if (!ctx) return [];
+    return (ctx.session && ctx.session.enemies) || ctx.enemies || [];
+  }
+
   function cacheEls() {
     [
       "joy-zone",
@@ -38,6 +47,10 @@ EN.Controls = (function () {
       "icon-skill1",
       "icon-skill2",
       "icon-context",
+      "btn-heal",
+      "heal-count",
+      "combo-meter",
+      "combo-text",
     ].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
@@ -185,20 +198,27 @@ EN.Controls = (function () {
       atk.classList.remove("charging");
       var res;
       if (ctx.player.charging) {
-        res = EN.Player.releaseCharge(ctx.player, ctx.enemies, ctx.dealDamage);
-        if (res) spawnSlash(ctx.player, true);
+        res = EN.Player.releaseCharge(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, true, false);
       } else if (held < 500) {
-        res = EN.Player.tapAttack(ctx.player, ctx.enemies, ctx.dealDamage);
-        if (res) spawnSlash(ctx.player, false);
+        res = EN.Player.tapAttack(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) spawnSlash(ctx.player, false, res.finisher);
       }
       pressFx(atk);
     }
 
     // arco de espada visível todo golpe -- acertando ou não -- pra sempre
     // ficar claro que o toque de ataque realmente executou
-    function spawnSlash(player, heavy) {
+    function spawnSlash(player, heavy, finisher) {
       if (!ctx.spawnFx) return;
-      ctx.spawnFx("slash", { x: player.x, y: player.y, fx: player.facing.x, fy: player.facing.y, heavy: heavy });
+      ctx.spawnFx("slash", {
+        x: player.x,
+        y: player.y,
+        fx: player.facing.x,
+        fy: player.facing.y,
+        heavy: heavy,
+        finisher: !!finisher,
+      });
     }
 
     els["btn-dodge"].addEventListener(
@@ -206,8 +226,27 @@ EN.Controls = (function () {
       function (e) {
         e.preventDefault();
         if (!ctx) return;
-        EN.Player.dodge(ctx.player);
+        var res = EN.Player.dodge(ctx.player, liveEnemies());
+        if (res && res.perfect && ctx.spawnFx) {
+          ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
+        }
         pressFx(els["btn-dodge"]);
+      },
+      { passive: false }
+    );
+
+    els["btn-heal"].addEventListener(
+      "pointerdown",
+      function (e) {
+        e.preventDefault();
+        if (!ctx) return;
+        if (EN.Player.useHeal(ctx.player)) {
+          if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+          if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
+        } else if (ctx.toast && ctx.player.healCharges <= 0) {
+          ctx.toast("Sem preparos de cura.");
+        }
+        pressFx(els["btn-heal"]);
       },
       { passive: false }
     );
@@ -217,7 +256,7 @@ EN.Controls = (function () {
       function (e) {
         e.preventDefault();
         if (!ctx) return;
-        var res = EN.Player.useSkill1(ctx.player, ctx.enemies, ctx.dealDamage);
+        var res = EN.Player.useSkill1(ctx.player, liveEnemies(), ctx.dealDamage);
         if (res && res.projectile) ctx.spawnProjectile(res.projectile);
         if (res && (res.type === "melee" || res.type === "melee_heavy")) spawnSlash(ctx.player, res.type === "melee_heavy");
         pressFx(els["btn-skill1"]);
@@ -272,6 +311,22 @@ EN.Controls = (function () {
       els["btn-attack"].classList.add("charging");
     } else {
       els["btn-attack"].classList.remove("charging");
+    }
+
+    if (els["heal-count"]) els["heal-count"].textContent = p.healCharges;
+    if (els["btn-heal"]) els["btn-heal"].classList.toggle("empty", p.healCharges <= 0);
+
+    // medidor da sequência de golpes: mostra em que passo o jogador está
+    // e some sozinho quando a janela fecha, ensinando o ritmo sem tutorial
+    var meter = els["combo-meter"];
+    if (meter) {
+      if (p.comboT > 0 && p.combo > 0) {
+        meter.classList.add("visible");
+        els["combo-text"].textContent = "GOLPE " + (p.combo + 1) + "/" + EN.Player.COMBO_LEN;
+        meter.classList.toggle("ready", p.combo === EN.Player.COMBO_LEN - 1);
+      } else {
+        meter.classList.remove("visible");
+      }
     }
 
     var target = EN.Interactable.findNearest(p.x, p.y);

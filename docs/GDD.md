@@ -7,7 +7,7 @@
 
 ## Sumário
 
-1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos
+1. Nome do jogo · 2. Pitch · 3. Premissa · 4. História principal · 5. Lore do Encantado · 6. Mapa inicial · 7. Loop de gameplay · 8. Atributos · 9. Níveis · 10. Classes · 11. Árvores de habilidade · 12. Especializações · 13. Profissões · 14. Combate · 15. Armas · 16. Armaduras · 17. Loot · 18. Crafting · 19. Agricultura · 20. Pesca · 21. Mineração · 22. Casa e construção · 23. Economia · 24. NPCs · 25. Amizade · 26. Relacionamentos · 27. Inimigos · 28. Boss: Carcará de Ferro · 29. Dungeon Mina Santa Luzia · 30. Quests iniciais · 31. Eventos aleatórios · 32. Dia/noite · 33. Clima · 34. Perturbação da Mata · 35. Interface mobile · 36. Controles · 37. Inventário · 38. Save system · 39. Tutorial (30 min) · 40. Progressão (5h) · 41. MVP técnico · 42. Fora do MVP · 43. Roadmap · 44. Engine · 45. Estrutura de dados · 46. Arquitetura de código · 47. Organização de cenas · 48. Sistema de diálogos · 49. Sistema de quests (técnico) · 50. Sistema de combate (técnico) · 51. IA dos inimigos · 52. Sistema de bosses (técnico) · 53. Sistema de itens · 54. Sistema de classes/habilidades · 55. Persistência · 56. Otimização Android · 57. Resoluções de tela · 58. Direção de arte · 59. Direção sonora · 60. Próximos passos · 60-A. Protótipo jogável (v2) · 60-B. Protótipo jogável (v3: combate tático e história)
 
 ---
 
@@ -752,13 +752,74 @@ Antes mesmo do projeto Godot descrito acima, foi construído um **protótipo web
 - **Controles em ícones**: joystick + 4 botões (Ataque, Esquiva, Habilidade 1, Habilidade 2/bloqueada) em arco solto ao redor do polegar, com cooldown por escurecimento radial. Ataque: toque = golpe normal, segurar = carrega e solta golpe pesado (com anel de carregamento visível).
 - **Interação contextual**: um único botão que troca de ícone conforme o objeto mais próximo (NPC, item, baú, plantação, porta), via um componente `Interactable` genérico reutilizável.
 - **Sem classe no início** → evento **O Despertar** → tela **Escolha seu Caminho** (Guerreiro/Mateiro/Encantado, com barras de pontos, arma e habilidade inicial) → **arena de teste isolada** (não afeta o save principal) → confirmação definitiva.
-- **Bestiário de folclore brasileiro** (`src/bestiary.js`): 19 entradas categorizadas (hostil/territorial/neutra/guardiã/narrativa/chefe) com habitat, comportamento, ataques, fraquezas, drops e lore; duas implementadas com IA e desenho próprios (Rato-do-Mato Corrompido e Cipó Vivo), demonstrando a diferença entre uma criatura hostil e uma territorial.
+- **Bestiário de folclore brasileiro** (`src/bestiary.js`): 19 entradas categorizadas (hostil/territorial/neutra/guardiã/narrativa/chefe) com habitat, comportamento, ataques, fraquezas, drops e lore; duas implementadas nesta etapa com IA e desenho próprios (Rato-do-Mato Corrompido e Cipó Vivo) — subiram para sete na v3, ver Seção 60-B.
 - **Atmosfera dia/noite** com vagalumes à noite, e cenário com decoração leve (tufos, flores, pedras, bordas irregulares no caminho).
 - **Persistência completa**: nome, aparência, classe e posição sobrevivem a fechar/abrir o jogo (`localStorage`).
 
 Isto continua sendo um protótipo de **mecânica, UX e arquitetura**, não de arte final — ver `prototype/web/ASSETS.md` para o contrato exato de substituição de cada placeholder visual.
 
 Como testar: servir a pasta `prototype/web/` com qualquer servidor estático (ex.: `npx http-server prototype/web`) e abrir `index.html` — scripts clássicos (não ES modules), então também funciona abrindo o arquivo direto (`file://`) na maioria dos navegadores. Para compartilhar um único arquivo, `python3 prototype/web/build_bundle.py` gera `prototype/web/dist/index.bundled.html`.
+
+
+---
+
+## 60-B. Protótipo jogável — v3: combate tático e história
+
+A v3 fecha a distância entre "protótipo de UX" e "jogo": o combate deixou de ser troca de toques e passou a exigir leitura, e os Atos 0 a 2 da Seção 4 existem agora como conteúdo jogável de verdade, com diálogo, missões e chefe.
+
+### Combate (implementa a Seção 14)
+
+Novos arquivos: `src/combat.js` (camada de sensação, global ao quadro).
+
+- **Peso no impacto**: hitstop (congelamento de 40–100ms proporcional à força do golpe), tremor de câmera e recuo com decaimento. Todo caminho de dano passa pelos mesmos três efeitos.
+- **Sequência de 3 golpes**: toques encadeados dentro de 0,55s avançam a sequência. O terceiro golpe é mais lento, mais largo, empurra muito mais e custa mais vigor — fechar a sequência ou recuar é a decisão tática de cada troca. Medidor visível no HUD.
+- **Comprometimento**: cada golpe trava o movimento por 0,16–0,3s e consome vigor, que regenera a 30% durante o ataque. Não existe mais atacar infinitamente enquanto anda.
+- **Esquiva corrigida**: era um bug — o rolamento aplicava invencibilidade mas *nunca deslocava o personagem*, porque a flag de movimento era zerada justamente no estado de esquiva. Agora é rolamento de verdade (430px/s com desaceleração, 0,3s de invencibilidade).
+- **Esquiva perfeita**: rolar dentro da janela final do aviso de um inimigo devolve o vigor gasto, desacelera o tempo para 35% por 0,42s e libera um contra-ataque com 1,6× de dano. É a recompensa direta por ler o telegraph — o núcleo do combate tático.
+- **Postura (poise)**: dano acumulado quebra a postura do inimigo e *interrompe* o golpe que ele estava preparando. Atacar na hora certa passa a ser defesa, não só dano.
+- **Auto-mira leve** (~25°, conforme a Seção 14) que corrige a direção do golpe sem nunca girar o personagem para trás.
+- **Críticos** (12% / 1,8×) e **sangramento** em golpes pesados; **enraizamento** aplicado por criaturas territoriais.
+- **ATK e DEF passaram a existir de fato**: antes o dano era um número fixo da habilidade e os atributos não entravam na conta em lugar nenhum.
+
+### Inimigos (implementa as Seções 27 e 51)
+
+Reescrita de `src/enemy.js` em torno de **arquétipos de comportamento**, não de ids — cada um exige uma resposta diferente do jogador:
+
+| Arquétipo | Criatura | O que ensina |
+|---|---|---|
+| `charger` | Rato-do-Mato, Cão da Estrada | esquivar para o lado; o Cão circula antes de investir |
+| `zoner` | Cipó Vivo | não parar no lugar errado (agarra e enraíza) |
+| `flyer` | Morcego da Mina | acertar alvo rápido e errático |
+| `ranged` | Vagalume de Defunto | avançar em vez de esperar (ele recua se você chega perto) |
+| `brute` | Sapo de Pedra | sair do círculo, não só desviar da linha |
+| `boss` | Carcará de Ferro | tudo acima, em 3 fases |
+
+Criaturas com IA e arte próprias subiram de 2 para 7. Telegraphs foram redesenhados: anel que **fecha** em contagem regressiva (legível como "quanto falta") mais indicador da área atingida nos golpes em área.
+
+### Chefe — Carcará de Ferro (implementa a Seção 28)
+
+Três fases por faixa de vida, cada uma **acrescentando** um ataque em vez de trocar o repertório: Bicada (fase 1), + Rajada de Penas em leque (fase 2), + Grito do Carcará em área com enraizamento (fase 3). Barra de vida dedicada no topo da tela. Fiel ao bestiário, é apresentado como vítima, não vilão.
+
+### Mina Santa Luzia (implementa a Seção 29)
+
+Nova área jogável (`src/mine.js`): túneis com escoramento, veios de minério, raízes negras cada vez mais densas conforme se aproxima da Câmara Funda, e vinheta de escuridão que segue o jogador. Diferente da arena de teste, a mina **reaproveita o jogador real** — vida, vigor, nível e XP ganhos ali são os de verdade; só a posição é guardada e devolvida na saída. O chefe só desperta quando o jogador cruza a boca da câmara.
+
+### História e missões (implementa as Seções 4, 24, 30, 48 e 49)
+
+Três arquivos novos, deliberadamente separados: `src/dialogue.js` (só apresentação), `src/quests.js` (só regra) e `src/story.js` (só conteúdo).
+
+- **Diálogo**: caixa modal com texto revelado letra a letra, retrato, nome e suporte a escolhas ramificadas (o padrão de 4 abordagens da Seção 30 já é suportado pelo formato).
+- **Missões**: objetivos resolvidos em ordem, um por vez no rastreador do HUD. O jogo nunca chama a missão pelo nome — emite eventos (`talk`, `kill`, `reach`, `flag`, `item`) e quem estiver esperando avança sozinho. Escrever um ato novo não exige tocar em combate, mundo ou HUD.
+- **Cadeia principal completa dos Atos 0 a 2**: Chegada ao Sítio → Rumores da Mina → O Despertar → Investigação das Raízes → A Câmara Funda → O Carcará de Ferro → O Fragmento, terminando com o epílogo que abre o Ato 3 (a revelação de que a Santa Luzia é apenas um Veio entre muitos).
+- **4 NPCs presentes no mundo** com fala que muda conforme o estado das missões: Zé, Seu Osvaldo, Dona Micaela e Batista — incluindo os segredos que a Seção 24 define para cada um (o irmão perdido de Osvaldo, o Veio que Micaela viu aos catorze anos, a passagem que Batista lacrou sozinho).
+
+### Outros
+
+- **Morte e retorno**: cair agora tem consequência (perde 25% do Vintém) sem desfazer progresso de missão ou nível.
+- **Cura**: botão dedicado, afastado do cluster de ação para não ser apertado por engano no meio de uma troca.
+- **Subir de nível** preserva a vida proporcional em vez de curar tudo — não é mais cura grátis no meio da luta.
+
+Como antes: `python3 prototype/web/build_bundle.py` gera o arquivo único em `prototype/web/dist/index.bundled.html`.
 
 ---
 

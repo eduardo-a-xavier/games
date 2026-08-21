@@ -54,6 +54,17 @@
         </div>
       </div>
 
+      <div id="boss-bar">
+        <div id="boss-name">Carcará de Ferro</div>
+        <div class="boss-track"><div id="boss-fill"></div></div>
+        <div id="boss-phase">Fase 1</div>
+      </div>
+
+      <div id="quest-tracker">
+        <div id="quest-title">—</div>
+        <div id="quest-objective">—</div>
+      </div>
+
       <button id="btn-context" class="context-btn" aria-label="Interagir"><span id="icon-context">💬</span></button>
 
       <div id="joy-zone" class="safe-bottom safe-left">
@@ -75,7 +86,32 @@
         </button>
       </div>
 
+      <button id="btn-heal" class="heal-btn safe-bottom" aria-label="Usar cura">
+        <span>🧪</span><span id="heal-count" class="tnum">3</span>
+      </button>
+
+      <div id="combo-meter"><span id="combo-text"></span></div>
+
       <div id="toast"></div>
+    </div>
+
+    <!-- caixa de diálogo (história) -->
+    <div id="dialogue">
+      <div class="dlg-box">
+        <div class="dlg-head"><span id="dlg-icon">💬</span><span id="dlg-who"></span></div>
+        <p id="dlg-text"></p>
+        <div id="dlg-choices"></div>
+        <div id="dlg-hint">toque para continuar ▸</div>
+      </div>
+    </div>
+
+    <!-- morte -->
+    <div id="screen-death" class="screen overlay">
+      <div class="desp-wrap">
+        <h1 class="desp-title death">VOCÊ CAIU</h1>
+        <p class="desp-text" id="death-text">Alguém te arrastou de volta pro sítio antes que a mata te levasse.</p>
+        <button id="death-continue" class="primary-btn">Levantar</button>
+      </div>
     </div>
   </div>
 
@@ -167,6 +203,7 @@
 <script src="src/state.js"></script>
 <script src="src/classes.js"></script>
 <script src="src/bestiary.js"></script>
+<script src="src/combat.js"></script>
 <script src="src/spriteAtlas.js"></script>
 <script src="src/appearance.js"></script>
 <script src="src/interactable.js"></script>
@@ -175,10 +212,14 @@
 <script src="src/camera.js"></script>
 <script src="src/world.js"></script>
 <script src="src/hud.js"></script>
+<script src="src/dialogue.js"></script>
+<script src="src/quests.js"></script>
+<script src="src/story.js"></script>
 <script src="src/controls.js"></script>
 <script src="src/charCreation.js"></script>
 <script src="src/classSelect.js"></script>
 <script src="src/arena.js"></script>
+<script src="src/mine.js"></script>
 <script src="src/main.js"></script>
 </body>
 </html>

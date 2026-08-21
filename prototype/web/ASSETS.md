@@ -60,14 +60,28 @@ lançamento. Esta lista é o contrato de substituição.
 
 ## Inimigos (`src/enemy.js`, dados em `src/bestiary.js`)
 
-- Implementados com desenho próprio (não sprite): Rato-do-Mato Corrompido,
-  Cipó Vivo. Mesmo contrato de ancoragem que o jogador.
+- Implementados com desenho próprio (não sprite), **7 no total**:
+  Rato-do-Mato Corrompido, Cão da Estrada, Cipó Vivo, Morcego da Mina,
+  Vagalume de Defunto, Sapo de Pedra e o chefe Carcará de Ferro. Mesmo
+  contrato de ancoragem que o jogador. Cada um segue um *arquétipo* de
+  comportamento (`charger`/`zoner`/`flyer`/`ranged`/`brute`/`boss`) — a
+  arte final precisa comunicar o arquétipo à primeira vista, porque é ele
+  que o jogador aprende a ler, não a espécie.
 - Saci é parcial: só ponto de interação narrativo (`implemented: "interactable"`),
   sem combate/sprite de ação.
-- As outras 15 entradas do bestiário (`src/bestiary.js`, 18 no total —
-  ver também `/assets/creatures/`, uma pasta por criatura com README
-  próprio) têm dados completos (habitat, comportamento, ataques, lore
-  etc.) mas **nenhuma arte ou IA ainda** — campo `implemented: false`.
+- As outras 11 entradas do bestiário (19 no total — ver também
+  `/assets/creatures/`, uma pasta por criatura com README próprio) têm
+  dados completos (habitat, comportamento, ataques, lore etc.) mas
+  **nenhuma arte ou IA ainda** — campo `implemented: false`.
+
+## NPCs (`src/world.js#drawNpcs`, conteúdo em `src/story.js`)
+
+- 4 moradores presentes no mundo (Zé, Seu Osvaldo, Dona Micaela, Batista),
+  desenhados proceduralmente como figuras simples diferenciadas só por
+  cor de roupa/pele/chapéu. **Placeholder** — o GDD Seção 24 descreve 12
+  NPCs com idade, rotina e personalidade próprias, e cada um precisa de
+  sprite e retrato próprios (o retrato aparece na caixa de diálogo, hoje
+  substituído por emoji).
 
 ## Cenário (`src/world.js`, `src/arena.js`)
 
