@@ -860,3 +860,58 @@ kbd {
   .chest-row { flex-wrap: wrap; gap: 5px; }
   .chest-name { flex: 1 0 100%; }
 }
+
+/* ============ VISITA DIÁRIA ============ */
+/* Cartão que entra por cima, no centro-alto, e sai sozinho. Não é modal:
+   não pausa nem bloqueia — o jogador pode sair andando na hora. */
+/* abaixo do toast (top:64 + altura), pra os dois nunca se sobreporem
+   quando o jogo abre já mostrando uma mensagem */
+#daily-card {
+  position: absolute; top: 118px; left: 50%;
+  transform: translate(-50%, -14px);
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 16px 10px 13px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease;
+  z-index: 12;
+}
+#daily-card.show { opacity: 1; transform: translate(-50%, 0); }
+.daily-flame { font-size: 24px; filter: drop-shadow(0 0 6px #ff8a3a88); }
+.daily-text { display: flex; flex-direction: column; gap: 3px; }
+#daily-streak { font-family: var(--font-display); font-size: 17px; color: var(--ipe); }
+#daily-label { font-size: 11px; color: var(--mist); font-weight: 600; }
+#daily-rewards { display: flex; flex-direction: column; gap: 1px; }
+#daily-rewards span { font-size: 10px; color: var(--mist-dim); }
+
+/* ============ SEMENTES ============ */
+#screen-seeds {
+  position: absolute; inset: 0; z-index: 55; display: none;
+  background: rgba(8, 14, 12, .8); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center; padding: 16px;
+  pointer-events: auto;
+}
+#screen-seeds.open { display: flex; }
+.seeds-wrap { width: min(600px, 100%); padding: 12px 14px 14px; }
+#seed-purse { font-family: var(--font-display); font-size: 10px; color: var(--ipe); margin-left: auto; margin-right: 10px; }
+#seed-rows { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.seed-card {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-radius: 3px 10px 3px 10px; padding: 12px 8px 10px;
+  cursor: pointer; color: var(--mist); text-align: center;
+  font-family: var(--font-body);
+}
+.seed-card:not(:disabled):active { border-color: var(--ipe); background: #f2b7050f; }
+.seed-card.broke { opacity: .4; cursor: not-allowed; }
+.seed-icon { font-size: 26px; line-height: 1; }
+.seed-name { font-family: var(--font-display); font-size: 10px; color: var(--ipe); margin-top: 2px; }
+.seed-line { font-size: 10px; color: var(--mist-dim); }
+.seed-line b { color: var(--mist); font-weight: 700; }
+.seed-rot { font-size: 9px; color: #c98a6a; margin-top: 3px; }
+
+@media (max-height: 470px), (max-width: 700px) {
+  #daily-card { top: 104px; padding: 8px 12px; }
+  .daily-flame { font-size: 19px; }
+  .seed-card { padding: 8px 5px; }
+  .seed-icon { font-size: 20px; }
+}

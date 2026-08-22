@@ -207,7 +207,11 @@ EN.Menu = (function () {
       row.querySelector(".attr-add").disabled = pts <= 0;
     });
 
-    // números derivados: o que o jogador realmente sente na luta
+    var streak = EN.Daily.current();
+    var pronto = EN.Farm.readyCount();
+
+    // números derivados: o que o jogador realmente sente na luta,
+    // seguido do que está esperando por ele fora dela
     var rows = p
       ? [
           ["Vida", Math.ceil(p.hp) + " / " + p.hpMax],
@@ -220,6 +224,8 @@ EN.Menu = (function () {
           ["Talento", p.skill2Def ? p.skill2Def.name : "—"],
           ["Curas", p.healCharges],
           ["Vintém", EN.State.data.world.vintem],
+          ["Dias seguidos", streak.streak + (streak.best > streak.streak ? " (recorde " + streak.best + ")" : "")],
+          ["Roça", pronto > 0 ? pronto + " pronto" + (pronto > 1 ? "s" : "") + " pra colher" : EN.Farm.emptyCount() + " canteiros livres"],
         ]
       : [];
     els["derived-rows"].innerHTML = rows

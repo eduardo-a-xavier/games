@@ -200,6 +200,15 @@ EN.Guide = (function () {
       EN.World.NPC_SPOTS.forEach(function (s) {
         dot(ctx, s.x * sx, s.y * sy, 2);
       });
+
+      // canteiro maduro no minimapa: é o que faz o jogador lembrar da
+      // roça sem o jogo precisar mandar um aviso
+      EN.Farm.state().forEach(function (plot, i) {
+        if (EN.Farm.stageOf(plot).stage !== "maduro") return;
+        var pp = EN.Farm.plotPos(i);
+        ctx.fillStyle = "#f2e05a";
+        dot(ctx, pp.x * sx, pp.y * sy, 2.2);
+      });
     }
 
     (session.enemies || []).forEach(function (e) {

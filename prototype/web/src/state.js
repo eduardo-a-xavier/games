@@ -26,6 +26,7 @@ EN.State = (function () {
         attrPoints: 0,
         attrs: { forca: 0, vitalidade: 0, vigor: 0, magia: 0, defesa: 0 },
         seen: {},      // bestiário: { defId: { kills } } — preenchido ao encontrar
+        daily: { streak: 0, last: null, best: 0 }, // visita diária, ver daily.js
         menuNew: false, // ponto vermelho no botão do menu
         quests: {},
       },
@@ -40,6 +41,7 @@ EN.State = (function () {
         dayT: 8, // hora do dia (0-24), começa de manhã
         inventory: { curas: 3 },
         storage: {}, // baú de casa: { itemId: quantidade } — ver house.js
+        farm: [],    // canteiros da roça: índice = canteiro, ver farm.js
       },
     };
   }
@@ -99,6 +101,23 @@ EN.State = (function () {
     });
     normalized.progress.menuNew = !!normalized.progress.menuNew;
     if (!isPlainObject(normalized.world.storage)) normalized.world.storage = {};
+
+    /*
+     * Roça e visita diária. A roça é ARRAY (o índice é a identidade do
+     * canteiro), então mergeSave não serve — um save antigo com 8
+     * canteiros e um novo com 12 precisam conviver, e farm.js já
+     * redimensiona. Aqui só garante o tipo e limpa entrada inválida.
+     */
+    if (!Array.isArray(normalized.world.farm)) normalized.world.farm = [];
+    normalized.world.farm = normalized.world.farm.map(function (plot) {
+      if (!isPlainObject(plot) || typeof plot.crop !== "string") return null;
+      return { crop: plot.crop, day: Math.floor(finiteNumber(plot.day, 1, 0)) };
+    });
+    if (!isPlainObject(normalized.progress.daily)) normalized.progress.daily = defaults.progress.daily;
+    var dly = normalized.progress.daily;
+    dly.streak = Math.floor(finiteNumber(dly.streak, 0, 0));
+    dly.best = Math.floor(finiteNumber(dly.best, 0, 0));
+    dly.last = typeof dly.last === "string" ? dly.last.slice(0, 10) : null;
     normalized.version = SAVE_VERSION;
 
     normalized.profile.name = typeof normalized.profile.name === "string" ? normalized.profile.name.slice(0, 16) : "";

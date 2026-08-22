@@ -83,6 +83,28 @@
         <div id="minimap-area">Sítio</div>
       </div>
 
+      <!-- cartão de visita diária -->
+      <div id="daily-card" class="panel">
+        <div class="daily-flame">🔥</div>
+        <div class="daily-text">
+          <div><b id="daily-streak">1</b> <span id="daily-label">primeiro dia</span></div>
+          <div id="daily-rewards"></div>
+        </div>
+      </div>
+
+      <!-- escolha de semente -->
+      <div id="screen-seeds">
+        <div class="seeds-wrap panel">
+          <div class="chest-head">
+            <span class="chest-title">O QUE PLANTAR</span>
+            <span id="seed-purse">0 Vintém</span>
+            <button id="seeds-close" aria-label="Fechar">✕</button>
+          </div>
+          <p class="chest-sub">A planta cresce quando você dorme. Colha antes que passe do ponto.</p>
+          <div id="seed-rows"></div>
+        </div>
+      </div>
+
       <!-- baú da casa -->
       <div id="screen-chest">
         <div class="chest-wrap panel">
@@ -356,6 +378,8 @@
 <script src="src/charCreation.js"></script>
 <script src="src/classSelect.js"></script>
 <script src="src/arena.js"></script>
+<script src="src/farm.js"></script>
+<script src="src/daily.js"></script>
 <script src="src/guide.js"></script>
 <script src="src/house.js"></script>
 <script src="src/mine.js"></script>

@@ -340,27 +340,54 @@ EN.World = (function () {
     ctx.closePath();
   }
 
+  /*
+   * Roça. Desenha exatamente os canteiros que EN.Farm gerencia (4x3), não
+   * uma decoração genérica: antes o fundo mostrava 40 moitas e o jogo
+   * tinha 12 pontos de plantio invisíveis por cima, então o jogador não
+   * tinha como saber onde encostar. Aqui cada montinho de terra É um
+   * canteiro.
+   */
   function drawField(c, x, y, w, h) {
     c.strokeStyle = "#7a5a3a";
     c.lineWidth = 6;
     c.strokeRect(x, y, w, h);
     c.fillStyle = "#3d2c1c";
     c.fillRect(x + 6, y + 6, w - 12, h - 12);
-    for (var row = 0; row < 5; row++) {
-      var ry = y + 18 + row * 32;
-      for (var col = 0; col < 8; col++) {
-        var cx = x + 20 + col * 34;
-        c.fillStyle = "#4f7a3a";
+
+    // sulcos de terra arada, no sentido das fileiras
+    c.strokeStyle = "rgba(90,64,40,.5)";
+    c.lineWidth = 2;
+    for (var s = y + 18; s < y + h - 12; s += 9) {
+      c.beginPath();
+      c.moveTo(x + 12, s);
+      c.lineTo(x + w - 12, s);
+      c.stroke();
+    }
+
+    for (var i = 0; i < EN.Farm.PLOTS; i++) {
+      var p = EN.Farm.plotPos(i);
+      // montinho de terra revirada, mais claro que o fundo
+      var g = c.createRadialGradient(p.x - 4, p.y - 4, 1, p.x, p.y, 17);
+      g.addColorStop(0, "#6b4c2e");
+      g.addColorStop(1, "#4a3420");
+      c.fillStyle = g;
+      c.beginPath();
+      c.ellipse(p.x, p.y, 16, 11, 0, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = "rgba(28,18,10,.45)";
+      c.lineWidth = 1.4;
+      c.stroke();
+      // torrões
+      c.fillStyle = "rgba(120,90,58,.55)";
+      for (var k = 0; k < 3; k++) {
+        var a = (k / 3) * Math.PI * 2 + i;
         c.beginPath();
-        c.arc(cx, ry, 7, 0, Math.PI * 2);
-        c.fill();
-        c.fillStyle = "#6ea34a";
-        c.beginPath();
-        c.arc(cx - 2, ry - 2, 3, 0, Math.PI * 2);
+        c.arc(p.x + Math.cos(a) * 7, p.y + Math.sin(a) * 4, 2, 0, Math.PI * 2);
         c.fill();
       }
     }
   }
+
 
   function lobe(c, x, y, r, hex) {
     var g = c.createRadialGradient(x - r * 0.3, y - r * 0.35, r * 0.15, x, y, r);
@@ -534,17 +561,37 @@ EN.World = (function () {
       },
     });
 
-    EN.Interactable.register({
-      x: 780,
-      y: 820,
-      range: 50,
-      icon: "🧺",
-      label: "Colher",
-      type: "crop",
-      onInteract: function () {
-        handlers.onCropInteract();
-      },
-    });
+    /*
+     * Roça: um ponto de interação POR CANTEIRO. O rótulo muda com o
+     * estágio da planta, então o botão contextual já conta o que vai
+     * acontecer antes de ser apertado — plantar, colher ou limpar.
+     */
+    for (var fi = 0; fi < EN.Farm.PLOTS; fi++) {
+      (function (index) {
+        var pos = EN.Farm.plotPos(index);
+        EN.Interactable.register({
+          x: pos.x,
+          y: pos.y,
+          range: 34,
+          type: "crop",
+          plotIndex: index,
+          get icon() {
+            var st = EN.Farm.stageOf(EN.Farm.state()[index]);
+            return st.stage === "maduro" ? "🧺" : st.stage === "crescendo" ? "🌱" : st.stage === "murcho" ? "🥀" : "🌰";
+          },
+          get label() {
+            var st = EN.Farm.stageOf(EN.Farm.state()[index]);
+            if (st.stage === "maduro") return "Colher " + st.def.name;
+            if (st.stage === "crescendo") return st.def.name + " · " + EN.Farm.falta(st.faltam);
+            if (st.stage === "murcho") return "Limpar canteiro";
+            return "Plantar";
+          },
+          onInteract: function () {
+            handlers.onCropInteract(index);
+          },
+        });
+      })(fi);
+    }
 
     // porta da casa do jogador — leva pro interior (baú + cama), ver house.js
     EN.Interactable.register({

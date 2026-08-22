@@ -217,6 +217,7 @@ EN.Main = (function () {
     mainSession = session;
     setSession(session);
     refreshQuestTracker();
+    showDailyWelcome(player);
 
     // se o Despertar já aconteceu mas por algum motivo nenhuma classe foi
     // confirmada (estado inconsistente improvável, mas tratado com
@@ -224,6 +225,37 @@ EN.Main = (function () {
     if (save.progress.despertarSeen && !save.progress.classId) {
       openClassSelect();
     }
+  }
+
+  /*
+   * Visita diária. Aparece só uma vez por dia real e só depois que o
+   * mundo já está montado — chegar no jogo e levar um pop-up antes de
+   * ver o personagem é a pior primeira impressão possível.
+   *
+   * O atraso curto deixa a tela aparecer primeiro.
+   */
+  function showDailyWelcome(player) {
+    setTimeout(function () {
+      var r = EN.Daily.claim(player);
+      if (!r) return;
+      var el = document.getElementById("daily-card");
+      if (!el) return;
+      document.getElementById("daily-streak").textContent = r.streak;
+      document.getElementById("daily-label").textContent =
+        r.streak === 1 ? "primeiro dia" : r.streak + " dias seguidos";
+      var linhas = ["🪙 +" + r.vintem + " Vintém"];
+      if (r.curas) linhas.push("🧪 +" + r.curas + " preparo de ervas");
+      if (r.capped) linhas.push("no teto — o prêmio não cresce mais");
+      else linhas.push("volte amanhã pra um prêmio maior");
+      document.getElementById("daily-rewards").innerHTML = linhas
+        .map(function (l) { return "<span>" + l + "</span>"; })
+        .join("");
+      el.classList.add("show");
+      EN.Audio.play("levelup");
+      setTimeout(function () {
+        el.classList.remove("show");
+      }, 4200);
+    }, 900);
   }
 
   function handleTalkNpc(npcId) {
@@ -262,8 +294,95 @@ EN.Main = (function () {
     toast("Você pegou uma Erva Selvagem (+3 Vintém em feira futura)");
   }
 
-  function handleCropInteract() {
-    toast("Ainda não há ferramenta de plantio — Agricultura chega em breve.");
+  /*
+   * Roça. Um canteiro só faz uma coisa por vez, e qual é depende do
+   * estágio da planta — então o toque não abre menu quando não precisa:
+   * colher e limpar são imediatos, só plantar pergunta o quê.
+   */
+  function handleCropInteract(index) {
+    var st = EN.Farm.stageOf(EN.Farm.state()[index]);
+    if (st.stage === "maduro") {
+      var r = EN.Farm.harvest(index);
+      toast(r.msg);
+      EN.Audio.play(r.ok ? "coin" : "ui");
+      return;
+    }
+    if (st.stage === "crescendo") {
+      toast("🌱 " + st.def.name + " ainda verde — " + EN.Farm.falta(st.faltam) + ".");
+      return;
+    }
+    if (st.stage === "murcho") {
+      EN.Farm.clear(index);
+      toast("Canteiro limpo. Dá pra plantar de novo.");
+      EN.Audio.play("ui");
+      return;
+    }
+    openSeeds(index);
+  }
+
+  /*
+   * Escolha de semente. Pausa o jogo: gastar Vintém é decisão, e a roça
+   * fica longe o bastante de inimigo pra ninguém ser pego escolhendo.
+   */
+  var seedEls = null;
+  function openSeeds(index) {
+    if (!seedEls) {
+      seedEls = {
+        box: document.getElementById("screen-seeds"),
+        rows: document.getElementById("seed-rows"),
+        close: document.getElementById("seeds-close"),
+        purse: document.getElementById("seed-purse"),
+      };
+      seedEls.close.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        closeSeeds();
+      });
+      seedEls.box.addEventListener("pointerdown", function (e) {
+        if (e.target === seedEls.box) closeSeeds();
+      });
+    }
+    seedEls.box.classList.add("open");
+    paused = true;
+    EN.Audio.play("ui");
+    renderSeeds(index);
+  }
+
+  function closeSeeds() {
+    if (!seedEls) return;
+    seedEls.box.classList.remove("open");
+    paused = false;
+  }
+
+  function renderSeeds(index) {
+    var vintem = EN.State.data.world.vintem;
+    seedEls.purse.textContent = vintem + " Vintém";
+    seedEls.rows.innerHTML = EN.Farm.ORDER.map(function (id) {
+      var c = EN.Farm.CROPS[id];
+      var pode = vintem >= c.cost;
+      var lucro = c.pay - c.cost;
+      return (
+        '<button class="seed-card' + (pode ? "" : " broke") + '" data-crop="' + id + '"' + (pode ? "" : " disabled") + ">" +
+        '<span class="seed-icon">' + c.icon + "</span>" +
+        '<span class="seed-name">' + c.name + "</span>" +
+        '<span class="seed-line">custa <b>' + c.cost + "</b> · rende <b>" + c.pay + "</b></span>" +
+        '<span class="seed-line">' + c.days + (c.days > 1 ? " dias" : " dia") + " · lucro <b>+" + lucro + "</b></span>" +
+        '<span class="seed-rot">estraga em ' + (c.days + c.rot) + " dias</span>" +
+        "</button>"
+      );
+    }).join("");
+
+    Array.prototype.forEach.call(seedEls.rows.querySelectorAll(".seed-card"), function (btn) {
+      btn.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        if (btn.disabled) return;
+        var r = EN.Farm.plant(index, btn.dataset.crop);
+        toast(r.msg);
+        if (r.ok) {
+          EN.Audio.play("coin");
+          closeSeeds();
+        }
+      });
+    });
   }
 
   // ---------- Mina Santa Luzia ----------
@@ -908,7 +1027,10 @@ EN.Main = (function () {
     s.coins.forEach(function (c) {
       drawCoin(ctx, c, origin.x, origin.y);
     });
-    if (s.showNpcs) EN.World.drawNpcs(ctx, origin.x, origin.y, performance.now() / 1000);
+    if (s.showNpcs) {
+      EN.World.drawNpcs(ctx, origin.x, origin.y, performance.now() / 1000);
+      EN.Farm.draw(ctx, origin.x, origin.y, performance.now() / 1000);
+    }
     s.enemies.forEach(function (e) {
       EN.Enemy.draw(ctx, e, origin.x, origin.y);
     });
