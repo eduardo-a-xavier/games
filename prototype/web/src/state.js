@@ -26,6 +26,7 @@ EN.State = (function () {
         attrPoints: 0,
         attrs: { forca: 0, vitalidade: 0, vigor: 0, magia: 0, defesa: 0 },
         seen: {},      // bestiário: { defId: { kills } } — preenchido ao encontrar
+        hints: {},     // dicas de primeiros minutos já cumpridas, ver hints.js
         daily: { streak: 0, last: null, best: 0 }, // visita diária, ver daily.js
         pet: { has: false, name: "Saci", level: 1, fed: 0, met: false }, // companheiro, ver pet.js
         menuNew: false, // ponto vermelho no botão do menu
@@ -42,7 +43,9 @@ EN.State = (function () {
         dayT: 8, // hora do dia (0-24), começa de manhã
         inventory: { curas: 3, colheita: {} }, // colheita: { cropId: n } — comida do companheiro
         storage: {}, // baú de casa: { itemId: quantidade } — ver house.js
-        farm: [],    // canteiros da roça: índice = canteiro, ver farm.js
+        farm: [],       // canteiros da roça: índice = canteiro, ver farm.js
+        farmPlots: 6,   // quantos canteiros já foram arados (compra na venda)
+        bagLevel: 0,    // nível da bolsa: quantos preparos cabem além dos 3
       },
     };
   }
@@ -114,6 +117,9 @@ EN.State = (function () {
       if (!isPlainObject(plot) || typeof plot.crop !== "string") return null;
       return { crop: plot.crop, day: Math.floor(finiteNumber(plot.day, 1, 0)) };
     });
+    if (!isPlainObject(normalized.progress.hints)) normalized.progress.hints = {};
+    normalized.world.farmPlots = Math.floor(finiteNumber(normalized.world.farmPlots, 6, 6, 12));
+    normalized.world.bagLevel = Math.floor(finiteNumber(normalized.world.bagLevel, 0, 0, 5));
     if (!isPlainObject(normalized.progress.pet)) normalized.progress.pet = defaults.progress.pet;
     var pet = normalized.progress.pet;
     pet.has = !!pet.has;

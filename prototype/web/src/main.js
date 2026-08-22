@@ -29,6 +29,7 @@ EN.Main = (function () {
     EN.Controls.init();
     wireToast();
     EN.Menu.init();
+    EN.Hints.init();
     wireDespertarScreen();
     wireDeathScreen();
     wireLandscapeLock();
@@ -261,6 +262,20 @@ EN.Main = (function () {
   }
 
   function handleTalkNpc(npcId) {
+    /*
+     * O Zé é vizinho E vendeiro. A conversa vem primeiro — a história
+     * nunca perde a vez pro comércio — e a venda abre quando ela acaba,
+     * só depois que ele já foi apresentado na primeira missão.
+     */
+    if (npcId === "ze" && EN.Quests.isDone("chegada")) {
+      EN.Story.talkTo("ze");
+      var abrir = setInterval(function () {
+        if (EN.Dialogue.isOpen()) return;
+        clearInterval(abrir);
+        EN.Shop.open(mainSession.player, toast);
+      }, 200);
+      return;
+    }
     EN.Story.talkTo(npcId);
   }
 
@@ -900,6 +915,8 @@ EN.Main = (function () {
     });
 
     EN.Pet.update(s, dt);
+    EN.Hints.update(s, dt);
+    if (Math.hypot(p.pendingMove.x, p.pendingMove.y) > 0.1) s._andou = true;
     updateProjectiles(s, dt);
     updateEnemyProjectiles(s, dt, p);
 
@@ -1093,7 +1110,81 @@ EN.Main = (function () {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, origin.viewW, origin.viewH);
     }
+    drawDanger(s, origin);
+    drawOffscreenThreats(s, origin);
     ctx.restore();
+  }
+
+  /*
+   * Vida baixa. Uma vinheta vermelha que PULSA no ritmo de um coração
+   * acelerado. O número na barra de vida já existe, mas ninguém olha pro
+   * canto da tela no meio de uma luta — a borda da tela é o único lugar
+   * que a visão periférica lê sem desviar o olho do personagem.
+   *
+   * Entra só abaixo de 30%: cedo demais e vira ruído constante.
+   */
+  function drawDanger(s, origin) {
+    var p = s.player;
+    if (p.hp <= 0) return;
+    var pct = p.hp / p.hpMax;
+    if (pct >= 0.3) return;
+    var grave = 1 - pct / 0.3;
+    var bpm = 1.6 + grave * 1.4;
+    var pulse = 0.55 + Math.abs(Math.sin((performance.now() / 1000) * bpm * Math.PI)) * 0.45;
+    var g = ctx.createRadialGradient(
+      origin.viewW / 2, origin.viewH / 2, origin.viewH * 0.32,
+      origin.viewW / 2, origin.viewH / 2, origin.viewH * 0.78
+    );
+    g.addColorStop(0, "rgba(180,20,15,0)");
+    g.addColorStop(1, "rgba(180,20,15," + (0.16 + grave * 0.3) * pulse + ")");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, origin.viewW, origin.viewH);
+  }
+
+  /*
+   * Seta de ameaça fora da tela. A câmera mostra menos de um quinto do
+   * mapa; um Vagalume atirando de fora do quadro é dano que o jogador
+   * não teve como ver chegando — isso é injusto, não difícil.
+   *
+   * Só marca quem está ATACANDO (avisando, investindo ou atirando), não
+   * todo inimigo do mapa: uma tela cheia de setas não informa nada.
+   */
+  function drawOffscreenThreats(s, origin) {
+    var p = s.player;
+    var m = 26;
+    (s.enemies || []).forEach(function (e) {
+      if (e.dead || e.state === "disguised") return;
+      var atacando = e.state === "telegraph" || e.state === "lunge" || e.state === "slam" ||
+        e.state === "surge" || e.state === "roll" || e.state === "rastro";
+      if (!atacando) return;
+      var ex = e.x - origin.x,
+        ey = e.y - origin.y;
+      if (ex > -m && ex < origin.viewW + m && ey > -m && ey < origin.viewH + m) return;
+
+      var px = p.x - origin.x,
+        py = p.y - origin.y;
+      var ang = Math.atan2(ey - py, ex - px);
+      // projeta na borda, mantendo uma folga pra seta não ficar cortada
+      var r = Math.min(origin.viewW, origin.viewH) * 0.44;
+      var ax = px + Math.cos(ang) * r,
+        ay = py + Math.sin(ang) * r;
+      ax = Math.max(20, Math.min(origin.viewW - 20, ax));
+      ay = Math.max(20, Math.min(origin.viewH - 20, ay));
+
+      ctx.save();
+      ctx.translate(ax, ay);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.55 + Math.abs(Math.sin(performance.now() / 180)) * 0.45;
+      ctx.fillStyle = "#e0483a";
+      ctx.beginPath();
+      ctx.moveTo(11, 0);
+      ctx.lineTo(-6, 7);
+      ctx.lineTo(-3, 0);
+      ctx.lineTo(-6, -7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    });
   }
 
   function drawProjectile(pr, camX, camY, fill, stroke) {

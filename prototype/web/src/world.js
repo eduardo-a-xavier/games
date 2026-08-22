@@ -262,9 +262,22 @@ EN.World = (function () {
   function drawNpcs(ctx, camX, camY, t) {
     var SA = EN.SpriteAtlas;
     var flavioReady = SA.npcSheetReady("flavio");
+    /*
+     * NPCs perambulam num raio curto em volta do próprio ponto. Antes
+     * ficavam parados pra sempre, e uma vila de estátuas é a coisa que
+     * mais rápido denuncia que o mundo é cenário e não lugar.
+     *
+     * O passeio é DETERMINÍSTICO (função do relógio e do índice), então
+     * não precisa de estado nem de update: quem desenha calcula onde o
+     * NPC está agora. O ponto de interação continua fixo no lugar
+     * original — ninguém precisa perseguir vizinho pra conversar.
+     */
     NPC_SPOTS.forEach(function (spot, i) {
-      var x = spot.x - camX,
-        y = spot.y - camY;
+      var wander = 16;
+      var ox = Math.sin(t * 0.28 + i * 2.1) * wander;
+      var oy = Math.cos(t * 0.21 + i * 1.3) * wander * 0.55;
+      var x = spot.x + ox - camX,
+        y = spot.y + oy - camY;
 
       var sh = ctx.createRadialGradient(x, y + 10, 1, x, y + 10, 13);
       sh.addColorStop(0, "rgba(0,0,0,.34)");

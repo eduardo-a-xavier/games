@@ -105,6 +105,7 @@ EN.Menu = (function () {
   function openMenu() {
     if (open || !root) return;
     open = true;
+    if (EN.Hints) EN.Hints.did("abriuMenu");
     root.classList.add("open");
     EN.Main.setPaused(true);
     EN.Audio.play("ui");

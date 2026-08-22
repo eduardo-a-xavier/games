@@ -239,6 +239,7 @@ EN.Controls = (function () {
           e.preventDefault();
           var res = EN.Player.dodge(ctx.player, liveEnemies());
           if (res) {
+            learned("esquivou");
             EN.Audio.play(res.perfect ? "perfect" : "dodge");
             if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
           }
@@ -247,7 +248,7 @@ EN.Controls = (function () {
         case "KeyE": case "KeyF":
           e.preventDefault();
           var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
-          if (target) target.onInteract(target);
+          if (target) { learned("interagiu"); target.onInteract(target); }
           pressFx(els["btn-context"]);
           break;
         case "KeyQ":
@@ -273,6 +274,7 @@ EN.Controls = (function () {
         case "KeyH":
           e.preventDefault();
           if (EN.Player.useHeal(ctx.player)) {
+          learned("curou");
             EN.Audio.play("heal");
             if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
             if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
@@ -362,6 +364,7 @@ EN.Controls = (function () {
         if (res) { spawnSlashKb(ctx.player, true, false); EN.Audio.play("swingHeavy"); }
       } else if (held < 500) {
         res = EN.Player.tapAttack(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) learned("atacou");
         if (res) { spawnSlashKb(ctx.player, false, res.finisher); EN.Audio.play(res.finisher ? "swingHeavy" : "swing"); }
       }
       pressFx(els["btn-attack"]);
@@ -373,6 +376,7 @@ EN.Controls = (function () {
       if (!ctx) return;
       var res = EN.Player.dodge(ctx.player, liveEnemies());
       if (res) {
+        learned("esquivou");
         EN.Audio.play(res.perfect ? "perfect" : "dodge");
         if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
       }
@@ -405,6 +409,12 @@ EN.Controls = (function () {
       return { x: kx / kd, y: ky / kd };
     }
     return { x: joy.dx * joy.mag, y: joy.dy * joy.mag };
+  }
+
+  // avisa as dicas de onboarding que a ação foi feita — a dica some no
+  // instante em que o jogador demonstra que já sabe (ver hints.js)
+  function learned(what) {
+    if (EN.Hints) EN.Hints.did(what);
   }
 
   function pressFx(btn) {
@@ -464,6 +474,7 @@ EN.Controls = (function () {
         }
       } else if (held < 500) {
         res = EN.Player.tapAttack(ctx.player, liveEnemies(), ctx.dealDamage);
+        if (res) learned("atacou");
         if (res) {
           spawnSlash(ctx.player, false, res.finisher);
           EN.Audio.play(res.finisher ? "swingHeavy" : "swing");
@@ -493,6 +504,7 @@ EN.Controls = (function () {
         if (!ctx) return;
         var res = EN.Player.dodge(ctx.player, liveEnemies());
         if (res) {
+          learned("esquivou");
           EN.Audio.play(res.perfect ? "perfect" : "dodge");
           if (res.perfect && ctx.spawnFx) ctx.spawnFx("perfect", { x: ctx.player.x, y: ctx.player.y });
         }
@@ -507,6 +519,7 @@ EN.Controls = (function () {
         e.preventDefault();
         if (!ctx) return;
         if (EN.Player.useHeal(ctx.player)) {
+          learned("curou");
           EN.Audio.play("heal");
           if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
           if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
@@ -560,7 +573,7 @@ EN.Controls = (function () {
         e.preventDefault();
         if (!ctx) return;
         var target = EN.Interactable.findNearest(ctx.player.x, ctx.player.y);
-        if (target) target.onInteract(target);
+        if (target) { learned("interagiu"); target.onInteract(target); }
         pressFx(els["btn-context"]);
       },
       { passive: false }

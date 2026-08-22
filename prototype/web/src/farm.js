@@ -24,6 +24,30 @@ EN.Farm = (function () {
   var FIELD = { x: 700, y: 760, w: 300, h: 180 };
   var COLS = 4,
     ROWS = 3;
+  /*
+   * A roça NÃO começa inteira. Seis canteiros abertos, doze possíveis —
+   * os outros o Zé ara por Vintém (ver shop.js). Isso dá ao dinheiro um
+   * destino que devolve capacidade em vez de poder, e transforma "encher
+   * a roça" numa meta de dias em vez de um botão.
+   */
+  var BASE_PLOTS = 6;
+
+  function unlocked() {
+    var n = Number(EN.State.data.world.farmPlots);
+    if (!Number.isFinite(n)) n = BASE_PLOTS;
+    return Math.max(BASE_PLOTS, Math.min(COLS * ROWS, Math.floor(n)));
+  }
+
+  function unlock() {
+    var w = EN.State.data.world;
+    w.farmPlots = Math.min(COLS * ROWS, unlocked() + 1);
+    EN.State.persist();
+    return w.farmPlots;
+  }
+
+  function isOpen(i) {
+    return i < unlocked();
+  }
 
   /*
    * As três culturas cobrem três perfis de jogador de propósito: quem
@@ -66,7 +90,8 @@ EN.Farm = (function () {
     return n > 1 ? "faltam " + n + " dias" : "falta 1 dia";
   }
 
-  function stageOf(plot) {
+  function stageOf(plot, index) {
+    if (index !== undefined && !isOpen(index)) return { stage: "fechado" };
     if (!plot || !CROPS[plot.crop]) return { stage: "vazio" };
     var def = CROPS[plot.crop];
     var age = EN.State.data.world.day - plot.day;
@@ -77,16 +102,16 @@ EN.Farm = (function () {
 
   function readyCount() {
     var n = 0;
-    state().forEach(function (p) {
-      if (stageOf(p).stage === "maduro") n++;
+    state().forEach(function (p, i) {
+      if (stageOf(p, i).stage === "maduro") n++;
     });
     return n;
   }
 
   function emptyCount() {
     var n = 0;
-    state().forEach(function (p) {
-      var s = stageOf(p).stage;
+    state().forEach(function (p, i) {
+      var s = stageOf(p, i).stage;
       if (s === "vazio" || s === "murcho") n++;
     });
     return n;
@@ -101,7 +126,8 @@ EN.Farm = (function () {
     var w = EN.State.data.world;
     if (w.vintem < def.cost) return { ok: false, msg: "Faltam " + (def.cost - w.vintem) + " Vintém pra essa semente." };
     var farm = state();
-    var s = stageOf(farm[index]).stage;
+    var s = stageOf(farm[index], index).stage;
+    if (s === "fechado") return { ok: false, msg: "Esse pedaço ainda não foi arado. Fale com o Zé." };
     if (s !== "vazio" && s !== "murcho") return { ok: false, msg: "Esse canteiro já está ocupado." };
     w.vintem -= def.cost;
     farm[index] = { crop: cropId, day: w.day };
@@ -111,7 +137,7 @@ EN.Farm = (function () {
 
   function harvest(index) {
     var farm = state();
-    var st = stageOf(farm[index]);
+    var st = stageOf(farm[index], index);
     var plotCrop = farm[index] && farm[index].crop;
     if (st.stage === "vazio") return { ok: false, msg: "Canteiro vazio." };
     if (st.stage === "crescendo") {
@@ -140,7 +166,7 @@ EN.Farm = (function () {
   // limpa canteiro murcho sem colher nada, pra poder replantar
   function clear(index) {
     var farm = state();
-    if (stageOf(farm[index]).stage === "murcho") {
+    if (stageOf(farm[index], index).stage === "murcho") {
       farm[index] = null;
       EN.State.persist();
       return true;
@@ -173,11 +199,26 @@ EN.Farm = (function () {
   function draw(ctx, camX, camY, time) {
     var farm = state();
     for (var i = 0; i < farm.length; i++) {
-      var st = stageOf(farm[i]);
-      if (st.stage === "vazio") continue;
+      var st = stageOf(farm[i], i);
       var p = plotPos(i);
       var x = p.x - camX,
         y = p.y - camY;
+
+      // canteiro ainda não arado: mato por cima da terra, pra ficar
+      // visível que ali CABE alguma coisa que ainda não é sua
+      if (st.stage === "fechado") {
+        ctx.strokeStyle = "rgba(70,96,58,.75)";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        for (var wd = -2; wd <= 2; wd++) {
+          ctx.beginPath();
+          ctx.moveTo(x + wd * 5, y + 5);
+          ctx.quadraticCurveTo(x + wd * 6, y - 2, x + wd * 4 + Math.sin(time + i + wd) * 2, y - 9);
+          ctx.stroke();
+        }
+        continue;
+      }
+      if (st.stage === "vazio") continue;
 
       if (st.stage === "murcho") {
         ctx.strokeStyle = "rgba(120,100,70,.8)";
@@ -244,6 +285,10 @@ EN.Farm = (function () {
     ORDER: ORDER,
     FIELD: FIELD,
     PLOTS: COLS * ROWS,
+    BASE_PLOTS: BASE_PLOTS,
+    unlocked: unlocked,
+    unlock: unlock,
+    isOpen: isOpen,
     state: state,
     plotPos: plotPos,
     stageOf: stageOf,

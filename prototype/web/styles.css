@@ -938,3 +938,54 @@ kbd {
 @media (max-height: 470px), (max-width: 700px) {
   .status-card.pet { grid-column: auto; }
 }
+
+/* ============ DICA DOS PRIMEIROS MINUTOS ============ */
+/* Não pausa, não pede confirmação, some sozinha. Fica embaixo, acima do
+   cluster de ação, onde não cobre o personagem nem os botões. */
+#hint-bar {
+  position: absolute; bottom: 118px; left: 50%;
+  transform: translate(-50%, 8px);
+  background: rgba(10, 18, 15, .9);
+  border: 1px solid var(--panel-line);
+  border-left: 3px solid var(--ipe);
+  border-radius: 0 10px 10px 0;
+  padding: 8px 14px; max-width: min(420px, 74vw);
+  font-size: 12px; font-weight: 600; color: var(--mist);
+  text-align: center; line-height: 1.4;
+  opacity: 0; pointer-events: none; z-index: 11;
+  transition: opacity .3s ease, transform .3s ease;
+}
+#hint-bar.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ============ VENDA ============ */
+#screen-shop {
+  position: absolute; inset: 0; z-index: 55; display: none;
+  background: rgba(8, 14, 12, .8); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center; padding: 16px;
+  pointer-events: auto;
+}
+#screen-shop.open { display: flex; }
+#shop-purse { font-family: var(--font-display); font-size: 10px; color: var(--ipe); margin-left: auto; margin-right: 10px; }
+#shop-rows { display: flex; flex-direction: column; gap: 6px; }
+.shop-row {
+  display: flex; align-items: center; gap: 10px;
+  background: #0a141199; border: 1px solid var(--panel-line);
+  border-radius: 3px 10px 3px 10px; padding: 9px 11px;
+}
+.shop-row.off { opacity: .45; }
+.shop-icon { font-size: 20px; width: 26px; text-align: center; flex-shrink: 0; }
+.shop-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.shop-text b { font-size: 12px; font-weight: 700; }
+.shop-text span { font-size: 10px; color: var(--mist-dim); line-height: 1.35; }
+.shop-buy {
+  font-family: var(--font-display); font-size: 10px; padding: 8px 12px;
+  border-radius: 2px 8px 2px 8px; cursor: pointer; flex-shrink: 0;
+  background: #0006; border: 1px solid var(--ipe-dim); color: var(--ipe);
+}
+.shop-buy:active { background: var(--ipe); color: #101b18; }
+.shop-block { font-size: 9px; color: var(--mist-dim); flex-shrink: 0; text-align: right; max-width: 96px; }
+
+@media (max-height: 470px), (max-width: 700px) {
+  #hint-bar { bottom: 102px; font-size: 11px; padding: 6px 11px; }
+  .shop-text span { display: none; }
+}
