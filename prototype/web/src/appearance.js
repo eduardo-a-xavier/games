@@ -104,11 +104,12 @@ EN.Appearance = (function () {
 
   var WEAPON_BY_CLASS = {
     guerreiro: "facao",
-    mateiro: "arco",
+    mateiro: "faca", // Malandro — ver classes.js#mateiro
     encantado: "foco",
   };
 
-  var ATTACK_ART_CLASSES = { guerreiro: 1, mateiro: 1, encantado: 1 };
+  // (a arte direcional de ataque por classe saiu de uso: ver drawFromAtlas
+  // — personagem com classe usa a planilha dela em TODOS os estados)
 
   // tenta desenhar o estado atual a partir de spritesheets reais; devolve
   // false se não houver arte pro estado (ou pra classe, no caso de
@@ -116,13 +117,88 @@ EN.Appearance = (function () {
   var HEAVY_SWING_DUR = 0.34;
   var DODGE_DUR = 0.28;
 
+  /*
+   * FASE DO GOLPE — o mapeamento que conserta o "personagem indo pra trás
+   * e pra frente" enquanto se segura o botão de ataque forte.
+   *
+   * O erro era usar `chargeProgress` (0→1) direto como posição na
+   * animação: segurar o botão TOCAVA O GOLPE INTEIRO, com o personagem
+   * girando a arma e voltando à pose neutra sem nada acontecer. Nos
+   * últimos frames de várias planilhas a figura quase some, e é daí que
+   * vinha o "o ícone dele desaparece".
+   *
+   * O certo é o que qualquer jogo de ação faz: carregar PRENDE numa pose
+   * de preparo, e soltar toca o golpe. Então a carga percorre só o
+   * primeiro terço (o braço subindo, sem repetir) e a soltada percorre os
+   * dois terços restantes.
+   */
+  var WINDUP_END = 0.34;
+
+  function attackPhase(state, t, anim) {
+    if (state === "chargeAttack") {
+      // trava no fim do preparo: continuar segurando não avança mais
+      return Math.min(WINDUP_END, (anim.chargeProgress || 0) * WINDUP_END);
+    }
+    var swing = Math.min(1, t / 0.26);
+    return Math.min(0.999, WINDUP_END + swing * (1 - WINDUP_END));
+  }
+
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
     var cid = anim.classId || null;
 
-    // A arte direcional de alta resolução é a versão principal. Antes ela
-    // vinha depois das planilhas compactas de fallback e, por isso, nunca
-    // chegava a ser desenhada mesmo quando estava carregada.
+    /*
+     * QUEM É O PERSONAGEM NA TELA — uma regra só, e ela é por FONTE, não
+     * por estado.
+     *
+     * Existem dois conjuntos de arte e eles são personagens DIFERENTES:
+     *
+     *  - planilha da classe (`guerreiro_sheet`, `mateiro_sheet`, ...):
+     *    pixel art nativa, um personagem distinto por caminho escolhido.
+     *  - arte direcional de alta resolução (`idle_down`, `walk_left`, ...):
+     *    ilustração única, a MESMA para todo mundo — não existe
+     *    `idle_guerreiro`.
+     *
+     * Misturar as duas no mesmo personagem foi a origem de três problemas
+     * ao mesmo tempo: as três classes viraram a mesma figura andando, o
+     * Malandro sacava um arco que não é a arma dele no golpe, e o
+     * personagem alternava entre nítido (pixel art) e suavizado
+     * (ilustração reduzida) no meio da luta.
+     *
+     * Então: TEM CLASSE → a planilha dela manda em tudo. SEM CLASSE (Ato
+     * 0, antes do Despertar) → a direcional manda em tudo. Nunca as duas
+     * no mesmo quadro.
+     */
+    if (cid && SA.sheetReady(cid)) return drawClassSheet(SA, ctx, state, t, facing, anim, cid);
+    return drawDirectionalArt(SA, ctx, state, t, facing, anim);
+  }
+
+  // ---- personagem COM classe: planilha própria, pixel art nativa ----
+  function drawClassSheet(SA, ctx, state, t, facing, anim, cid) {
+    if (state === "idle") return SA.drawSheetAnim(ctx, "idle", 0, 15, t * 0.6, facing, 52, cid);
+    if (state === "walk") return SA.drawSheetAnim(ctx, "walk", 0, 15, (t * 8) / (2 * Math.PI), facing, 52, cid);
+    if (state === "run") return SA.drawSheetAnim(ctx, "run", 0, 15, (t * 13) / (2 * Math.PI), facing, 52, cid);
+    if (state === "hurt") return SA.drawSheetAnim(ctx, "hurt", 0, 15, t * 2, facing, 52, cid);
+    // a linha "dodge" das planilhas aponta pra frames de morte; "run" está
+    // calibrada e lê como dash no tempo curto do rolamento
+    if (state === "dodge") return SA.drawSheetAnim(ctx, "run", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
+    if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t), facing, 52, cid);
+
+    // golpe pesado tem linha própria — é o que dá peso visual ao carregado
+    if (state === "chargeAttack" || (state === "attack" && anim.heavySwing > 0)) {
+      var heavyPhase = state === "chargeAttack"
+        ? Math.min(WINDUP_END, (anim.chargeProgress || 0) * WINDUP_END)
+        : Math.min(0.999, WINDUP_END + (1 - Math.min(1, anim.heavySwing / HEAVY_SWING_DUR)) * (1 - WINDUP_END));
+      if (SA.drawSheetAnim(ctx, "heavy", 0, 15, heavyPhase, facing, 52, cid)) return true;
+    }
+    if (state === "attack" || state === "chargeAttack") {
+      return SA.drawSheetAnim(ctx, "attack", 0, 15, attackPhase(state, t, anim), facing, 52, cid);
+    }
+    return false; // "tool" não tem linha — cai pro desenho procedural
+  }
+
+  // ---- personagem SEM classe ainda: ilustração direcional ----
+  function drawDirectionalArt(SA, ctx, state, t, facing, anim) {
     if (state === "idle" && SA.ready("idle")) {
       return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
     }
@@ -132,61 +208,19 @@ EN.Appearance = (function () {
     if (state === "run" && SA.ready("run")) {
       return SA.drawDirectional(ctx, "run", 0, 15, facing, (t * 13) / (2 * Math.PI), 52);
     }
-    // o rolamento dura DODGE_DUR em player.js; a sequência inteira é
-    // percorrida uma vez nesse intervalo, sem repetir
+    // o rolamento dura DODGE_DUR em player.js; percorre a sequência uma
+    // vez nesse intervalo, sem repetir
     if (state === "dodge" && SA.ready("dodge")) {
       return SA.drawDirectional(ctx, "dodge", 0, 15, facing, Math.min(0.999, t / DODGE_DUR), 52);
     }
     if (state === "hurt" && SA.ready("hurt")) {
       return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);
     }
-    /*
-     * Golpe carregado com facão. A arte é do protagonista com o facão, que
-     * é a arma do Guerreiro — por isso só ele usa esse conjunto; Mateiro e
-     * Encantado continuam com a arte da própria arma, senão o arqueiro
-     * sacaria um facão do nada ao carregar.
-     *
-     * A sequência é dividida em duas metades: a primeira acompanha a
-     * CARGA (quanto mais segura, mais o braço sobe) e a segunda toca
-     * sozinha na SOLTADA. Sem isso o jogador nunca veria os frames do
-     * golpe em si, porque o estado vira "attack" assim que solta.
-     */
-    if (anim.classId === "guerreiro" && SA.ready("heavy")) {
-      if (state === "chargeAttack") {
-        var charge = Math.min(1, anim.chargeProgress || 0);
-        return SA.drawDirectional(ctx, "heavy", 0, 15, facing, charge * 0.5, 52);
-      }
-      if (state === "attack" && anim.heavySwing > 0) {
-        var swing = 1 - Math.min(1, anim.heavySwing / HEAVY_SWING_DUR);
-        return SA.drawDirectional(ctx, "heavy", 0, 15, facing, 0.5 + swing * 0.499, 52);
-      }
-    }
-
-    if ((state === "attack" || state === "chargeAttack") && anim.classId && ATTACK_ART_CLASSES[anim.classId]) {
-      var key = "attack_" + anim.classId;
-      if (SA.ready(key)) {
-        var progress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
-        return SA.drawDirectional(ctx, key, 0, 15, facing, progress, 52);
-      }
+    if ((state === "attack" || state === "chargeAttack") && SA.ready("heavy")) {
+      return SA.drawDirectional(ctx, "heavy", 0, 15, facing, attackPhase(state, t, anim), 52);
     }
     if (state === "death" && SA.ready("defeat")) {
       return SA.drawSingle(ctx, "defeat", 0, 15, t / 1.0, 52);
-    }
-
-    // As planilhas 360x288 continuam como fallback leve para execução sem
-    // os assets preparados (checkout antigo, preview rápido ou download
-    // incompleto). Assim o jogo nunca vira uma tela vazia por falha de PNG.
-    if (SA.sheetReady(cid)) {
-      if (state === "idle") return SA.drawSheetAnim(ctx, "idle", 0, 15, t * 0.6, facing, 52, cid);
-      if (state === "walk") return SA.drawSheetAnim(ctx, "walk", 0, 15, (t * 8) / (2 * Math.PI), facing, 52, cid);
-      if (state === "run") return SA.drawSheetAnim(ctx, "run", 0, 15, (t * 13) / (2 * Math.PI), facing, 52, cid);
-      if (state === "hurt") return SA.drawSheetAnim(ctx, "hurt", 0, 15, t * 2, facing, 52, cid);
-      if (state === "dodge") return SA.drawSheetAnim(ctx, "run", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
-      if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t), facing, 52, cid);
-      if (state === "attack" || state === "chargeAttack") {
-        var fallbackProgress = state === "chargeAttack" ? Math.min(0.999, anim.chargeProgress || 0) : Math.min(0.999, t / 0.3);
-        return SA.drawSheetAnim(ctx, "attack", 0, 15, fallbackProgress, facing, 52, cid);
-      }
     }
     return false;
   }
@@ -484,17 +518,22 @@ EN.Appearance = (function () {
       ctx.lineTo(2, 2.5);
       ctx.closePath();
       fillStroke(ctx, vGrad(ctx, 2, -2.5, 2, 2.5, "#cfd6da", 20, -30), 0.8);
-    } else if (weaponId === "arco") {
-      ctx.strokeStyle = "#6b4a2a";
-      ctx.lineWidth = 2;
+    } else if (weaponId === "faca") {
+      // peixeira: lâmina curta e larga, cabo de madeira. Silhueta bem
+      // diferente do facão do Guerreiro mesmo nesse tamanho de tela.
+      ctx.strokeStyle = "#5a3a24";
+      ctx.lineWidth = 2.6;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.arc(0, 0, 10, -1.1, 1.1);
+      ctx.moveTo(-4, 1);
+      ctx.lineTo(2, 0);
       ctx.stroke();
-      ctx.strokeStyle = "#cfc8b0";
       ctx.beginPath();
-      ctx.moveTo(4.2, -8.5);
-      ctx.lineTo(4.2, 8.5);
-      ctx.stroke();
+      ctx.moveTo(2, -2.2);
+      ctx.lineTo(10, -0.6);
+      ctx.lineTo(2, 2.2);
+      ctx.closePath();
+      fillStroke(ctx, vGrad(ctx, 2, -2.2, 2, 2.2, "#d6dde2", 22, -34), 0.8);
     } else if (weaponId === "foco") {
       ctx.strokeStyle = "#6b4a2a";
       ctx.lineWidth = 2.5;

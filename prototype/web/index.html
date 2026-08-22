@@ -75,6 +75,24 @@
       <div id="quest-tracker">
         <div id="quest-title">—</div>
         <div id="quest-objective">—</div>
+        <div id="quest-where">—</div>
+      </div>
+
+      <div id="minimap-box" class="panel">
+        <canvas id="minimap" width="132" height="90"></canvas>
+        <div id="minimap-area">Sítio</div>
+      </div>
+
+      <!-- baú da casa -->
+      <div id="screen-chest">
+        <div class="chest-wrap panel">
+          <div class="chest-head">
+            <span class="chest-title">BAÚ DE CASA</span>
+            <button id="chest-close" aria-label="Fechar">✕</button>
+          </div>
+          <p class="chest-sub">O que fica aqui não se perde quando você cai.</p>
+          <div id="chest-rows"></div>
+        </div>
       </div>
 
       <button id="btn-context" class="context-btn" aria-label="Interagir"><span id="icon-context">💬</span></button>
@@ -338,6 +356,8 @@
 <script src="src/charCreation.js"></script>
 <script src="src/classSelect.js"></script>
 <script src="src/arena.js"></script>
+<script src="src/guide.js"></script>
+<script src="src/house.js"></script>
 <script src="src/mine.js"></script>
 <script src="src/brejo.js"></script>
 <script src="src/main.js"></script>

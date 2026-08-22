@@ -39,6 +39,7 @@ EN.State = (function () {
         day: 1,
         dayT: 8, // hora do dia (0-24), começa de manhã
         inventory: { curas: 3 },
+        storage: {}, // baú de casa: { itemId: quantidade } — ver house.js
       },
     };
   }
@@ -88,6 +89,16 @@ EN.State = (function () {
     if (!isPlainObject(normalized.progress.attrs)) normalized.progress.attrs = defaults.progress.attrs;
     if (!isPlainObject(normalized.progress.quests)) normalized.progress.quests = {};
     if (!isPlainObject(normalized.world.inventory)) normalized.world.inventory = defaults.world.inventory;
+    // bestiário e baú: EN.Menu/EN.House escrevem dentro deles assumindo
+    // objeto. Um save com tipo errado aqui só explodia lá na frente, no
+    // primeiro inimigo morto ou no primeiro item guardado.
+    if (!isPlainObject(normalized.progress.seen)) normalized.progress.seen = {};
+    Object.keys(normalized.progress.seen).forEach(function (id) {
+      var entry = normalized.progress.seen[id];
+      normalized.progress.seen[id] = { kills: Math.floor(finiteNumber(entry && entry.kills, 0, 0)) };
+    });
+    normalized.progress.menuNew = !!normalized.progress.menuNew;
+    if (!isPlainObject(normalized.world.storage)) normalized.world.storage = {};
     normalized.version = SAVE_VERSION;
 
     normalized.profile.name = typeof normalized.profile.name === "string" ? normalized.profile.name.slice(0, 16) : "";

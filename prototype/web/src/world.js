@@ -546,15 +546,16 @@ EN.World = (function () {
       },
     });
 
+    // porta da casa do jogador — leva pro interior (baú + cama), ver house.js
     EN.Interactable.register({
       x: 237,
-      y: 178,
-      range: 44,
+      y: 262,
+      range: 48,
       icon: "🚪",
-      label: "Entrar",
+      label: "Entrar em casa",
       type: "door",
       onInteract: function () {
-        handlers.onSay("porta");
+        handlers.onEnterHouse();
       },
     });
 

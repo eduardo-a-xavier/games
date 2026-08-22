@@ -77,21 +77,33 @@ EN.Classes = (function () {
       },
     },
     {
+      /*
+       * A arte manda na ficha, não o contrário. A planilha desta classe
+       * (`mateiro_sheet.png`) é um encapuzado de adaga e magia roxa — um
+       * ladino, não um arqueiro. A ficha dizia "Mateiro / Arco Simples /
+       * Disparo Preciso" e o jogador via um vulto esfaqueando: a mesma
+       * classe contava duas histórias diferentes.
+       *
+       * O `id` continua "mateiro" de propósito. Ele é chave de save, de
+       * planilha (`mateiro_sheet`) e dos testes de contrato de sprite;
+       * trocá-lo quebraria personagem de quem já joga em troca de nada
+       * que o jogador veja. O que o jogador vê é `name`.
+       */
       id: "mateiro",
-      name: "Mateiro",
-      icon: "🏹",
-      tagline: "Ágil • Distância • Exploração",
-      description: "Lê o terreno, mantém distância e pune com precisão antes de ser alcançado.",
+      name: "Malandro",
+      icon: "🗡️",
+      tagline: "Ágil • Furtivo • Golpe certo",
+      description: "Não troca golpe: escolhe a hora. Chega perto sem ser visto, fere e já não está mais lá.",
       difficulty: "Moderado",
-      style: "À distância",
-      dots: { hp: 3, dmg: 4, def: 2, mobility: 5, magic: 1 },
-      baseStats: { hpMax: 105, stMax: 130, mpMax: 30, atk: 12, def: 6, speed: 190 },
-      startingEquipment: { id: "arco", name: "Arco Simples" },
+      style: "Furtivo",
+      dots: { hp: 3, dmg: 4, def: 2, mobility: 5, magic: 2 },
+      baseStats: { hpMax: 105, stMax: 130, mpMax: 40, atk: 12, def: 6, speed: 190 },
+      startingEquipment: { id: "peixeira", name: "Peixeira" },
       abilities: [
         {
-          id: "disparo_preciso",
-          name: "Disparo Preciso",
-          icon: "🎯",
+          id: "faca_arremessada",
+          name: "Faca Arremessada",
+          icon: "🔪",
           cooldown: 1.6,
           staminaCost: 16,
           manaCost: 0,
@@ -103,13 +115,13 @@ EN.Classes = (function () {
       ],
       talents: {
         level: 5,
-        prompt: "Uma flecha por vez já não segura o mato. Como você vai caçar?",
+        prompt: "Uma faca por vez já não segura o mato. Como você vai caçar?",
         options: [
           {
             id: "tiro_multiplo",
-            name: "Tiro Múltiplo",
-            icon: "🎯",
-            summary: "Três flechas em leque. Menos dano cada, cobre muito mais espaço.",
+            name: "Leque de Facas",
+            icon: "🎴",
+            summary: "Três facas em leque. Menos dano cada, cobre muito mais espaço.",
             cooldown: 3.0,
             staminaCost: 22,
             manaCost: 0,
@@ -122,7 +134,7 @@ EN.Classes = (function () {
           },
           {
             id: "armadilha_rede",
-            name: "Armadilha de Rede",
+            name: "Rasteira de Cipó",
             icon: "🕸️",
             summary: "Prende no lugar quem estiver perto. Não dá dano — dá tempo.",
             cooldown: 5.0,

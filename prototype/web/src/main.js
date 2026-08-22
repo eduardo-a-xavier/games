@@ -210,6 +210,7 @@ EN.Main = (function () {
       onOpenChest: handleOpenChest,
       onPickupItem: handlePickupItem,
       onCropInteract: handleCropInteract,
+      onEnterHouse: handleEnterHouse,
       onEnterMine: handleEnterMine,
       onEnterBrejo: handleEnterBrejo,
     });
@@ -291,6 +292,81 @@ EN.Main = (function () {
     EN.Story.reachArea("mina");
     refreshQuestTracker();
     return s;
+  }
+
+  // ---------- Casa do jogador ----------
+  function handleEnterHouse() {
+    EN.House.enter(mainSession, {
+      onExit: function () {
+        refreshQuestTracker();
+      },
+      onChest: openChest,
+      onSleep: function () {
+        EN.House.sleep(mainSession.player, toast);
+      },
+    });
+  }
+
+  /*
+   * Baú de casa. Aberto por cima do jogo com a sessão PAUSADA — mexer no
+   * inventário é decisão, não reflexo, mesmo que dentro de casa não haja
+   * inimigo nenhum pra atrapalhar.
+   */
+  var chestEls = null;
+  function openChest() {
+    if (!chestEls) {
+      chestEls = {
+        box: document.getElementById("screen-chest"),
+        rows: document.getElementById("chest-rows"),
+        close: document.getElementById("chest-close"),
+      };
+      chestEls.close.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        closeChest();
+      });
+      chestEls.box.addEventListener("pointerdown", function (e) {
+        if (e.target === chestEls.box) closeChest();
+      });
+    }
+    chestEls.box.classList.add("open");
+    paused = true;
+    EN.Audio.play("ui");
+    renderChest();
+  }
+
+  function closeChest() {
+    if (!chestEls) return;
+    chestEls.box.classList.remove("open");
+    paused = false;
+  }
+
+  function renderChest() {
+    var p = mainSession.player;
+    var store = EN.House.storage();
+    chestEls.rows.innerHTML = EN.House.STORABLE.map(function (it) {
+      return (
+        '<div class="chest-row" data-item="' + it.id + '">' +
+        '<span class="chest-icon">' + it.icon + "</span>" +
+        '<span class="chest-name">' + it.name + "</span>" +
+        '<button class="chest-btn" data-dir="-1">◀ tirar</button>' +
+        '<span class="chest-count"><b>' + (store[it.id] || 0) + '</b> guardado</span>' +
+        '<button class="chest-btn" data-dir="1">guardar ▶</button>' +
+        '<span class="chest-held">com você: <b>' + EN.House.heldOf(it.id, p) + "</b></span>" +
+        "</div>"
+      );
+    }).join("");
+
+    Array.prototype.forEach.call(chestEls.rows.querySelectorAll(".chest-btn"), function (btn) {
+      btn.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        var row = btn.closest(".chest-row");
+        var dir = Number(btn.dataset.dir);
+        // Vintém anda de 10 em 10: mover moeda de 1 em 1 seria castigo
+        var step = row.dataset.item === "vintem" ? 10 : 1;
+        if (EN.House.move(row.dataset.item, dir * step, mainSession.player)) EN.Audio.play("coin");
+        renderChest();
+      });
+    });
   }
 
   // ---------- Brejo das Lanternas (Ato 3) ----------
@@ -595,6 +671,7 @@ EN.Main = (function () {
       render(currentSession, dt);
       EN.HUD.update(currentSession.player, currentSession.meta, currentSession.player.appearance);
       EN.Controls.refreshVisuals(currentSession.player);
+      refreshQuestTracker();
       updateBossBar(currentSession);
       refreshAmbience();
     }
@@ -854,6 +931,10 @@ EN.Main = (function () {
       drawFx(f, origin.x, origin.y);
     });
 
+    // trilha guia: fica ACIMA do chão e ABAIXO da atmosfera, então a
+    // noite escurece ela junto com o resto em vez de deixá-la boiando
+    if (!s.isArena) EN.Guide.drawTrail(ctx, s, origin.x, origin.y, performance.now() / 1000);
+
     if (!s.isArena && !s.isMine && !s.isBrejo) {
       if (!EN.State.data.progress.despertarSeen) {
         EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
@@ -1083,6 +1164,7 @@ EN.Main = (function () {
         box: document.getElementById("quest-tracker"),
         title: document.getElementById("quest-title"),
         obj: document.getElementById("quest-objective"),
+        where: document.getElementById("quest-where"),
       };
     }
     if (!trackerEls.box) return;
@@ -1096,6 +1178,12 @@ EN.Main = (function () {
     var need = cur.objective.count || 1;
     var suffix = need > 1 ? " (" + cur.state.count + "/" + need + ")" : "";
     trackerEls.obj.textContent = cur.objective.text + suffix;
+    // onde fica o objetivo, em palavras — o minimapa mostra, a trilha
+    // aponta, e isso aqui nomeia. Três formas de responder a mesma
+    // pergunta, porque "pra onde eu vou?" é a que mais faz largar o jogo.
+    var hint = currentSession ? EN.Guide.targetHint(currentSession) : "";
+    trackerEls.where.textContent = hint;
+    trackerEls.where.style.display = hint ? "" : "none";
   }
 
   var bossEls = null;

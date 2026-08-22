@@ -24,6 +24,9 @@ EN.HUD = (function () {
       "day-glyph",
       "status-effects",
       "xp-fill",
+      "minimap",
+      "minimap-area",
+      "minimap-box",
     ].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
@@ -67,6 +70,23 @@ EN.HUD = (function () {
     el.style.width = Math.min(100, (Math.max(0, pr.xp || 0) / need) * 100) + "%";
   }
 
+  /*
+   * Minimapa. Escondido na arena (é uma caixa de teste sem geografia) e
+   * enquanto o menu está aberto, que já mostra tudo em tela cheia.
+   */
+  function updateMinimap(world) {
+    var box = els["minimap-box"];
+    if (!box) return;
+    var s = EN.Main.getSession();
+    if (!s || s.isArena) {
+      box.classList.remove("visible");
+      return;
+    }
+    box.classList.add("visible");
+    els["minimap-area"].textContent = s.areaName || "";
+    EN.Guide.drawMinimap(els["minimap"], s);
+  }
+
   function setBar(key, v, max) {
     els["fill-" + key].style.transform = "scaleX(" + Math.max(0, v / max) + ")";
     els["num-" + key].textContent = Math.ceil(v) + "/" + max;
@@ -92,6 +112,7 @@ EN.HUD = (function () {
     updateStatusEffects(p);
     updateXP();
     EN.Menu.refreshBadge();
+    updateMinimap(world);
 
     if (world.showClock !== false) {
       els["coin-count"].textContent = world.vintem;

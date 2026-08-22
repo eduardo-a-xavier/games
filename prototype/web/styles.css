@@ -789,3 +789,74 @@ kbd {
 .talent-icon { font-size: 30px; line-height: 1; }
 .talent-name { font-family: var(--font-display); font-size: 12px; color: var(--ipe); }
 .talent-summary { font-family: var(--font-body); font-size: 12px; line-height: 1.45; color: var(--mist-dim); }
+
+/* ============ MINIMAPA ============ */
+/* Fica embaixo do painel de status (canto superior direito), onde não
+   disputa espaço com o cluster de ação nem com o joystick. */
+#minimap-box {
+  position: absolute;
+  right: max(10px, env(safe-area-inset-right));
+  top: 96px;
+  padding: 4px 4px 2px;
+  display: none;
+  z-index: 4;
+}
+#minimap-box.visible { display: block; }
+#minimap {
+  display: block; width: 132px; height: 90px;
+  border-radius: 2px 8px 2px 8px;
+  image-rendering: pixelated;
+}
+#minimap-area {
+  font-family: var(--font-display); font-size: 7px; letter-spacing: .04em;
+  color: var(--mist-dim); text-align: center; padding: 3px 0 1px;
+}
+
+/* linha de destino no rastreador de missão */
+#quest-where {
+  font-size: 10px; font-weight: 600; color: var(--ipe);
+  margin-top: 3px; letter-spacing: .01em;
+}
+
+/* ============ BAÚ DE CASA ============ */
+#screen-chest {
+  position: absolute; inset: 0; z-index: 55; display: none;
+  background: rgba(8, 14, 12, .8); backdrop-filter: blur(3px);
+  align-items: center; justify-content: center; padding: 16px;
+  pointer-events: auto;
+}
+#screen-chest.open { display: flex; }
+.chest-wrap { width: min(560px, 100%); padding: 12px 14px 14px; }
+.chest-head {
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid var(--panel-line); padding-bottom: 7px;
+}
+.chest-title { font-family: var(--font-display); font-size: 10px; color: var(--ipe); letter-spacing: .06em; }
+#chest-close { background: none; border: none; color: var(--mist-dim); font-size: 15px; cursor: pointer; padding: 0 4px; line-height: 1; }
+.chest-sub { font-size: 10px; color: var(--mist-dim); margin: 6px 0 10px; }
+.chest-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0; border-bottom: 1px solid #ffffff0a;
+}
+.chest-row:last-child { border-bottom: none; }
+.chest-icon { font-size: 15px; width: 22px; text-align: center; flex-shrink: 0; }
+.chest-name { flex: 1; font-size: 11px; font-weight: 600; min-width: 0; }
+.chest-count { font-size: 10px; color: var(--mist-dim); min-width: 76px; text-align: center; }
+.chest-count b { font-family: var(--font-display); font-size: 11px; color: var(--mist); }
+.chest-held { font-size: 10px; color: var(--mist-dim); min-width: 74px; text-align: right; }
+.chest-held b { font-family: var(--font-display); font-size: 10px; color: var(--ipe); }
+.chest-btn {
+  font-family: var(--font-display); font-size: 8px; padding: 6px 8px;
+  border-radius: 2px 7px 2px 7px; cursor: pointer; flex-shrink: 0;
+  background: #0006; border: 1px solid var(--ipe-dim); color: var(--ipe);
+}
+.chest-btn:active { background: var(--ipe); color: #101b18; }
+
+@media (max-height: 470px), (max-width: 700px) {
+  /* tela deitada de celular: o minimapa encolhe pra não comer o campo de
+     visão, e o baú vira lista compacta */
+  #minimap { width: 104px; height: 70px; }
+  #minimap-box { top: 88px; }
+  .chest-row { flex-wrap: wrap; gap: 5px; }
+  .chest-name { flex: 1 0 100%; }
+}

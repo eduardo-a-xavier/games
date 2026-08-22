@@ -36,8 +36,10 @@ mesmo passo automaticamente e o Gradle copia as fontes direto para o APK.
   frames (a planilha-fonte tinha número de poses diferente por direção —
   `spriteAtlas.js` suporta isso). A sequência é dividida em duas metades:
   a primeira acompanha a carga do botão, a segunda toca na soltada. A arte
-  mostra o facão, que é a arma do Guerreiro — Mateiro e Encantado seguem
-  com a arte da própria arma ao carregar, senão o arqueiro sacaria um
+  mostra o facão, que é a arma do Guerreiro. Personagem COM classe usa a
+  planilha da própria classe em todos os estados (ver
+  `appearance.js#drawFromAtlas`); a arte direcional só serve o personagem
+  ainda sem classe, senão o Malandro sacaria um
   facão do nada.
 - **`dodge` (rolamento) também usa arte real**:
   `assets/player/dodge_{down,left,right,up}.png`, com 4/3/4/4 frames. Só as
@@ -66,7 +68,7 @@ mesmo passo automaticamente e o Gradle copia as fontes direto para o APK.
   scale, rotação) em vez de frames desenhados à mão — funcional, mas
   claramente placeholder.
 - **Armas por classe** (`drawWeaponShape`): facão (Guerreiro), arco
-  (Mateiro), foco (Encantado) — hoje são traços geométricos simples.
+  (Malandro, id interno `mateiro`), foco (Encantado) — hoje são traços geométricos simples.
 
 ## Inimigos (`src/enemy.js`, dados em `src/bestiary.js`)
 
