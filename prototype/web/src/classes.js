@@ -78,16 +78,16 @@ EN.Classes = (function () {
     },
     {
       /*
-       * A arte manda na ficha, não o contrário. A planilha desta classe
-       * (`mateiro_sheet.png`) é um encapuzado de adaga e magia roxa — um
-       * ladino, não um arqueiro. A ficha dizia "Mateiro / Arco Simples /
-       * Disparo Preciso" e o jogador via um vulto esfaqueando: a mesma
-       * classe contava duas histórias diferentes.
+       * A arte manda na ficha, não o contrário. `mateiro_sheet.png` — a
+       * planilha que o jogo desenha — é um encapuzado de adaga e magia
+       * roxa: um ladino, não um arqueiro. A ficha dizia "Mateiro / Arco
+       * Simples" e o jogador via um vulto esfaqueando; a mesma classe
+       * contava duas histórias.
        *
-       * O `id` continua "mateiro" de propósito. Ele é chave de save, de
-       * planilha (`mateiro_sheet`) e dos testes de contrato de sprite;
-       * trocá-lo quebraria personagem de quem já joga em troca de nada
-       * que o jogador veja. O que o jogador vê é `name`.
+       * O `id` continua "mateiro" de propósito: é chave de save, de
+       * planilha e dos testes de contrato de sprite. Trocá-lo quebraria
+       * o personagem de quem já joga em troca de nada que o jogador veja.
+       * O que o jogador vê é `name`.
        */
       id: "mateiro",
       name: "Malandro",

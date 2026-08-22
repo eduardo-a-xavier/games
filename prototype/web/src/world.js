@@ -645,30 +645,43 @@ EN.World = (function () {
    * canto mais distante de todos, na trilha do brejo — é opcional, e
    * encontrar ela é a recompensa de explorar.
    */
+  /*
+   * Povoamento do sítio em CAMADAS DE DIFICULDADE POR DISTÂNCIA DA CASA.
+   * O jogador começa em (300, 300); quanto mais longe da porta, mais o
+   * bestiário abre.
+   *
+   * REGRA: nada que exija uma mecânica que o jogador ainda não aprendeu
+   * pode nascer perto do começo. Um mini-chefe a 400px da porta não é
+   * desafio, é uma parede — o jogador de nível 1 morre sem entender o que
+   * aconteceu e fecha o jogo.
+   *
+   * Por isso a Onça de Bruma NÃO nasce aqui. Ela é conteúdo do Ato 3 e
+   * aparece só quando a missão "trilha" abre (ver main.js#session.tick).
+   */
   function spawnInitialEnemies() {
     var enemies = [];
-    // quintal: os dois ratos da primeira missão
+
+    // quintal (perto de casa): só os dois ratos da primeira missão. É
+    // com eles que se aprende a esquivar.
     enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 560, 340));
     enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 820, 540));
-    enemies.push(EN.Enemy.spawn("cipo_vivo", 520, 760));
 
-    // mata rasa: territoriais e emboscada
+    // mata rasa: territorial parado, que só machuca quem fica em cima
+    enemies.push(EN.Enemy.spawn("cipo_vivo", 520, 760));
     enemies.push(EN.Enemy.spawn("cipo_vivo", 1080, 830));
-    enemies.push(EN.Enemy.spawn("espantalho_possuido", 900, 700));
     enemies.push(EN.Enemy.spawn("rato_mato_corrompido", 1240, 420));
 
-    // pedreira, subindo pra mina: tatus (exigem golpe pesado)
+    // longe de casa: emboscada e o cão que finta — já exigem leitura
+    enemies.push(EN.Enemy.spawn("espantalho_possuido", 1000, 760));
+    enemies.push(EN.Enemy.spawn("cao_da_estrada", 1500, 500));
+
+    // subida da pedreira, rumo à mina: tatus, que exigem golpe pesado
     enemies.push(EN.Enemy.spawn("tatu_de_pedra", 1300, 250));
     enemies.push(EN.Enemy.spawn("tatu_de_pedra", 1180, 150));
 
-    // estrada velha, ao norte: o cão que circula e finta
-    enemies.push(EN.Enemy.spawn("cao_da_estrada", 1500, 500));
-
-    // trilha do brejo, sudoeste: o território da Onça
-    enemies.push(EN.Enemy.spawn("corpo_seco", 380, 890));
-    enemies.push(EN.Enemy.spawn("onca_de_bruma", 240, 720));
     return enemies;
   }
+
 
   // ---------- atmosfera dia/noite ----------
   var phases = [

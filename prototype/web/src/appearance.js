@@ -143,37 +143,34 @@ EN.Appearance = (function () {
     return Math.min(0.999, WINDUP_END + swing * (1 - WINDUP_END));
   }
 
+  /*
+   * QUEM É O PERSONAGEM NA TELA.
+   *
+   * AS PLANILHAS 360x288 SÃO O PERSONAGEM DO JOGO. `player_sheet` antes
+   * da classe, e `guerreiro_sheet`/`mateiro_sheet`/`encantado_sheet`
+   * depois — pixel art nativa, um personagem distinto por caminho
+   * escolhido, calibrada pose a pose.
+   *
+   * A arte direcional de alta resolução (`idle_down`, `walk_left`, ...)
+   * é a arte ANTIGA do projeto: um menino ilustrado, bonito, mas que não
+   * é este jogo e é o MESMO pra todo mundo (não existe `idle_guerreiro`).
+   * Ela fica só como rede de segurança pros estados que a planilha não
+   * cobre.
+   *
+   * Errei nos dois sentidos aqui antes de acertar: primeiro deixei a
+   * direcional na frente e as três classes viraram a mesma figura; depois
+   * inverti demais e trouxe o menino antigo de volta pra quem ainda não
+   * tem classe. A regra certa é uma só e vale sempre: PLANILHA PRIMEIRO.
+   */
   function drawFromAtlas(ctx, state, t, facing, anim) {
     var SA = EN.SpriteAtlas;
     var cid = anim.classId || null;
-
-    /*
-     * QUEM É O PERSONAGEM NA TELA — uma regra só, e ela é por FONTE, não
-     * por estado.
-     *
-     * Existem dois conjuntos de arte e eles são personagens DIFERENTES:
-     *
-     *  - planilha da classe (`guerreiro_sheet`, `mateiro_sheet`, ...):
-     *    pixel art nativa, um personagem distinto por caminho escolhido.
-     *  - arte direcional de alta resolução (`idle_down`, `walk_left`, ...):
-     *    ilustração única, a MESMA para todo mundo — não existe
-     *    `idle_guerreiro`.
-     *
-     * Misturar as duas no mesmo personagem foi a origem de três problemas
-     * ao mesmo tempo: as três classes viraram a mesma figura andando, o
-     * Malandro sacava um arco que não é a arma dele no golpe, e o
-     * personagem alternava entre nítido (pixel art) e suavizado
-     * (ilustração reduzida) no meio da luta.
-     *
-     * Então: TEM CLASSE → a planilha dela manda em tudo. SEM CLASSE (Ato
-     * 0, antes do Despertar) → a direcional manda em tudo. Nunca as duas
-     * no mesmo quadro.
-     */
-    if (cid && SA.sheetReady(cid)) return drawClassSheet(SA, ctx, state, t, facing, anim, cid);
-    return drawDirectionalArt(SA, ctx, state, t, facing, anim);
+    // sheetReady(null) cai em "default" = player_sheet, o personagem de
+    // antes do Despertar — então isto cobre com e sem classe
+    if (SA.sheetReady(cid) && drawClassSheet(SA, ctx, state, t, facing, anim, cid)) return true;
+    return drawDirectionalArt(SA, ctx, state, t, facing, anim, cid);
   }
 
-  // ---- personagem COM classe: planilha própria, pixel art nativa ----
   function drawClassSheet(SA, ctx, state, t, facing, anim, cid) {
     if (state === "idle") return SA.drawSheetAnim(ctx, "idle", 0, 15, t * 0.6, facing, 52, cid);
     if (state === "walk") return SA.drawSheetAnim(ctx, "walk", 0, 15, (t * 8) / (2 * Math.PI), facing, 52, cid);
@@ -184,12 +181,17 @@ EN.Appearance = (function () {
     if (state === "dodge") return SA.drawSheetAnim(ctx, "run", 0, 15, Math.min(0.999, t / DODGE_DUR), facing, 52, cid);
     if (state === "death") return SA.drawSheetAnim(ctx, "defeat", 0, 15, Math.min(0.999, t), facing, 52, cid);
 
-    // golpe pesado tem linha própria — é o que dá peso visual ao carregado
+    /*
+     * Golpe carregado: linha "heavy" própria da planilha. Carregar prende
+     * na pose de preparo e soltar toca o golpe (ver attackPhase) — sem
+     * isso o personagem ia e voltava sozinho com o botão segurado, e
+     * sumia nos frames finais vazios.
+     */
     if (state === "chargeAttack" || (state === "attack" && anim.heavySwing > 0)) {
-      var heavyPhase = state === "chargeAttack"
+      var h = state === "chargeAttack"
         ? Math.min(WINDUP_END, (anim.chargeProgress || 0) * WINDUP_END)
         : Math.min(0.999, WINDUP_END + (1 - Math.min(1, anim.heavySwing / HEAVY_SWING_DUR)) * (1 - WINDUP_END));
-      if (SA.drawSheetAnim(ctx, "heavy", 0, 15, heavyPhase, facing, 52, cid)) return true;
+      if (SA.drawSheetAnim(ctx, "heavy", 0, 15, h, facing, 52, cid)) return true;
     }
     if (state === "attack" || state === "chargeAttack") {
       return SA.drawSheetAnim(ctx, "attack", 0, 15, attackPhase(state, t, anim), facing, 52, cid);
@@ -197,30 +199,18 @@ EN.Appearance = (function () {
     return false; // "tool" não tem linha — cai pro desenho procedural
   }
 
-  // ---- personagem SEM classe ainda: ilustração direcional ----
-  function drawDirectionalArt(SA, ctx, state, t, facing, anim) {
-    if (state === "idle" && SA.ready("idle")) {
-      return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
-    }
-    if (state === "walk" && SA.ready("walk")) {
-      return SA.drawDirectional(ctx, "walk", 0, 15, facing, (t * 8) / (2 * Math.PI), 52);
-    }
-    if (state === "run" && SA.ready("run")) {
-      return SA.drawDirectional(ctx, "run", 0, 15, facing, (t * 13) / (2 * Math.PI), 52);
-    }
-    // o rolamento dura DODGE_DUR em player.js; percorre a sequência uma
-    // vez nesse intervalo, sem repetir
-    if (state === "dodge" && SA.ready("dodge")) {
-      return SA.drawDirectional(ctx, "dodge", 0, 15, facing, Math.min(0.999, t / DODGE_DUR), 52);
-    }
-    if (state === "hurt" && SA.ready("hurt")) {
-      return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);
-    }
-    if ((state === "attack" || state === "chargeAttack") && SA.ready("heavy")) {
-      return SA.drawDirectional(ctx, "heavy", 0, 15, facing, attackPhase(state, t, anim), 52);
-    }
-    if (state === "death" && SA.ready("defeat")) {
-      return SA.drawSingle(ctx, "defeat", 0, 15, t / 1.0, 52);
+  // rede de segurança: arte antiga de alta resolução, só quando a
+  // planilha não cobre o estado ou não carregou
+  function drawDirectionalArt(SA, ctx, state, t, facing, anim, cid) {
+    if (state === "idle" && SA.ready("idle")) return SA.drawDirectional(ctx, "idle", 0, 15, facing, t * 0.6, 52);
+    if (state === "walk" && SA.ready("walk")) return SA.drawDirectional(ctx, "walk", 0, 15, facing, (t * 8) / (2 * Math.PI), 52);
+    if (state === "run" && SA.ready("run")) return SA.drawDirectional(ctx, "run", 0, 15, facing, (t * 13) / (2 * Math.PI), 52);
+    if (state === "dodge" && SA.ready("dodge")) return SA.drawDirectional(ctx, "dodge", 0, 15, facing, Math.min(0.999, t / DODGE_DUR), 52);
+    if (state === "hurt" && SA.ready("hurt")) return SA.drawDirectional(ctx, "hurt", 0, 15, facing, t * 2, 52);
+    if (state === "death" && SA.ready("defeat")) return SA.drawSingle(ctx, "defeat", 0, 15, t / 1.0, 52);
+    if (state === "attack" || state === "chargeAttack") {
+      var key = cid ? "attack_" + cid : null;
+      if (key && SA.ready(key)) return SA.drawDirectional(ctx, key, 0, 15, facing, attackPhase(state, t, anim), 52);
     }
     return false;
   }

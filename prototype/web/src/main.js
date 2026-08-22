@@ -198,8 +198,10 @@ EN.Main = (function () {
       var present = s.enemies.some(function (e) {
         return e.defId === "onca_de_bruma" && !e.dead;
       });
-      if (!present && Math.hypot(s.player.x - 240, s.player.y - 720) > 420) {
-        s.enemies.push(EN.Enemy.spawn("onca_de_bruma", 240, 720));
+      // colada na entrada do brejo, no canto sudoeste — bem longe da
+      // casa. Ela é a porteira do Ato 3, não um obstáculo de quintal.
+      if (!present && Math.hypot(s.player.x - 200, s.player.y - 930) > 420) {
+        s.enemies.push(EN.Enemy.spawn("onca_de_bruma", 200, 930));
       }
     };
 
