@@ -201,11 +201,12 @@ EN.Guide = (function () {
         dot(ctx, s.x * sx, s.y * sy, 2);
       });
 
-      // canteiro maduro no minimapa: é o que faz o jogador lembrar da
-      // roça sem o jogo precisar mandar um aviso
-      EN.Farm.state().forEach(function (plot, i) {
-        if (EN.Farm.stageOf(plot).stage !== "maduro") return;
-        var pp = EN.Farm.plotPos(i);
+      /*
+       * Canteiro maduro no minimapa é FARO DO COMPANHEIRO, não recurso
+       * de graça: sem o Saci você precisa ir olhar a roça com os próprios
+       * olhos. É o que faz tê-lo mudar como se joga, sem tocar em dano.
+       */
+      EN.Pet.ripeNear(session).forEach(function (pp) {
         ctx.fillStyle = "#f2e05a";
         dot(ctx, pp.x * sx, pp.y * sy, 2.2);
       });

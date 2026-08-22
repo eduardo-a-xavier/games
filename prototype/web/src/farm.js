@@ -112,6 +112,7 @@ EN.Farm = (function () {
   function harvest(index) {
     var farm = state();
     var st = stageOf(farm[index]);
+    var plotCrop = farm[index] && farm[index].crop;
     if (st.stage === "vazio") return { ok: false, msg: "Canteiro vazio." };
     if (st.stage === "crescendo") {
       return { ok: false, msg: "Ainda verde — " + falta(st.faltam) + "." };
@@ -121,10 +122,19 @@ EN.Farm = (function () {
       EN.State.persist();
       return { ok: false, msg: "Passou do ponto. Perdeu-se." };
     }
+    /*
+     * A colheita rende Vintém E um pé do que foi plantado. O Vintém é o
+     * que paga a próxima semente; o pé é o que alimenta o companheiro.
+     * Sem esse segundo, "alimente com o que você planta" seria só uma
+     * frase bonita sem item por trás.
+     */
     var pay = st.def.pay;
+    var inv = EN.State.data.world.inventory;
+    if (!inv.colheita || typeof inv.colheita !== "object") inv.colheita = {};
+    inv.colheita[plotCrop] = (inv.colheita[plotCrop] || 0) + 1;
     EN.State.data.world.vintem += pay;
     EN.State.persist();
-    return { ok: true, pay: pay, msg: st.def.icon + " Colhido: +" + pay + " Vintém." };
+    return { ok: true, pay: pay, crop: plotCrop, msg: st.def.icon + " Colhido: +" + pay + " Vintém e 1 " + st.def.name.toLowerCase() + "." };
   }
 
   // limpa canteiro murcho sem colher nada, pra poder replantar
@@ -241,6 +251,17 @@ EN.Farm = (function () {
     emptyCount: emptyCount,
     nearestPlot: nearestPlot,
     falta: falta,
+    held: function (cropId) {
+      var c = EN.State.data.world.inventory.colheita;
+      return (c && c[cropId]) || 0;
+    },
+    consume: function (cropId) {
+      var c = EN.State.data.world.inventory.colheita;
+      if (!c || !c[cropId]) return false;
+      c[cropId]--;
+      if (!c[cropId]) delete c[cropId];
+      return true;
+    },
     plant: plant,
     harvest: harvest,
     clear: clear,

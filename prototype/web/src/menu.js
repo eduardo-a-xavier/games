@@ -39,7 +39,8 @@ EN.Menu = (function () {
     if (!root) return;
     ["menu-close", "attr-pts", "attr-rows", "derived-rows", "quest-list", "bestiary-list",
      "menu-portrait", "menu-name", "menu-class", "menu-level", "menu-xp-fill", "menu-xp-text",
-     "btn-menu", "menu-dot", "opt-mute", "opt-fullscreen", "opt-reset"].forEach(function (id) {
+     "btn-menu", "menu-dot", "opt-mute", "opt-fullscreen", "opt-reset",
+     "pet-card", "pet-level", "pet-body"].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
 
@@ -228,11 +229,76 @@ EN.Menu = (function () {
           ["Roça", pronto > 0 ? pronto + " pronto" + (pronto > 1 ? "s" : "") + " pra colher" : EN.Farm.emptyCount() + " canteiros livres"],
         ]
       : [];
+    renderPet();
     els["derived-rows"].innerHTML = rows
       .map(function (r) {
         return '<div class="derived-row"><span>' + r[0] + "</span><b>" + r[1] + "</b></div>";
       })
       .join("");
+  }
+
+  /*
+   * Card do companheiro. Só existe depois que o Saci decide te
+   * acompanhar — antes disso ele conta onde procurar, sem marcar no mapa:
+   * achar o redemoinho é a primeira pista de que ele existe.
+   */
+  function renderPet() {
+    var card = els["pet-card"];
+    if (!card) return;
+    var d = EN.Pet.data();
+
+    if (!d.has) {
+      els["pet-level"].textContent = "";
+      els["pet-body"].innerHTML = d.met
+        ? '<div class="pet-empty">O Saci ainda está emburrado. Volte ao redemoinho de melhor humor.</div>'
+        : '<div class="pet-empty">Dizem que anda um redemoinho de folhas pelo sítio. Não parece querer briga.</div>';
+      return;
+    }
+
+    els["pet-level"].textContent = "nível " + d.level + (d.level >= 5 ? " · no ponto" : "");
+    var falta = EN.Pet.feedNeeded() - d.fed;
+    var comidas = EN.Farm.ORDER.filter(function (id) { return EN.Farm.held(id) > 0; });
+
+    var html =
+      '<div class="pet-top"><span class="pet-face">🌀</span>' +
+      '<div class="pet-info">' +
+      "<b>" + d.name + "</b>" +
+      "<span>fareja a " + EN.Pet.senseRange() + "m · colhe " + EN.Pet.harvestCap() +
+      " canteiro" + (EN.Pet.harvestCap() > 1 ? "s" : "") + " por noite</span>" +
+      (d.level >= 5
+        ? "<span>Já aprendeu tudo que dava.</span>"
+        : "<span>faltam <b>" + falta + "</b> pé" + (falta > 1 ? "s" : "") + " pra ficar mais esperto</span>") +
+      "</div></div>";
+
+    if (d.level < 5) {
+      html += comidas.length
+        ? '<div class="pet-feed">' +
+          comidas
+            .map(function (id) {
+              var c = EN.Farm.CROPS[id];
+              return (
+                '<button class="pet-food" data-crop="' + id + '">' +
+                c.icon + " " + c.name + ' <b>x' + EN.Farm.held(id) + "</b></button>"
+              );
+            })
+            .join("") +
+          "</div>"
+        : '<div class="pet-empty">Sem colheita guardada. Plante e colha pra alimentar ele.</div>';
+    }
+    els["pet-body"].innerHTML = html;
+
+    Array.prototype.forEach.call(els["pet-body"].querySelectorAll(".pet-food"), function (btn) {
+      btn.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        var id = btn.dataset.crop;
+        if (!EN.Farm.consume(id)) return;
+        var r = EN.Pet.feed(id);
+        EN.Audio.play(r.leveled ? "levelup" : "coin");
+        if (EN.Main.toast) EN.Main.toast(r.msg);
+        EN.State.persist();
+        renderStatus();
+      });
+    });
   }
 
   // retrato animado: o personagem respira no menu, igual no HUD

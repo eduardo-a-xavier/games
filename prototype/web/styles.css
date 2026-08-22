@@ -915,3 +915,26 @@ kbd {
   .seed-card { padding: 8px 5px; }
   .seed-icon { font-size: 20px; }
 }
+
+/* ============ COMPANHEIRO (card no menu) ============ */
+.status-card.pet { grid-column: 2 / -1; }
+#pet-level { font-family: var(--font-display); font-size: 9px; color: var(--mist-dim); }
+.pet-top { display: flex; align-items: center; gap: 10px; }
+.pet-face { font-size: 26px; filter: drop-shadow(0 0 6px #9fc2ae44); }
+.pet-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pet-info b { font-family: var(--font-display); font-size: 11px; color: var(--ipe); }
+.pet-info span { font-size: 10px; color: var(--mist-dim); }
+.pet-info span b { font-family: var(--font-display); font-size: 10px; color: var(--mist); }
+.pet-empty { font-size: 10px; color: var(--mist-dim); line-height: 1.5; font-style: italic; }
+.pet-feed { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.pet-food {
+  font-family: var(--font-body); font-size: 10px; padding: 6px 9px;
+  border-radius: 2px 8px 2px 8px; cursor: pointer;
+  background: #0006; border: 1px solid var(--panel-line); color: var(--mist);
+}
+.pet-food b { font-family: var(--font-display); font-size: 9px; color: var(--ipe); }
+.pet-food:active { border-color: var(--ipe); background: #f2b7050f; }
+
+@media (max-height: 470px), (max-width: 700px) {
+  .status-card.pet { grid-column: auto; }
+}

@@ -275,9 +275,10 @@ EN.Main = (function () {
   }
 
   function handleSay(id) {
+    // o redemoinho é o encontro com o Saci — ver pet.js#meet
+    if (id === "saci") return EN.Pet.meet(toast);
     var lines = {
       porta: "A porta está fechada por enquanto — ninguém em casa.",
-      saci: "Um redemoinho de folhas passa por você, rindo. Não parece querer briga.",
     };
     toast(lines[id] || "...");
   }
@@ -421,7 +422,16 @@ EN.Main = (function () {
       },
       onChest: openChest,
       onSleep: function () {
-        EN.House.sleep(mainSession.player, toast);
+        // o Saci colhe durante a noite: o companheiro adianta trabalho,
+        // não substitui o jogador (ele pega no máximo `harvestCap`)
+        if (!EN.House.sleep(mainSession.player, toast)) return;
+        var colheu = EN.Pet.harvestOvernight();
+        if (colheu) {
+          setTimeout(function () {
+            toast("🌀 O Saci colheu " + colheu.count + " canteiro" + (colheu.count > 1 ? "s" : "") + " durante a noite: +" + colheu.vintem + " Vintém.");
+            EN.Audio.play("coin");
+          }, 1400);
+        }
       },
     });
   }
@@ -758,6 +768,9 @@ EN.Main = (function () {
   function setSession(session) {
     currentSession = session;
     paused = false;
+    // o companheiro entra junto: sem isso ele tentaria atravessar o mapa
+    // inteiro atrás do jogador ao mudar de área
+    EN.Pet.teleportTo(session.player.x, session.player.y);
     document.getElementById("status-panel").style.display = session.meta.showClock === false ? "none" : "";
     EN.Controls.bind({
       player: session.player,
@@ -884,6 +897,7 @@ EN.Main = (function () {
       return true;
     });
 
+    EN.Pet.update(s, dt);
     updateProjectiles(s, dt);
     updateEnemyProjectiles(s, dt, p);
 
@@ -1034,6 +1048,7 @@ EN.Main = (function () {
     s.enemies.forEach(function (e) {
       EN.Enemy.draw(ctx, e, origin.x, origin.y);
     });
+    EN.Pet.draw(ctx, origin.x, origin.y);
     EN.Player.draw(ctx, s.player, origin.x, origin.y);
 
     s.projectiles.forEach(function (pr) {

@@ -27,6 +27,7 @@ EN.State = (function () {
         attrs: { forca: 0, vitalidade: 0, vigor: 0, magia: 0, defesa: 0 },
         seen: {},      // bestiário: { defId: { kills } } — preenchido ao encontrar
         daily: { streak: 0, last: null, best: 0 }, // visita diária, ver daily.js
+        pet: { has: false, name: "Saci", level: 1, fed: 0, met: false }, // companheiro, ver pet.js
         menuNew: false, // ponto vermelho no botão do menu
         quests: {},
       },
@@ -39,7 +40,7 @@ EN.State = (function () {
         vintem: 0,
         day: 1,
         dayT: 8, // hora do dia (0-24), começa de manhã
-        inventory: { curas: 3 },
+        inventory: { curas: 3, colheita: {} }, // colheita: { cropId: n } — comida do companheiro
         storage: {}, // baú de casa: { itemId: quantidade } — ver house.js
         farm: [],    // canteiros da roça: índice = canteiro, ver farm.js
       },
@@ -113,6 +114,13 @@ EN.State = (function () {
       if (!isPlainObject(plot) || typeof plot.crop !== "string") return null;
       return { crop: plot.crop, day: Math.floor(finiteNumber(plot.day, 1, 0)) };
     });
+    if (!isPlainObject(normalized.progress.pet)) normalized.progress.pet = defaults.progress.pet;
+    var pet = normalized.progress.pet;
+    pet.has = !!pet.has;
+    pet.met = !!pet.met;
+    pet.level = Math.floor(finiteNumber(pet.level, 1, 1, 5));
+    pet.fed = Math.floor(finiteNumber(pet.fed, 0, 0));
+    pet.name = typeof pet.name === "string" ? pet.name.slice(0, 16) : "Saci";
     if (!isPlainObject(normalized.progress.daily)) normalized.progress.daily = defaults.progress.daily;
     var dly = normalized.progress.daily;
     dly.streak = Math.floor(finiteNumber(dly.streak, 0, 0));
@@ -137,6 +145,13 @@ EN.State = (function () {
     var hour = finiteNumber(normalized.world.dayT, 8);
     normalized.world.dayT = ((hour % 24) + 24) % 24;
     normalized.world.inventory.curas = Math.floor(finiteNumber(normalized.world.inventory.curas, 3, 0));
+    // colheita guardada: chave = id da cultura, valor = quantidade
+    var colh = normalized.world.inventory.colheita;
+    if (!isPlainObject(colh)) colh = normalized.world.inventory.colheita = {};
+    Object.keys(colh).forEach(function (k) {
+      colh[k] = Math.floor(finiteNumber(colh[k], 0, 0));
+      if (!colh[k]) delete colh[k];
+    });
 
     return normalized;
   }
