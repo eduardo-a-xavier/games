@@ -16,6 +16,14 @@ window.EN = window.EN || {};
  *    jogo, ele já muda aqui na próxima abertura.
  */
 EN.Menu = (function () {
+  // o nome do companheiro sai do save e entra em innerHTML: um save
+  // editado à mão não pode virar marcação
+  function escapar(txt) {
+    return String(txt == null ? "" : txt).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
   var root = null,
     els = {},
     open = false,
@@ -263,7 +271,7 @@ EN.Menu = (function () {
     var html =
       '<div class="pet-top"><span class="pet-face">🌀</span>' +
       '<div class="pet-info">' +
-      "<b>" + d.name + "</b>" +
+      "<b>" + escapar(d.name) + "</b>" +
       "<span>fareja a " + EN.Pet.senseRange() + "m · colhe " + EN.Pet.harvestCap() +
       " canteiro" + (EN.Pet.harvestCap() > 1 ? "s" : "") + " por noite</span>" +
       (d.level >= 5
@@ -292,8 +300,11 @@ EN.Menu = (function () {
       btn.addEventListener("pointerdown", function (e) {
         e.preventDefault();
         var id = btn.dataset.crop;
-        if (!EN.Farm.consume(id)) return;
         var r = EN.Pet.feed(id);
+        if (!r.ok) {
+          if (EN.Main.toast) EN.Main.toast(r.msg);
+          return;
+        }
         EN.Audio.play(r.leveled ? "levelup" : "coin");
         if (EN.Main.toast) EN.Main.toast(r.msg);
         EN.State.persist();

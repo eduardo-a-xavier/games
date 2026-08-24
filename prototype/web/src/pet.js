@@ -134,12 +134,20 @@ EN.Pet = (function () {
   // ---------------------------------------------------------------
   // alimentar
   // ---------------------------------------------------------------
+  /*
+   * Come e gasta na mesma função, de propósito. Antes o menu descontava a
+   * colheita ANTES de perguntar se o Saci aceitava: quando ele recusava
+   * (nível cheio, comida errada), o pé de milho sumia e não virava nada.
+   * Quem valida é quem gasta.
+   */
   function feed(cropId) {
     var d = data();
     if (!d.has) return { ok: false, msg: "Você ainda não tem companheiro." };
-    var crop = EN.Farm.CROPS[cropId];
+    var crop = EN.Farm.cropDef(cropId);
     if (!crop) return { ok: false, msg: "Isso não se come." };
     if (d.level >= 5) return { ok: false, msg: "Ele já está no ponto — não cabe mais." };
+    if (!EN.Farm.held(cropId)) return { ok: false, msg: "Você não tem " + crop.name + " guardado." };
+    EN.Farm.consume(cropId);
     d.fed++;
     var msg = crop.icon + " O Saci comeu. (" + d.fed + "/" + feedNeeded() + ")";
     if (d.fed >= feedNeeded()) {

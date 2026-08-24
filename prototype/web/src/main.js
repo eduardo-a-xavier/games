@@ -653,8 +653,21 @@ EN.Main = (function () {
     });
   }
 
-  function respawn() {
+  /*
+   * Sai de qualquer sub-área (mina, brejo, casa) devolvendo o registro de
+   * interativos do mundo. Só `restoreMainSession()` não basta: quem guarda
+   * o registro é o `exit()` de cada área, então voltar por fora dele
+   * deixava o Sítio sem NPC, sem casa, sem roça e sem venda até recarregar
+   * a página — era exatamente o que acontecia ao morrer no brejo.
+   */
+  function leaveSubArea() {
     if (EN.Mine.current()) EN.Mine.exit();
+    if (EN.Brejo.current()) EN.Brejo.exit();
+    if (EN.House.current()) EN.House.exit();
+  }
+
+  function respawn() {
+    leaveSubArea();
     var p = mainSession.player;
     p.hp = p.hpMax;
     p.st = p.stMax;

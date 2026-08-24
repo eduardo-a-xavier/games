@@ -45,8 +45,24 @@ EN.Farm = (function () {
     return w.farmPlots;
   }
 
+  /*
+   * O índice É a identidade do canteiro, então tem que ser um inteiro
+   * dentro da roça. Antes bastava `i < unlocked()`, e -1, null e 1.5
+   * passavam: o jogador pagava a semente e ela ia parar numa propriedade
+   * solta do array, invisível e impossível de colher.
+   */
+  function validIndex(i) {
+    return Number.isInteger(i) && i >= 0 && i < COLS * ROWS;
+  }
+
   function isOpen(i) {
-    return i < unlocked();
+    return validIndex(i) && i < unlocked();
+  }
+
+  // CROPS é um objeto simples: sem esta checagem, "__proto__" e
+  // "constructor" respondem como se fossem sementes de verdade
+  function cropDef(id) {
+    return Object.prototype.hasOwnProperty.call(CROPS, id) ? CROPS[id] : null;
   }
 
   /*
@@ -92,8 +108,8 @@ EN.Farm = (function () {
 
   function stageOf(plot, index) {
     if (index !== undefined && !isOpen(index)) return { stage: "fechado" };
-    if (!plot || !CROPS[plot.crop]) return { stage: "vazio" };
-    var def = CROPS[plot.crop];
+    if (!plot || !cropDef(plot.crop)) return { stage: "vazio" };
+    var def = cropDef(plot.crop);
     var age = EN.State.data.world.day - plot.day;
     if (age >= def.days + def.rot) return { stage: "murcho", def: def, age: age };
     if (age >= def.days) return { stage: "maduro", def: def, age: age, sobra: def.days + def.rot - age };
@@ -121,8 +137,9 @@ EN.Farm = (function () {
   // ações
   // ---------------------------------------------------------------
   function plant(index, cropId) {
-    var def = CROPS[cropId];
+    var def = cropDef(cropId);
     if (!def) return { ok: false, msg: "Semente desconhecida." };
+    if (!isOpen(index)) return { ok: false, msg: "Esse pedaço ainda não foi arado. Fale com o Zé." };
     var w = EN.State.data.world;
     if (w.vintem < def.cost) return { ok: false, msg: "Faltam " + (def.cost - w.vintem) + " Vintém pra essa semente." };
     var farm = state();
@@ -139,6 +156,9 @@ EN.Farm = (function () {
     var farm = state();
     var st = stageOf(farm[index], index);
     var plotCrop = farm[index] && farm[index].crop;
+    // canteiro fechado não é vazio nem maduro: sem este caso, colher num
+    // pedaço não arado caía direto em `st.def.pay` e quebrava o jogo
+    if (st.stage === "fechado") return { ok: false, msg: "Esse pedaço ainda não foi arado. Fale com o Zé." };
     if (st.stage === "vazio") return { ok: false, msg: "Canteiro vazio." };
     if (st.stage === "crescendo") {
       return { ok: false, msg: "Ainda verde — " + falta(st.faltam) + "." };
@@ -300,6 +320,7 @@ EN.Farm = (function () {
       var c = EN.State.data.world.inventory.colheita;
       return (c && c[cropId]) || 0;
     },
+    cropDef: cropDef,
     consume: function (cropId) {
       var c = EN.State.data.world.inventory.colheita;
       if (!c || !c[cropId]) return false;
