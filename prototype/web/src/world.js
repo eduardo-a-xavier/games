@@ -24,7 +24,7 @@ EN.World = (function () {
     var c = world.getContext("2d");
     c.imageSmoothingEnabled = false;
 
-    c.fillStyle = "#274a35";
+    c.fillStyle = "#3a5a47";
     c.fillRect(0, 0, WORLD_W, WORLD_H);
 
     // manchas grandes e suaves (variação de cor em escala de "canteiro",
@@ -698,10 +698,10 @@ EN.World = (function () {
 
   // ---------- atmosfera dia/noite ----------
   var phases = [
-    { name: "Madrugada", from: 0, to: 6, glyph: "✧", tint: [10, 14, 28, 0.55] },
-    { name: "Manhã", from: 6, to: 12, glyph: "☀", tint: [255, 214, 140, 0.06] },
-    { name: "Tarde", from: 12, to: 18, glyph: "☀", tint: [255, 170, 90, 0.1] },
-    { name: "Noite", from: 18, to: 24, glyph: "☾", tint: [14, 18, 40, 0.42] },
+    { name: "Madrugada", from: 0, to: 6, glyph: "✧", tint: [10, 14, 28, 0.35] },
+    { name: "Manhã", from: 6, to: 12, glyph: "☀", tint: [255, 214, 140, 0.02] },
+    { name: "Tarde", from: 12, to: 18, glyph: "☀", tint: [255, 170, 90, 0.05] },
+    { name: "Noite", from: 18, to: 24, glyph: "☾", tint: [14, 18, 40, 0.28] },
   ];
   function currentPhase(hour) {
     for (var i = 0; i < phases.length; i++) if (hour >= phases[i].from && hour < phases[i].to) return phases[i];

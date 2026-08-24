@@ -958,7 +958,7 @@ EN.Main = (function () {
     // gravar as coordenadas da mina ou do brejo devolveria o jogador pro
     // meio do nada ao recarregar o save
     if (!s.isArena && !s.isMine && !s.isBrejo) {
-      s.meta.dayT = (s.meta.dayT + dt * (24 / 240)) % 24;
+      s.meta.dayT = (s.meta.dayT + dt * (24 / 120)) % 24;
       if (s.meta.dayT < 0.02) s.meta.day++;
       s.meta.x = p.x;
       s.meta.y = p.y;
