@@ -1130,6 +1130,9 @@ EN.Main = (function () {
   }
 
   function render(s, dt) {
+    // se um frame anterior quebrou no meio da camada de pixel, o ctx
+    // ficaria preso nela: sempre recomeça pelo contexto da tela
+    ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, vw, vh);
     var origin = EN.Camera.getViewOrigin(s.camera, vw, vh, s.worldW, s.worldH);
     var zoom = s.camera.zoom;
@@ -1141,6 +1144,12 @@ EN.Main = (function () {
     ctx.drawImage(s.worldCanvas, origin.x, origin.y, origin.viewW, origin.viewH, 0, 0, origin.viewW, origin.viewH);
     EN.Particles.draw(ctx, origin.x, origin.y, 0);
 
+    // o que é desenhado por código passa pela camada de pixel (ver
+    // pixelLayer.js); `ctx` é trocado por ela durante o bloco, então todas
+    // as funções de desenho abaixo continuam iguais
+    var screenCtx = ctx;
+    var pixelated = EN.PixelLayer.enabled();
+    if (pixelated) ctx = EN.PixelLayer.begin(origin);
     s.coins.forEach(function (c) {
       drawCoin(ctx, c, origin.x, origin.y);
     });
@@ -1148,11 +1157,30 @@ EN.Main = (function () {
       EN.World.drawNpcs(ctx, origin.x, origin.y, performance.now() / 1000);
       EN.Farm.draw(ctx, origin.x, origin.y, performance.now() / 1000);
     }
+    // quem está sumindo (neblina, morte) vai numa passada à parte com
+    // transparência em dithering; o resto ganha silhueta de corte seco
+    var fading = [];
     s.enemies.forEach(function (e) {
-      EN.Enemy.draw(ctx, e, origin.x, origin.y);
+      if (pixelated && (e.dead || (e.fade !== undefined && e.fade < 1))) fading.push(e);
+      else EN.Enemy.draw(ctx, e, origin.x, origin.y);
     });
     EN.Pet.draw(ctx, origin.x, origin.y);
+    if (pixelated) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx, "crisp");
+      if (fading.length) {
+        ctx = EN.PixelLayer.begin(origin);
+        fading.forEach(function (e) {
+          EN.Enemy.draw(ctx, e, origin.x, origin.y);
+        });
+        ctx = screenCtx;
+        EN.PixelLayer.end(ctx, "dither");
+      }
+    }
+    // o jogador já é pixel art de planilha: vai direto
     EN.Player.draw(ctx, s.player, origin.x, origin.y);
+
+    if (pixelated) ctx = EN.PixelLayer.begin(origin);
 
     s.projectiles.forEach(function (pr) {
       var fill = pr.magic ? (pr.burn ? "#ff9a40" : "#c9a8f2") : (pr.burn ? "#ff6a20" : "#7fe0c9");
@@ -1166,6 +1194,10 @@ EN.Main = (function () {
       var isFeather = pr.kind === "pena";
       drawProjectile(pr, origin.x, origin.y, isFeather ? "#c9a227" : "#f2e05a", isFeather ? "#6b5220" : "#a08a1a");
     });
+    if (pixelated) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx);
+    }
 
     (s.enemyProjectiles || []).forEach(function (pr) {
       if (dt && (pr.lingering || pr.kind === "chama")) EN.Particles.fx.ember(pr.x, pr.y);
@@ -1173,9 +1205,14 @@ EN.Main = (function () {
     EN.Particles.ambient(dt, origin.x, origin.y, origin.viewW, origin.viewH, ambientMood(s));
     EN.Particles.draw(ctx, origin.x, origin.y, 1);
 
+    if (pixelated) ctx = EN.PixelLayer.begin(origin);
     s.fx.forEach(function (f) {
       drawFx(f, origin.x, origin.y);
     });
+    if (pixelated) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx);
+    }
 
     // trilha guia: fica ACIMA do chão e ABAIXO da atmosfera, então a
     // noite escurece ela junto com o resto em vez de deixá-la boiando

@@ -11,7 +11,7 @@
  * do jogo e ele já tem pilha de fontes de reserva, então tentar cacheá-las
  * só faria a instalação falhar quando a rede estiver ruim.
  */
-var CACHE = "encantaria-v14";
+var CACHE = "encantaria-v15";
 
 var PRECACHE = [
   "./",
@@ -47,6 +47,7 @@ var PRECACHE = [
   "src/mine.js",
   "src/palette.js",
   "src/particles.js",
+  "src/pixelLayer.js",
   "src/pixelWorld.js",
   "src/pet.js",
   "src/player.js",
