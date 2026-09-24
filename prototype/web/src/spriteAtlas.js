@@ -21,7 +21,11 @@ EN.SpriteAtlas = (function () {
   var single = {};
 
   // flat spritesheets por classe. Dados verificados pixel a pixel.
-  // Cada linha: { y, h, frames, x0, fw, stride }. idleH = referência de escala.
+  // Cada linha: { y, h, frames, x0, fw, stride, ax? }. idleH = referência de escala.
+  // `ax` (opcional) é a âncora X dentro do frame — onde fica o centro do
+  // corpo. Sem ela o frame é centralizado (fw/2). Os ataques usam `ax`
+  // para recortar o frame largo o bastante para o efeito da arma (fogo,
+  // magia) sem deslocar o corpo. Verificado por assets/tools/sprite_lint.py.
   var sheets = {};
   var SHEET_CONFIGS = {
     "default": {
@@ -42,7 +46,7 @@ EN.SpriteAtlas = (function () {
         idle:   { y: 17,  h: 19, frames: 6,  x0: 10, fw: 23, stride: 36 },
         walk:   { y: 53,  h: 19, frames: 6,  x0: 10, fw: 23, stride: 36 },
         run:    { y: 89,  h: 19, frames: 3,  x0: 10, fw: 23, stride: 35 },
-        attack: { y: 122, h: 22, frames: 8,  x0: 9,  fw: 14, stride: 35 },
+        attack: { y: 122, h: 22, frames: 8,  x0: 8,  fw: 35, stride: 36, ax: 8 },
         heavy:  { y: 162, h: 18, frames: 5,  x0: 10, fw: 21, stride: 36 },
         hurt:   { y: 198, h: 18, frames: 3,  x0: 10, fw: 23, stride: 36 },
         defeat: { y: 265, h: 23, frames: 10, x0: 10, fw: 24, stride: 36 },
@@ -54,10 +58,10 @@ EN.SpriteAtlas = (function () {
         idle:   { y: 17,  h: 19, frames: 6,  x0: 10, fw: 16, stride: 36 },
         walk:   { y: 53,  h: 19, frames: 6,  x0: 10, fw: 16, stride: 36 },
         run:    { y: 89,  h: 19, frames: 3,  x0: 10, fw: 16, stride: 35 },
-        attack: { y: 124, h: 20, frames: 8,  x0: 3,  fw: 20, stride: 42 },
+        attack: { y: 124, h: 20, frames: 8,  x0: 3,  fw: 36, stride: 36, ax: 13 },
         heavy:  { y: 162, h: 18, frames: 5,  x0: 10, fw: 19, stride: 36 },
         hurt:   { y: 198, h: 18, frames: 3,  x0: 10, fw: 17, stride: 35 },
-        defeat: { y: 269, h: 19, frames: 16, x0: 10, fw: 17, stride: 36 },
+        defeat: { y: 269, h: 19, frames: 10, x0: 10, fw: 17, stride: 36 },
       },
     },
     "encantado": {
@@ -66,10 +70,10 @@ EN.SpriteAtlas = (function () {
         idle:   { y: 13,  h: 23, frames: 6,  x0: 10, fw: 17, stride: 36 },
         walk:   { y: 49,  h: 23, frames: 6,  x0: 10, fw: 17, stride: 36 },
         run:    { y: 85,  h: 23, frames: 3,  x0: 10, fw: 16, stride: 35 },
-        attack: { y: 122, h: 22, frames: 8,  x0: 9,  fw: 18, stride: 36 },
+        attack: { y: 122, h: 22, frames: 8,  x0: 9,  fw: 34, stride: 36, ax: 9 },
         heavy:  { y: 157, h: 23, frames: 5,  x0: 10, fw: 15, stride: 36 },
         hurt:   { y: 193, h: 23, frames: 3,  x0: 10, fw: 16, stride: 36 },
-        defeat: { y: 264, h: 24, frames: 14, x0: 10, fw: 17, stride: 36 },
+        defeat: { y: 264, h: 24, frames: 10, x0: 10, fw: 17, stride: 36 },
       },
     },
   };
@@ -165,7 +169,8 @@ EN.SpriteAtlas = (function () {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (pickDirection(facing) === "left") ctx.scale(-1, 1);
-    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
+    var ax = (r.ax !== undefined ? r.ax : r.fw / 2) * scale;
+    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - ax, cy - dh, dw, dh);
     ctx.restore();
     return true;
   }
@@ -218,7 +223,8 @@ EN.SpriteAtlas = (function () {
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     if (pickDirection(facing) === "left") ctx.scale(-1, 1);
-    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - dw / 2, cy - dh, dw, dh);
+    var ax = (r.ax !== undefined ? r.ax : r.fw / 2) * scale;
+    ctx.drawImage(s.img, sx, r.y, r.fw, r.h, cx - ax, cy - dh, dw, dh);
     ctx.restore();
     return true;
   }
