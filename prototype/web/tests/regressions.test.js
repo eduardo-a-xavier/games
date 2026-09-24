@@ -142,3 +142,25 @@ test("voltar ao Sítio depois de morrer sai de toda sub-área", () => {
   }
   assert.match(main, /function respawn\(\)\s*\{\s*leaveSubArea\(\);/);
 });
+
+// ---------------------------------------------------------------------
+// direção de arte — paleta única
+// ---------------------------------------------------------------------
+test("EN.Palette espelha exatamente palette_encantaria.json", () => {
+  const json = JSON.parse(fs.readFileSync(path.join(WEB, "..", "..", "assets", "art_direction", "palette_encantaria.json"), "utf8"));
+  const src = read("src/palette.js");
+  for (const [ramp, colors] of Object.entries(json.ramps)) {
+    const m = src.match(new RegExp(ramp + ":\\s*\\[([^\\]]+)\\]"));
+    assert.ok(m, `rampa ${ramp} ausente em palette.js`);
+    assert.deepEqual(m[1].match(/#[0-9a-f]{6}/gi).map((c) => c.toLowerCase()), colors, `rampa ${ramp} divergiu`);
+  }
+});
+
+test("arte procedural nova só usa cores da paleta canônica", () => {
+  const json = JSON.parse(fs.readFileSync(path.join(WEB, "..", "..", "assets", "art_direction", "palette_encantaria.json"), "utf8"));
+  const allowed = new Set(Object.values(json.ramps).flat());
+  for (const f of ["src/pixelWorld.js", "src/particles.js"]) {
+    const soltas = (read(f).match(/#[0-9a-f]{6}\b/gi) || []).map((c) => c.toLowerCase()).filter((c) => !allowed.has(c));
+    assert.deepEqual(soltas, [], `${f} usa cor fora da paleta`);
+  }
+});

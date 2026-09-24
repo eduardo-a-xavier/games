@@ -17,7 +17,29 @@ EN.World = (function () {
     return x - Math.floor(x);
   }
 
+  /*
+   * Chão do Sítio. O padrão é o cenário em pixel art (pixelWorld.js), na
+   * mesma escala de pixel do personagem. O desenho vetorial antigo fica
+   * como reserva: `?mundo=antigo` na URL, ou se o novo falhar por
+   * qualquer motivo — o jogo nunca fica sem chão.
+   */
   function bake() {
+    var legacy = /[?&]mundo=antigo/.test(location.search);
+    if (!legacy && EN.PixelWorld) {
+      try {
+        return EN.PixelWorld.bake(WORLD_W, WORLD_H, {
+          mine: MINE_ENTRANCE,
+          brejo: BREJO_ENTRANCE,
+          investigate: INVESTIGATE_POINT,
+        });
+      } catch (err) {
+        if (window.console) console.warn("pixelWorld falhou, usando o cenário antigo", err);
+      }
+    }
+    return legacyBake();
+  }
+
+  function legacyBake() {
     var world = document.createElement("canvas");
     world.width = WORLD_W;
     world.height = WORLD_H;
