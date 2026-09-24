@@ -754,8 +754,78 @@ EN.World = (function () {
     return fireflies;
   }
 
-  function drawAtmosphere(ctx, dayT, camX, camY, viewW, viewH, dt) {
+  /*
+   * Luzes fixas do Sítio. Posições em px de mundo, escolhidas sobre a arte
+   * de pixelWorld.js: lampião ao lado da porta, tochas nos esteios da Mina
+   * (o lugar perigoso é o mais iluminado — dá pra ver a boca de longe) e o
+   * fogo-fátuo frio na entrada do Brejo, a única luz que não é de fogo.
+   */
+  var TORCHES = [
+    { x: 336, y: 262, kind: "lampiao" },
+    { x: 1380, y: 116, kind: "tocha" },
+    { x: 1500, y: 116, kind: "tocha" },
+  ];
+  var WISP = { x: 180, y: 985 };
+
+  // tocha/lampião em pixel (3 px = 1 pixel de arte); chama só quando escurece
+  function drawProps(ctx, camX, camY, t, dark) {
+    var P = EN.Palette;
+    TORCHES.forEach(function (tc, i) {
+      var x = Math.round((tc.x - camX) / 3) * 3,
+        y = Math.round((tc.y - camY) / 3) * 3;
+      if (x < -30 || y < -60 || x > ctx.canvas.width || y > ctx.canvas.height + 30) return;
+      if (tc.kind === "lampiao") {
+        ctx.fillStyle = P.madeira[1];
+        ctx.fillRect(x - 3, y - 36, 6, 48);
+        ctx.fillStyle = P.madeira[3];
+        ctx.fillRect(x - 3, y - 36, 3, 48);
+        ctx.fillStyle = P.pedra[1];
+        ctx.fillRect(x - 9, y - 51, 18, 15);
+        ctx.fillStyle = dark > 0.05 ? P.ipe[5] : P.pedra[4];
+        ctx.fillRect(x - 6, y - 48, 12, 9);
+        ctx.fillStyle = P.pedra[0];
+        ctx.fillRect(x - 12, y - 54, 24, 3);
+      } else {
+        ctx.fillStyle = P.madeira[2];
+        ctx.fillRect(x - 3, y - 6, 6, 15);
+        ctx.fillStyle = P.pedra[1];
+        ctx.fillRect(x - 6, y - 9, 12, 3);
+      }
+      if (dark <= 0.05) return;
+      // chama em 3 quadros por sorteio de fase: pisca como fogo, não gira
+      var f = Math.floor(t * 9 + i * 3) % 3;
+      var fy = tc.kind === "lampiao" ? y - 45 : y - 12;
+      if (tc.kind === "tocha") {
+        ctx.fillStyle = P.terracota[3];
+        ctx.fillRect(x - 6, fy - 6 - f * 3, 12, 9 + f * 3);
+        ctx.fillStyle = P.ipe[4];
+        ctx.fillRect(x - 3, fy - 3 - f * 3, 6, 9 + f * 3);
+        ctx.fillStyle = P.ipe[5];
+        ctx.fillRect(x - 3, fy + 3, 3, 3);
+      } else {
+        ctx.fillStyle = P.ipe[4];
+        ctx.fillRect(x - 3, fy - (f === 1 ? 3 : 0), 3, 6);
+      }
+    });
+    if (dark > 0.05) {
+      var wx = WISP.x + Math.sin(t * 0.7) * 30 - camX,
+        wy = WISP.y + Math.sin(t * 1.3) * 12 - camY - Math.abs(Math.sin(t * 2)) * 6;
+      ctx.fillStyle = P.agua[4];
+      ctx.fillRect(Math.round(wx / 3) * 3 - 3, Math.round(wy / 3) * 3 - 3, 6, 6);
+      ctx.fillStyle = P.agua[5];
+      ctx.fillRect(Math.round(wx / 3) * 3 - 3, Math.round(wy / 3) * 3 - 3, 3, 3);
+    }
+  }
+
+  function wispPos(t) {
+    return { x: WISP.x + Math.sin(t * 0.7) * 30, y: WISP.y + Math.sin(t * 1.3) * 12 };
+  }
+
+  function drawAtmosphere(ctx, dayT, camX, camY, viewW, viewH, dt, extraLights) {
     var ph = currentPhase(dayT);
+    var fancy = EN.Lighting && EN.PixelWorld && (!EN.Particles || EN.Particles.getQuality() !== "low") &&
+      !/[?&]mundo=antigo/.test(location.search);
+    if (fancy) return drawLitAtmosphere(ctx, dayT, ph, camX, camY, viewW, viewH, dt, extraLights || []);
     var night = ph.name === "Noite" || ph.name === "Madrugada";
 
     if (night) {
@@ -787,6 +857,66 @@ EN.World = (function () {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, viewW, viewH);
     }
+  }
+
+  var litT = 0;
+  function drawLitAtmosphere(ctx, dayT, ph, camX, camY, viewW, viewH, dt, extraLights) {
+    litT += dt;
+    var dark = EN.Lighting.darknessAt(dayT);
+    drawProps(ctx, camX, camY, performance.now() / 1000, dark);
+
+    // tom quente leve de manhã/tarde (o mesmo de antes), só de dia
+    if (dark < 1 && (ph.name === "Manhã" || ph.name === "Tarde")) {
+      ctx.fillStyle = "rgba(" + ph.tint[0] + "," + ph.tint[1] + "," + ph.tint[2] + "," + ph.tint[3] * (1 - dark) + ")";
+      ctx.fillRect(0, 0, viewW, viewH);
+    }
+    if (dark <= 0.01) return;
+
+    var lights = [];
+    var P = EN.Palette;
+    EN.PixelWorld.lightSpots().forEach(function (L) {
+      lights.push({ x: L.x, y: L.y, r: L.r, color: P.ipe[4] });
+    });
+    TORCHES.forEach(function (tc) {
+      lights.push({ x: tc.x, y: tc.y - (tc.kind === "lampiao" ? 45 : 12), r: tc.kind === "lampiao" ? 110 : 120, color: P.terracota[3], flicker: true });
+    });
+    var wp = wispPos(performance.now() / 1000);
+    lights.push({ x: wp.x, y: wp.y, r: 60, color: P.agua[4], flicker: true });
+
+    // vaga-lumes: pixel de luz e um furinho na escuridão cada um
+    var flies = ensureFireflies();
+    flies.forEach(function (f) {
+      f.t += dt * f.speed;
+      var fx = f.baseX + Math.sin(f.t) * 30,
+        fy = f.baseY + Math.cos(f.t * 0.7) * 20;
+      var on = Math.sin(f.t * 3.1) > -0.3; // piscam, não ficam acesos o tempo todo
+      if (!on) return;
+      lights.push({ x: fx, y: fy, r: 24, i: 0.7 });
+      f._sx = fx - camX;
+      f._sy = fy - camY;
+      f._on = true;
+    });
+
+    EN.Lighting.render(ctx, {
+      darkness: dark,
+      maxAlpha: 0.7,
+      rgb: EN.Lighting.tintAt(dayT),
+      lights: lights.concat(extraLights),
+      camX: camX,
+      camY: camY,
+      viewW: viewW,
+      viewH: viewH,
+      t: litT,
+    });
+
+    // o pontinho do vaga-lume vai por CIMA da escuridão (ele é a luz)
+    ctx.fillStyle = P.ipe[5];
+    flies.forEach(function (f) {
+      if (!f._on) return;
+      f._on = false;
+      if (f._sx < -6 || f._sy < -6 || f._sx > viewW + 6 || f._sy > viewH + 6) return;
+      ctx.fillRect(Math.round(f._sx / 3) * 3, Math.round(f._sy / 3) * 3, 3, 3);
+    });
   }
 
   // brilho pulsante e visível de longe sobre o ponto do Despertar --

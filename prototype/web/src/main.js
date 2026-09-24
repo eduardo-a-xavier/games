@@ -1102,6 +1102,25 @@ EN.Main = (function () {
     }
   }
 
+  /*
+   * Luzes que se movem: a lamparina do jogador (raio pequeno no Sítio, o
+   * suficiente pra ler o próprio personagem e o inimigo encostado; grande
+   * na mina, onde ela é a única luz), projéteis de magia/fogo e o fogo do
+   * Boitatá no chão.
+   */
+  function dynamicLights(s, playerR) {
+    var P = EN.Palette;
+    var L = [{ x: s.player.x, y: s.player.y - 16, r: playerR, i: 0.9 }];
+    s.projectiles.forEach(function (pr) {
+      if (pr.magic || pr.burn) L.push({ x: pr.x, y: pr.y, r: 46, color: pr.burn ? P.terracota[3] : P.encanto[3] });
+    });
+    (s.enemyProjectiles || []).forEach(function (pr) {
+      if (pr.lingering) L.push({ x: pr.x, y: pr.y, r: pr.r * 2.2, color: P.terracota[3], flicker: true });
+      else if (pr.kind === "chama") L.push({ x: pr.x, y: pr.y, r: 40, color: P.ipe[3] });
+    });
+    return L;
+  }
+
   function ambientMood(s) {
     if (s.isMine) return "mine";
     if (s.isBrejo) return "brejo";
@@ -1166,9 +1185,16 @@ EN.Main = (function () {
       if (!EN.State.data.progress.despertarSeen) {
         EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
       }
-      EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
+      EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt, dynamicLights(s, 70));
     } else if (s.isMine) {
-      drawMineDarkness(ctx, s, origin);
+      if (EN.Lighting && EN.Particles.getQuality() !== "low") {
+        EN.Lighting.render(ctx, {
+          darkness: 1, maxAlpha: 0.84, rgb: [8, 6, 10], lights: dynamicLights(s, 250),
+          camX: origin.x, camY: origin.y, viewW: origin.viewW, viewH: origin.viewH, t: performance.now() / 1000,
+        });
+      } else {
+        drawMineDarkness(ctx, s, origin);
+      }
     } else if (s.isBrejo) {
       // o Brejo é sempre noite: névoa fria por cima e uma vinheta mais
       // aberta que a da mina (é céu aberto, não galeria)

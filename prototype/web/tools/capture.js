@@ -19,7 +19,7 @@ const label = process.argv[3] || "run";
 const base = process.env.GAME_URL || "http://localhost:4173/";
 fs.mkdirSync(out, { recursive: true });
 
-function makeSave(dayT, extra) {
+function makeSave(dayT, pos) {
   return JSON.stringify(Object.assign({
     version: 3,
     profile: {
@@ -27,8 +27,8 @@ function makeSave(dayT, extra) {
       appearance: { skin: "media", hair: "curto", hairColor: "castanho", outfit: "roca", hat: null },
     },
     progress: { despertarSeen: true, classId: "guerreiro", level: 3, hints: { all: true } },
-    world: { x: 520, y: 470, dayT: dayT, day: 2, vintem: 40 },
-  }, extra || {}));
+    world: { x: (pos || {}).x || 520, y: (pos || {}).y || 470, dayT: dayT, day: 2, vintem: 40 },
+  }));
 }
 
 async function scene(browser, name, dayT, opts) {
@@ -38,7 +38,7 @@ async function scene(browser, name, dayT, opts) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript((s) => {
     try { localStorage.setItem("encantaria_save_v2", s); } catch (e) {}
-  }, makeSave(dayT));
+  }, makeSave(dayT, opts.pos));
   await page.goto(base + (opts.query || ""));
   await page.waitForTimeout(2500);
   if (opts.act) await opts.act(page);
@@ -67,6 +67,9 @@ async function scene(browser, name, dayT, opts) {
   const results = [];
   results.push(await scene(browser, "dia", 10));
   results.push(await scene(browser, "noite", 21.5));
+  results.push(await scene(browser, "noite_casa", 22, { pos: { x: 250, y: 300 } }));
+  results.push(await scene(browser, "noite_mina", 23, { pos: { x: 1430, y: 290 } }));
+  results.push(await scene(browser, "crepusculo", 18.5, { pos: { x: 420, y: 330 } }));
   results.push(await scene(browser, "combate", 15, {
     act: async (page) => {
       // anda para o leste (onde nascem os primeiros inimigos) e ataca
