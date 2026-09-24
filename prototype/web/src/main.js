@@ -1229,7 +1229,10 @@ EN.Main = (function () {
     // o jogador já é pixel art de planilha: vai direto
     EN.Player.draw(ctx, s.player, origin.x, origin.y);
 
-    if (pixelated) ctx = EN.PixelLayer.begin(origin);
+    // passadas vazias da camada custam um clear + um envio de textura
+    // inteiros por quadro: só abre a camada se houver o que desenhar
+    var projLayer = pixelated && (s.projectiles.length > 0 || (s.enemyProjectiles || []).length > 0);
+    if (projLayer) ctx = EN.PixelLayer.begin(origin);
 
     s.projectiles.forEach(function (pr) {
       var fill = pr.magic ? (pr.burn ? "#ff9a40" : "#c9a8f2") : (pr.burn ? "#ff6a20" : "#7fe0c9");
@@ -1243,7 +1246,7 @@ EN.Main = (function () {
       var isFeather = pr.kind === "pena";
       drawProjectile(pr, origin.x, origin.y, isFeather ? "#c9a227" : "#f2e05a", isFeather ? "#6b5220" : "#a08a1a");
     });
-    if (pixelated) {
+    if (projLayer) {
       ctx = screenCtx;
       EN.PixelLayer.end(ctx);
     }
@@ -1254,11 +1257,12 @@ EN.Main = (function () {
     EN.Particles.ambient(dt, origin.x, origin.y, origin.viewW, origin.viewH, ambientMood(s));
     EN.Particles.draw(ctx, origin.x, origin.y, 1);
 
-    if (pixelated) ctx = EN.PixelLayer.begin(origin);
+    var fxLayer = pixelated && s.fx.length > 0;
+    if (fxLayer) ctx = EN.PixelLayer.begin(origin);
     s.fx.forEach(function (f) {
       drawFx(f, origin.x, origin.y);
     });
-    if (pixelated) {
+    if (fxLayer) {
       ctx = screenCtx;
       EN.PixelLayer.end(ctx);
     }
