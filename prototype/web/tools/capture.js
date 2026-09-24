@@ -32,7 +32,7 @@ function makeSave(dayT, pos, graficos) {
       appearance: { skin: "media", hair: "curto", hairColor: "castanho", outfit: "roca", hat: null },
     },
     progress: { despertarSeen: true, classId: "guerreiro", level: 3, hints: { all: true } },
-    settings: { graficos: graficos || "auto" },
+    settings: { graficos: graficos || "alto" },
     world: { x: (pos || {}).x || 520, y: (pos || {}).y || 470, dayT: dayT, day: 2, vintem: 40 },
   }));
 }
