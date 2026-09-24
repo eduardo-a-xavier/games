@@ -482,7 +482,7 @@ EN.Menu = (function () {
       EN.State.data.settings.muted = m;
       EN.State.persist();
       var hudBtn = document.getElementById("btn-mute");
-      if (hudBtn) hudBtn.textContent = m ? "🔇" : "🔊";
+      if (hudBtn) EN.Icons.setMute(m);
       syncMute();
     });
 

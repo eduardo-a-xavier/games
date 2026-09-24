@@ -164,3 +164,23 @@ test("arte procedural nova só usa cores da paleta canônica", () => {
     assert.deepEqual(soltas, [], `${f} usa cor fora da paleta`);
   }
 });
+
+test("ícones pixel: grades 12x12, só cores da legenda, emojis apontam pra ícones reais", () => {
+  const vm = require("node:vm");
+  const sandbox = { window: {}, document: {} };
+  sandbox.EN = sandbox.window.EN = {};
+  vm.createContext(sandbox);
+  vm.runInContext("var EN = window.EN;" + read("src/palette.js") + read("src/icons.js"), sandbox);
+  const I = sandbox.EN.Icons;
+  for (const [name, grid] of Object.entries(I.GRIDS)) {
+    assert.equal(grid.length, 12, `${name}: ${grid.length} linhas`);
+    grid.forEach((row, y) => {
+      assert.equal(row.length, 12, `${name} linha ${y}: ${row.length} colunas`);
+      for (const ch of row) assert.ok(ch === "." || I.LEGEND[ch], `${name}: cor '${ch}' fora da legenda`);
+    });
+  }
+  for (const e of ["❤️", "⚡", "✦", "🔒", "👊", "💨", "🧪", "💬", "🚪", "💥", "⚔️", "🔮"]) {
+    const n = I.forEmoji(e);
+    assert.ok(n && I.GRIDS[n], `sem ícone para ${e}`);
+  }
+});

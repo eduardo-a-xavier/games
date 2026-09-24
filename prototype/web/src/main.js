@@ -60,7 +60,8 @@ EN.Main = (function () {
     var muteBtn = document.getElementById("btn-mute");
     var saved = EN.State.data.settings;
     EN.Audio.setMuted(!!saved.muted);
-    muteBtn.textContent = saved.muted ? "🔇" : "🔊";
+    EN.Icons.upgradeStatic();
+    EN.Icons.setMute(saved.muted);
 
     function unlockOnce() {
       EN.Audio.unlock();
@@ -76,7 +77,7 @@ EN.Main = (function () {
       var m = EN.Audio.setMuted(!EN.Audio.isMuted());
       saved.muted = m;
       EN.State.persist();
-      muteBtn.textContent = m ? "🔇" : "🔊";
+      EN.Icons.setMute(m);
       if (!m) {
         EN.Audio.startAmbient();
         refreshAmbience();
