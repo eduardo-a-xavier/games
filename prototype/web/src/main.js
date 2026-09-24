@@ -760,6 +760,10 @@ EN.Main = (function () {
     session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy, crit: !!crit });
     if (!wasDead) {
       session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+      var hp = session.player;
+      if (crit) EN.Particles.fx.crit(enemy.x, enemy.y, enemy.x - hp.x, enemy.y - hp.y);
+      else EN.Particles.fx.hit(enemy.x, enemy.y, enemy.x - hp.x, enemy.y - hp.y, heavy);
+      if (enemy.dead) EN.Particles.fx.death(enemy.x, enemy.y);
       EN.Audio.play(crit ? "crit" : "hit");
     }
   }
@@ -797,6 +801,7 @@ EN.Main = (function () {
   // ---------- sessão ativa ----------
   function setSession(session) {
     currentSession = session;
+    EN.Particles.clear();
     paused = false;
     // o companheiro entra junto: sem isso ele tentaria atravessar o mapa
     // inteiro atrás do jogador ao mudar de área
@@ -817,6 +822,7 @@ EN.Main = (function () {
         data.kind = kind;
         data.t = 0;
         session.fx.push(data);
+        particlesFor(kind, data);
       },
       toast: toast,
     });
@@ -886,6 +892,7 @@ EN.Main = (function () {
         if (r.parried) {
           EN.Audio.play("perfect");
           s.fx.push({ kind: "perfect", x: p.x, y: p.y, t: 0, label: "APARADO" });
+          EN.Particles.fx.dodge(p.x, p.y, true);
         } else if (r.shielded) {
           EN.Audio.play("ui");
         } else {
@@ -899,6 +906,7 @@ EN.Main = (function () {
         data.kind = kind;
         data.t = 0;
         s.fx.push(data);
+        particlesFor(kind, data);
       },
       onBossPhase: s.onBossPhase,
     };
@@ -937,6 +945,7 @@ EN.Main = (function () {
       c.t += dt;
       if (!c.taken && Math.hypot(c.x - p.x, c.y - p.y) < 24) {
         c.taken = true;
+        EN.Particles.fx.coin(c.x, c.y);
           s.meta.vintem += 2 + Math.floor(Math.random() * 4);
         EN.Audio.play("coin");
       }
@@ -951,6 +960,8 @@ EN.Main = (function () {
     s.fx = s.fx.filter(function (f) {
       return f.t < 1.1;
     });
+    updateFootFx(s, p, dt);
+    EN.Particles.update(dt);
 
     if (s.tick) s.tick(s, dt);
 
@@ -982,12 +993,14 @@ EN.Main = (function () {
       proj.x += proj.vx * dt;
       proj.y += proj.vy * dt;
       proj.life -= dt;
+      if (dt) EN.Particles.fx.trail(proj.x, proj.y, proj.burn ? "fire" : proj.magic ? "magic" : "shot");
       s.enemies.forEach(function (e) {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
           var roll = EN.Combat.rollDamage(proj.dmg);
           var atkType = proj.magic && proj.burn ? "fire" : proj.magic ? "magic" : proj.burn ? "fire" : "physical";
           applyDamage(s, e, roll.value, !!proj.burn, roll.crit, { atkType: atkType });
+          if (proj.magic || proj.burn) EN.Particles.fx.magicBurst(proj.x, proj.y, !!proj.burn);
           if (proj.burn) EN.Combat.applyStatus(e, "queimando", 3, 3);
           EN.Combat.knockback(e, proj.x, proj.y, 160);
           EN.Combat.hitstop(0.035);
@@ -1059,6 +1072,44 @@ EN.Main = (function () {
     }, 1000);
   }
 
+  // efeitos de partícula dos eventos que já passam por spawnFx — o jogo
+  // continua empurrando os mesmos fx de sempre, as partículas só somam
+  function particlesFor(kind, d) {
+    var P = EN.Particles.fx;
+    if (kind === "perfect") P.dodge(d.x, d.y, true);
+    else if (kind === "heal") P.heal(d.x, d.y);
+    else if (kind === "shock") P.shock(d.x, d.y, d.radius, d.friendly);
+    else if (kind === "slash") P.slash(d.x, d.y, d.fx, d.fy, d.heavy || d.finisher);
+  }
+
+  // poeira nos pés: correndo solta um punhado a cada passo; o começo do
+  // rolamento solta uma nuvem. Nada no Brejo, onde o chão é lama/água.
+  function updateFootFx(s, p, dt) {
+    if (!dt) return;
+    var prev = p._fxState;
+    p._fxState = p.state;
+    if (p.state === "dodge" && prev !== "dodge") {
+      if (s.isBrejo) EN.Particles.fx.splash(p.x, p.y);
+      else EN.Particles.fx.dodge(p.x, p.y, false);
+    }
+    if (p.state === "run") {
+      p._stepT = (p._stepT || 0) + dt;
+      if (p._stepT > 0.16) {
+        p._stepT = 0;
+        if (s.isBrejo) EN.Particles.fx.splash(p.x, p.y);
+        else EN.Particles.fx.dust(p.x, p.y, 2);
+      }
+    }
+  }
+
+  function ambientMood(s) {
+    if (s.isMine) return "mine";
+    if (s.isBrejo) return "brejo";
+    if (s.isArena) return null;
+    var ph = EN.World.currentPhase(s.meta.dayT).name;
+    return ph === "Noite" || ph === "Madrugada" ? "night" : "day";
+  }
+
   function render(s, dt) {
     ctx.clearRect(0, 0, vw, vh);
     var origin = EN.Camera.getViewOrigin(s.camera, vw, vh, s.worldW, s.worldH);
@@ -1069,6 +1120,7 @@ EN.Main = (function () {
     ctx.scale(zoom, zoom);
     ctx.translate(shake.x, shake.y);
     ctx.drawImage(s.worldCanvas, origin.x, origin.y, origin.viewW, origin.viewH, 0, 0, origin.viewW, origin.viewH);
+    EN.Particles.draw(ctx, origin.x, origin.y, 0);
 
     s.coins.forEach(function (c) {
       drawCoin(ctx, c, origin.x, origin.y);
@@ -1095,6 +1147,12 @@ EN.Main = (function () {
       var isFeather = pr.kind === "pena";
       drawProjectile(pr, origin.x, origin.y, isFeather ? "#c9a227" : "#f2e05a", isFeather ? "#6b5220" : "#a08a1a");
     });
+
+    (s.enemyProjectiles || []).forEach(function (pr) {
+      if (dt && (pr.lingering || pr.kind === "chama")) EN.Particles.fx.ember(pr.x, pr.y);
+    });
+    EN.Particles.ambient(dt, origin.x, origin.y, origin.viewW, origin.viewH, ambientMood(s));
+    EN.Particles.draw(ctx, origin.x, origin.y, 1);
 
     s.fx.forEach(function (f) {
       drawFx(f, origin.x, origin.y);

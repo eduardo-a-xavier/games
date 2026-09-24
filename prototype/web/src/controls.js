@@ -276,7 +276,7 @@ EN.Controls = (function () {
           if (EN.Player.useHeal(ctx.player)) {
           learned("curou");
             EN.Audio.play("heal");
-            if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+            if (ctx.spawnFx) ctx.spawnFx("heal", { x: ctx.player.x, y: ctx.player.y });
             if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
           } else if (ctx.toast && ctx.player.healCharges <= 0) {
             ctx.toast("Sem preparos de cura.");
@@ -521,7 +521,7 @@ EN.Controls = (function () {
         if (EN.Player.useHeal(ctx.player)) {
           learned("curou");
           EN.Audio.play("heal");
-          if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+          if (ctx.spawnFx) ctx.spawnFx("heal", { x: ctx.player.x, y: ctx.player.y });
           if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
         } else if (ctx.toast && ctx.player.healCharges <= 0) {
           ctx.toast("Sem preparos de cura.");
