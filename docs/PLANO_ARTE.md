@@ -1,5 +1,14 @@
 # Plano de melhoria visual — Encantaria
 
+> **Status (24/09/2026):** executado o que era gratuito e possível em
+> código: validador de sprites e paleta (Fase 1), partículas, luz e efeitos
+> (Fase 2), Sítio em pixel art (Fase 4, primeira área), camada de pixel para
+> criaturas e NPCs (parte da Fase 5), ícones pixel (Fase 6) e qualidade
+> gráfica. As regras vigentes estão em `docs/DIRECAO_ARTE.md`, e as
+> capturas e medições em `docs/capturas/`. **Pendente:** Fase 3 (frames de
+> frente e de costas, que exigem desenho à mão), sprites próprios para
+> criaturas e NPCs, e Mina, Brejo e casa por dentro no novo cenário.
+
 Plano para melhorar sprites, cenários, animações, efeitos visuais e interface.
 Prioridade: ferramentas gratuitas primeiro. Regra fixa: **nenhuma arte existente
 é apagada ou sobrescrita.**
