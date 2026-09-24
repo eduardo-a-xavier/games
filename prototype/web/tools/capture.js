@@ -4,6 +4,11 @@
  *   python3 -m http.server 4173 --directory prototype/web &
  *   NODE_PATH=$(npm root -g) node prototype/web/tools/capture.js <pasta-saida> [rótulo]
  *
+ * Além do FPS (preso em 60 pelo vsync), mede o TEMPO DE TRABALHO por
+ * quadro — quanto do orçamento de 16,7 ms o jogo gasta em JS + canvas —
+ * envolvendo requestAnimationFrame. Com THROTTLE=4 a CPU é desacelerada 4x
+ * pelo DevTools, aproximação grosseira de um Android intermediário.
+ *
  * Injeta um save pronto (perfil criado, Guerreiro, despertar visto) para ir
  * direto ao Sítio, fotografa de dia, de noite e em combate, e mede FPS de
  * 5 s por cena. O FPS headless é da máquina de CI/nuvem, com GPU por
@@ -19,7 +24,7 @@ const label = process.argv[3] || "run";
 const base = process.env.GAME_URL || "http://localhost:4173/";
 fs.mkdirSync(out, { recursive: true });
 
-function makeSave(dayT, pos) {
+function makeSave(dayT, pos, graficos) {
   return JSON.stringify(Object.assign({
     version: 3,
     profile: {
@@ -27,6 +32,7 @@ function makeSave(dayT, pos) {
       appearance: { skin: "media", hair: "curto", hairColor: "castanho", outfit: "roca", hat: null },
     },
     progress: { despertarSeen: true, classId: "guerreiro", level: 3, hints: { all: true } },
+    settings: { graficos: graficos || "auto" },
     world: { x: (pos || {}).x || 520, y: (pos || {}).y || 470, dayT: dayT, day: 2, vintem: 40 },
   }));
 }
@@ -38,7 +44,19 @@ async function scene(browser, name, dayT, opts) {
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.addInitScript((s) => {
     try { localStorage.setItem("encantaria_save_v2", s); } catch (e) {}
-  }, makeSave(dayT, opts.pos));
+    const raf = window.requestAnimationFrame.bind(window);
+    window.__work = [];
+    window.requestAnimationFrame = (cb) => raf((t) => {
+      const t0 = performance.now();
+      cb(t);
+      window.__work.push(performance.now() - t0);
+    });
+  }, makeSave(dayT, opts.pos, opts.graficos));
+  const throttle = +(process.env.THROTTLE || 1);
+  if (throttle > 1) {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: throttle });
+  }
   await page.goto(base + (opts.query || ""));
   await page.waitForTimeout(2500);
   if (opts.act) await opts.act(page);
@@ -56,6 +74,11 @@ async function scene(browser, name, dayT, opts) {
     }
     requestAnimationFrame(f);
   }));
+  const work = await page.evaluate(() => {
+    const w = window.__work.slice(-240).sort((a, b) => a - b);
+    return { medianMs: +w[w.length >> 1].toFixed(2), p95Ms: +w[Math.floor(w.length * 0.95)].toFixed(2) };
+  });
+  fps.work = work;
   const file = path.join(out, label + "_" + name + ".png");
   await page.screenshot({ path: file });
   await page.close();
@@ -69,6 +92,7 @@ async function scene(browser, name, dayT, opts) {
   results.push(await scene(browser, "noite", 21.5));
   results.push(await scene(browser, "noite_casa", 22, { pos: { x: 250, y: 300 } }));
   results.push(await scene(browser, "noite_mina", 23, { pos: { x: 1430, y: 290 } }));
+  results.push(await scene(browser, "noite_casa_baixo", 22, { pos: { x: 250, y: 300 }, graficos: "baixo" }));
   results.push(await scene(browser, "crepusculo", 18.5, { pos: { x: 420, y: 330 } }));
   results.push(await scene(browser, "combate", 15, {
     act: async (page) => {

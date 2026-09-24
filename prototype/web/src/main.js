@@ -19,10 +19,55 @@ EN.Main = (function () {
   var last = performance.now();
   var deathT = -1;
 
+  /*
+   * Qualidade gráfica. "alto": tudo. "baixo": sem lightmap, sem camada de
+   * pixel, partículas reduzidas e resolução interna 1x (em tela de
+   * densidade 2–3 isso corta de 4 a 9 vezes os pixels pintados por quadro,
+   * o maior custo num Android intermediário). "auto" começa no alto e cai
+   * para o baixo uma vez se a média de quadro passar de 22 ms (~45 FPS)
+   * por 4 s seguidos — sem gravar isso no save, pra um engasgo passageiro
+   * não condenar o aparelho para sempre.
+   */
+  var autoDowngraded = false;
+  function graphicsLevel() {
+    var g = EN.State.data.settings.graficos || "auto";
+    if (g === "auto") return autoDowngraded ? "baixo" : "alto";
+    return g;
+  }
+  function applyGraphics() {
+    var low = graphicsLevel() === "baixo";
+    EN.Particles.setQuality(low ? "low" : "high");
+    var want = low ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    if (want !== dpr) {
+      dpr = want;
+      if (canvas) resize();
+    }
+  }
+
+  var perfT = 0,
+    perfSum = 0,
+    perfN = 0;
+  function watchPerformance(dtReal) {
+    if (autoDowngraded || (EN.State.data.settings.graficos || "auto") !== "auto") return;
+    if (document.hidden) return;
+    perfT += dtReal;
+    perfSum += dtReal;
+    perfN++;
+    if (perfT < 4) return;
+    var avg = perfSum / perfN;
+    perfT = perfSum = perfN = 0;
+    if (avg > 0.022) {
+      autoDowngraded = true;
+      applyGraphics();
+      toast("Gráficos reduzidos para manter o jogo fluido (Menu → Opções)");
+    }
+  }
+
   function boot() {
     canvas = document.getElementById("world-canvas");
     ctx = canvas.getContext("2d");
     dpr = Math.min(window.devicePixelRatio || 1, 2);
+    applyGraphics();
     resize();
     wireResize();
 
@@ -831,8 +876,11 @@ EN.Main = (function () {
 
   // ---------- loop genérico ----------
   function loop(now) {
-    var dtReal = Math.min(0.05, (now - last) / 1000);
+    var rawDt = (now - last) / 1000;
+    var dtReal = Math.min(0.05, rawDt);
     last = now;
+    // só mede com o jogo rodando e sem pausas longas (aba em segundo plano)
+    if (currentSession && !paused && rawDt < 0.25) watchPerformance(rawDt);
     if (currentSession) {
       var blocked = paused || EN.Dialogue.isOpen();
       var dt = blocked ? 0 : EN.Combat.consumeFrame(dtReal);
@@ -1594,6 +1642,8 @@ EN.Main = (function () {
 
   return {
     boot: boot,
+    applyGraphics: applyGraphics,
+    graphicsLevel: graphicsLevel,
     setSession: setSession,
     restoreMainSession: restoreMainSession,
     confirmClassFromArena: confirmClassFromArena,

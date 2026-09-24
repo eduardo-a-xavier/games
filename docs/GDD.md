@@ -717,7 +717,7 @@ Design base em resolução virtual **1280x720** (16:9) com escalonamento e **saf
 
 ## 58. Direção de arte
 
-Pixel art 2D, tile base de **16x16** (personagens em 32x48 para leitura clara em tela pequena), paleta quente e saturada porém não infantilizada (verdes profundos da mata, terracota das construções, dourado do ipê florido como cor de assinatura visual do jogo). Iluminação dinâmica simples (day/night tint + luzes pontuais de tocha/vagalume). Personagens com 4 direções de movimento (não 8, para economizar produção de animação sem perder legibilidade). Arquitetura mistura casas de taipa/alvenaria simples, praça com coreto, capela colonial modesta — nunca estereotipada, sempre funcional dentro da ficção.
+Pixel art 2D, pixel de arte de **3 px de mundo** e personagens de ~17–23 px de altura em células de 36 px (medido nas planilhas em uso; regras completas e aplicadas em `docs/DIRECAO_ARTE.md`), paleta quente e saturada porém não infantilizada (verdes profundos da mata, terracota das construções, dourado do ipê florido como cor de assinatura visual do jogo). Iluminação dinâmica simples (day/night tint + luzes pontuais de tocha/vagalume). Personagens com 4 direções de movimento (não 8, para economizar produção de animação sem perder legibilidade). Arquitetura mistura casas de taipa/alvenaria simples, praça com coreto, capela colonial modesta — nunca estereotipada, sempre funcional dentro da ficção.
 
 ---
 

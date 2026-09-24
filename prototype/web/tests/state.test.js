@@ -111,3 +111,13 @@ test("save corrompido volta ao padrão e flush persiste imediatamente", () => {
   assert.equal(persisted.world.vintem, 37);
   assert.equal(persisted.version, 3);
 });
+
+test("configuração de gráficos: save antigo ganha 'auto' e valor inválido é saneado", () => {
+  const { state } = loadState(JSON.stringify({ settings: { muted: true } }));
+  assert.equal(state.data.settings.graficos, "auto");
+  assert.equal(state.data.settings.muted, true);
+  const bad = loadState(JSON.stringify({ settings: { graficos: "ultra" } }));
+  assert.equal(bad.state.data.settings.graficos, "auto");
+  const low = loadState(JSON.stringify({ settings: { graficos: "baixo" } }));
+  assert.equal(low.state.data.settings.graficos, "baixo");
+});

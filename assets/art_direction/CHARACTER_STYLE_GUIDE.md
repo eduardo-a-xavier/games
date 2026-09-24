@@ -14,6 +14,8 @@ Pixel art 2D, vista top-down levemente angulada, colorida e aconchegante de dia,
 
 ## 2. Proporções
 
+> **Atualização (medida no jogo):** o personagem que o jogador vê é o das planilhas pixel 360×288 (`player_sheet`/`guerreiro_sheet`/`mateiro_sheet`/`encantado_sheet`), com figuras de ~17–23 px de altura em células de 36 px, desenhadas com 52 px de mundo (1 pixel de arte = 3 px de mundo). As medidas da tabela abaixo descrevem o rig procedural antigo, que hoje é só reserva. Arte nova de personagem segue `docs/DIRECAO_ARTE.md` §1.
+
 Ver `proportions_reference.png` para a régua visual. Medidas do rig atual (o que o código já assume, portanto o que qualquer sprite novo precisa respeitar para encaixar sem reescrever `player.js`/`appearance.js`):
 
 | Parte | Medida (px, escala 1×) |
