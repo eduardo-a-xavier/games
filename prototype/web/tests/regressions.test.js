@@ -142,3 +142,45 @@ test("voltar ao Sítio depois de morrer sai de toda sub-área", () => {
   }
   assert.match(main, /function respawn\(\)\s*\{\s*leaveSubArea\(\);/);
 });
+
+// ---------------------------------------------------------------------
+// direção de arte — paleta única
+// ---------------------------------------------------------------------
+test("EN.Palette espelha exatamente palette_encantaria.json", () => {
+  const json = JSON.parse(fs.readFileSync(path.join(WEB, "..", "..", "assets", "art_direction", "palette_encantaria.json"), "utf8"));
+  const src = read("src/palette.js");
+  for (const [ramp, colors] of Object.entries(json.ramps)) {
+    const m = src.match(new RegExp(ramp + ":\\s*\\[([^\\]]+)\\]"));
+    assert.ok(m, `rampa ${ramp} ausente em palette.js`);
+    assert.deepEqual(m[1].match(/#[0-9a-f]{6}/gi).map((c) => c.toLowerCase()), colors, `rampa ${ramp} divergiu`);
+  }
+});
+
+test("arte procedural nova só usa cores da paleta canônica", () => {
+  const json = JSON.parse(fs.readFileSync(path.join(WEB, "..", "..", "assets", "art_direction", "palette_encantaria.json"), "utf8"));
+  const allowed = new Set(Object.values(json.ramps).flat());
+  for (const f of ["src/pixelWorld.js", "src/particles.js"]) {
+    const soltas = (read(f).match(/#[0-9a-f]{6}\b/gi) || []).map((c) => c.toLowerCase()).filter((c) => !allowed.has(c));
+    assert.deepEqual(soltas, [], `${f} usa cor fora da paleta`);
+  }
+});
+
+test("ícones pixel: grades 12x12, só cores da legenda, emojis apontam pra ícones reais", () => {
+  const vm = require("node:vm");
+  const sandbox = { window: {}, document: {} };
+  sandbox.EN = sandbox.window.EN = {};
+  vm.createContext(sandbox);
+  vm.runInContext("var EN = window.EN;" + read("src/palette.js") + read("src/icons.js"), sandbox);
+  const I = sandbox.EN.Icons;
+  for (const [name, grid] of Object.entries(I.GRIDS)) {
+    assert.equal(grid.length, 12, `${name}: ${grid.length} linhas`);
+    grid.forEach((row, y) => {
+      assert.equal(row.length, 12, `${name} linha ${y}: ${row.length} colunas`);
+      for (const ch of row) assert.ok(ch === "." || I.LEGEND[ch], `${name}: cor '${ch}' fora da legenda`);
+    });
+  }
+  for (const e of ["❤️", "⚡", "✦", "🔒", "👊", "💨", "🧪", "💬", "🚪", "💥", "⚔️", "🔮"]) {
+    const n = I.forEmoji(e);
+    assert.ok(n && I.GRIDS[n], `sem ícone para ${e}`);
+  }
+});

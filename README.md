@@ -20,6 +20,7 @@ dos sprites canônicos mantidos em `/assets`.
 find prototype/web/src -name '*.js' -print0 | xargs -0 -n1 node --check
 node --test prototype/web/tests/*.test.js
 python3 -m unittest discover -s prototype/web/tests -p 'test_*.py'
+python3 assets/tools/sprite_lint.py   # transparência, frames, paleta dos sprites
 ```
 
 Os testes cobrem migração do save, contrato de frames das animações,

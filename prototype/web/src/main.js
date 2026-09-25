@@ -19,10 +19,55 @@ EN.Main = (function () {
   var last = performance.now();
   var deathT = -1;
 
+  /*
+   * Qualidade gráfica. "alto": tudo. "baixo": sem lightmap, sem camada de
+   * pixel, partículas reduzidas e resolução interna 1x (em tela de
+   * densidade 2–3 isso corta de 4 a 9 vezes os pixels pintados por quadro,
+   * o maior custo num Android intermediário). "auto" começa no alto e cai
+   * para o baixo uma vez se a média de quadro passar de 22 ms (~45 FPS)
+   * por 4 s seguidos — sem gravar isso no save, pra um engasgo passageiro
+   * não condenar o aparelho para sempre.
+   */
+  var autoDowngraded = false;
+  function graphicsLevel() {
+    var g = EN.State.data.settings.graficos || "auto";
+    if (g === "auto") return autoDowngraded ? "baixo" : "alto";
+    return g;
+  }
+  function applyGraphics() {
+    var low = graphicsLevel() === "baixo";
+    EN.Particles.setQuality(low ? "low" : "high");
+    var want = low ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+    if (want !== dpr) {
+      dpr = want;
+      if (canvas) resize();
+    }
+  }
+
+  var perfT = 0,
+    perfSum = 0,
+    perfN = 0;
+  function watchPerformance(dtReal) {
+    if (autoDowngraded || (EN.State.data.settings.graficos || "auto") !== "auto") return;
+    if (document.hidden) return;
+    perfT += dtReal;
+    perfSum += dtReal;
+    perfN++;
+    if (perfT < 4) return;
+    var avg = perfSum / perfN;
+    perfT = perfSum = perfN = 0;
+    if (avg > 0.022) {
+      autoDowngraded = true;
+      applyGraphics();
+      toast("Gráficos reduzidos para manter o jogo fluido (Menu → Opções)");
+    }
+  }
+
   function boot() {
     canvas = document.getElementById("world-canvas");
     ctx = canvas.getContext("2d");
     dpr = Math.min(window.devicePixelRatio || 1, 2);
+    applyGraphics();
     resize();
     wireResize();
 
@@ -60,7 +105,8 @@ EN.Main = (function () {
     var muteBtn = document.getElementById("btn-mute");
     var saved = EN.State.data.settings;
     EN.Audio.setMuted(!!saved.muted);
-    muteBtn.textContent = saved.muted ? "🔇" : "🔊";
+    EN.Icons.upgradeStatic();
+    EN.Icons.setMute(saved.muted);
 
     function unlockOnce() {
       EN.Audio.unlock();
@@ -76,7 +122,7 @@ EN.Main = (function () {
       var m = EN.Audio.setMuted(!EN.Audio.isMuted());
       saved.muted = m;
       EN.State.persist();
-      muteBtn.textContent = m ? "🔇" : "🔊";
+      EN.Icons.setMute(m);
       if (!m) {
         EN.Audio.startAmbient();
         refreshAmbience();
@@ -760,6 +806,10 @@ EN.Main = (function () {
     session.fx.push({ kind: "dmgnum", x: enemy.x, y: enemy.y - 14, t: 0, value: dmg, heavy: !!heavy, crit: !!crit });
     if (!wasDead) {
       session.fx.push({ kind: "hit", x: enemy.x, y: enemy.y, t: 0 });
+      var hp = session.player;
+      if (crit) EN.Particles.fx.crit(enemy.x, enemy.y, enemy.x - hp.x, enemy.y - hp.y);
+      else EN.Particles.fx.hit(enemy.x, enemy.y, enemy.x - hp.x, enemy.y - hp.y, heavy);
+      if (enemy.dead) EN.Particles.fx.death(enemy.x, enemy.y);
       EN.Audio.play(crit ? "crit" : "hit");
     }
   }
@@ -797,6 +847,7 @@ EN.Main = (function () {
   // ---------- sessão ativa ----------
   function setSession(session) {
     currentSession = session;
+    EN.Particles.clear();
     paused = false;
     // o companheiro entra junto: sem isso ele tentaria atravessar o mapa
     // inteiro atrás do jogador ao mudar de área
@@ -817,6 +868,7 @@ EN.Main = (function () {
         data.kind = kind;
         data.t = 0;
         session.fx.push(data);
+        particlesFor(kind, data);
       },
       toast: toast,
     });
@@ -824,8 +876,11 @@ EN.Main = (function () {
 
   // ---------- loop genérico ----------
   function loop(now) {
-    var dtReal = Math.min(0.05, (now - last) / 1000);
+    var rawDt = (now - last) / 1000;
+    var dtReal = Math.min(0.05, rawDt);
     last = now;
+    // só mede com o jogo rodando e sem pausas longas (aba em segundo plano)
+    if (currentSession && !paused && rawDt < 0.25) watchPerformance(rawDt);
     if (currentSession) {
       var blocked = paused || EN.Dialogue.isOpen();
       var dt = blocked ? 0 : EN.Combat.consumeFrame(dtReal);
@@ -886,6 +941,7 @@ EN.Main = (function () {
         if (r.parried) {
           EN.Audio.play("perfect");
           s.fx.push({ kind: "perfect", x: p.x, y: p.y, t: 0, label: "APARADO" });
+          EN.Particles.fx.dodge(p.x, p.y, true);
         } else if (r.shielded) {
           EN.Audio.play("ui");
         } else {
@@ -899,6 +955,7 @@ EN.Main = (function () {
         data.kind = kind;
         data.t = 0;
         s.fx.push(data);
+        particlesFor(kind, data);
       },
       onBossPhase: s.onBossPhase,
     };
@@ -937,6 +994,7 @@ EN.Main = (function () {
       c.t += dt;
       if (!c.taken && Math.hypot(c.x - p.x, c.y - p.y) < 24) {
         c.taken = true;
+        EN.Particles.fx.coin(c.x, c.y);
           s.meta.vintem += 2 + Math.floor(Math.random() * 4);
         EN.Audio.play("coin");
       }
@@ -951,6 +1009,8 @@ EN.Main = (function () {
     s.fx = s.fx.filter(function (f) {
       return f.t < 1.1;
     });
+    updateFootFx(s, p, dt);
+    EN.Particles.update(dt);
 
     if (s.tick) s.tick(s, dt);
 
@@ -982,12 +1042,14 @@ EN.Main = (function () {
       proj.x += proj.vx * dt;
       proj.y += proj.vy * dt;
       proj.life -= dt;
+      if (dt) EN.Particles.fx.trail(proj.x, proj.y, proj.burn ? "fire" : proj.magic ? "magic" : "shot");
       s.enemies.forEach(function (e) {
         if (e.dead || proj.hit) return;
         if (Math.hypot(e.x - proj.x, e.y - proj.y) < e.r + proj.r) {
           var roll = EN.Combat.rollDamage(proj.dmg);
           var atkType = proj.magic && proj.burn ? "fire" : proj.magic ? "magic" : proj.burn ? "fire" : "physical";
           applyDamage(s, e, roll.value, !!proj.burn, roll.crit, { atkType: atkType });
+          if (proj.magic || proj.burn) EN.Particles.fx.magicBurst(proj.x, proj.y, !!proj.burn);
           if (proj.burn) EN.Combat.applyStatus(e, "queimando", 3, 3);
           EN.Combat.knockback(e, proj.x, proj.y, 160);
           EN.Combat.hitstop(0.035);
@@ -1059,7 +1121,67 @@ EN.Main = (function () {
     }, 1000);
   }
 
+  // efeitos de partícula dos eventos que já passam por spawnFx — o jogo
+  // continua empurrando os mesmos fx de sempre, as partículas só somam
+  function particlesFor(kind, d) {
+    var P = EN.Particles.fx;
+    if (kind === "perfect") P.dodge(d.x, d.y, true);
+    else if (kind === "heal") P.heal(d.x, d.y);
+    else if (kind === "shock") P.shock(d.x, d.y, d.radius, d.friendly);
+    else if (kind === "slash") P.slash(d.x, d.y, d.fx, d.fy, d.heavy || d.finisher);
+  }
+
+  // poeira nos pés: correndo solta um punhado a cada passo; o começo do
+  // rolamento solta uma nuvem. Nada no Brejo, onde o chão é lama/água.
+  function updateFootFx(s, p, dt) {
+    if (!dt) return;
+    var prev = p._fxState;
+    p._fxState = p.state;
+    if (p.state === "dodge" && prev !== "dodge") {
+      if (s.isBrejo) EN.Particles.fx.splash(p.x, p.y);
+      else EN.Particles.fx.dodge(p.x, p.y, false);
+    }
+    if (p.state === "run") {
+      p._stepT = (p._stepT || 0) + dt;
+      if (p._stepT > 0.16) {
+        p._stepT = 0;
+        if (s.isBrejo) EN.Particles.fx.splash(p.x, p.y);
+        else EN.Particles.fx.dust(p.x, p.y, 2);
+      }
+    }
+  }
+
+  /*
+   * Luzes que se movem: a lamparina do jogador (raio pequeno no Sítio, o
+   * suficiente pra ler o próprio personagem e o inimigo encostado; grande
+   * na mina, onde ela é a única luz), projéteis de magia/fogo e o fogo do
+   * Boitatá no chão.
+   */
+  function dynamicLights(s, playerR) {
+    var P = EN.Palette;
+    var L = [{ x: s.player.x, y: s.player.y - 16, r: playerR, i: 0.9 }];
+    s.projectiles.forEach(function (pr) {
+      if (pr.magic || pr.burn) L.push({ x: pr.x, y: pr.y, r: 46, color: pr.burn ? P.terracota[3] : P.encanto[3] });
+    });
+    (s.enemyProjectiles || []).forEach(function (pr) {
+      if (pr.lingering) L.push({ x: pr.x, y: pr.y, r: pr.r * 2.2, color: P.terracota[3], flicker: true });
+      else if (pr.kind === "chama") L.push({ x: pr.x, y: pr.y, r: 40, color: P.ipe[3] });
+    });
+    return L;
+  }
+
+  function ambientMood(s) {
+    if (s.isMine) return "mine";
+    if (s.isBrejo) return "brejo";
+    if (s.isArena) return null;
+    var ph = EN.World.currentPhase(s.meta.dayT).name;
+    return ph === "Noite" || ph === "Madrugada" ? "night" : "day";
+  }
+
   function render(s, dt) {
+    // se um frame anterior quebrou no meio da camada de pixel, o ctx
+    // ficaria preso nela: sempre recomeça pelo contexto da tela
+    ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, vw, vh);
     var origin = EN.Camera.getViewOrigin(s.camera, vw, vh, s.worldW, s.worldH);
     var zoom = s.camera.zoom;
@@ -1069,7 +1191,14 @@ EN.Main = (function () {
     ctx.scale(zoom, zoom);
     ctx.translate(shake.x, shake.y);
     ctx.drawImage(s.worldCanvas, origin.x, origin.y, origin.viewW, origin.viewH, 0, 0, origin.viewW, origin.viewH);
+    EN.Particles.draw(ctx, origin.x, origin.y, 0);
 
+    // o que é desenhado por código passa pela camada de pixel (ver
+    // pixelLayer.js); `ctx` é trocado por ela durante o bloco, então todas
+    // as funções de desenho abaixo continuam iguais
+    var screenCtx = ctx;
+    var pixelated = EN.PixelLayer.enabled();
+    if (pixelated) ctx = EN.PixelLayer.begin(origin);
     s.coins.forEach(function (c) {
       drawCoin(ctx, c, origin.x, origin.y);
     });
@@ -1077,11 +1206,33 @@ EN.Main = (function () {
       EN.World.drawNpcs(ctx, origin.x, origin.y, performance.now() / 1000);
       EN.Farm.draw(ctx, origin.x, origin.y, performance.now() / 1000);
     }
+    // quem está sumindo (neblina, morte) vai numa passada à parte com
+    // transparência em dithering; o resto ganha silhueta de corte seco
+    var fading = [];
     s.enemies.forEach(function (e) {
-      EN.Enemy.draw(ctx, e, origin.x, origin.y);
+      if (pixelated && (e.dead || (e.fade !== undefined && e.fade < 1))) fading.push(e);
+      else EN.Enemy.draw(ctx, e, origin.x, origin.y);
     });
     EN.Pet.draw(ctx, origin.x, origin.y);
+    if (pixelated) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx, "crisp");
+      if (fading.length) {
+        ctx = EN.PixelLayer.begin(origin);
+        fading.forEach(function (e) {
+          EN.Enemy.draw(ctx, e, origin.x, origin.y);
+        });
+        ctx = screenCtx;
+        EN.PixelLayer.end(ctx, "dither");
+      }
+    }
+    // o jogador já é pixel art de planilha: vai direto
     EN.Player.draw(ctx, s.player, origin.x, origin.y);
+
+    // passadas vazias da camada custam um clear + um envio de textura
+    // inteiros por quadro: só abre a camada se houver o que desenhar
+    var projLayer = pixelated && (s.projectiles.length > 0 || (s.enemyProjectiles || []).length > 0);
+    if (projLayer) ctx = EN.PixelLayer.begin(origin);
 
     s.projectiles.forEach(function (pr) {
       var fill = pr.magic ? (pr.burn ? "#ff9a40" : "#c9a8f2") : (pr.burn ? "#ff6a20" : "#7fe0c9");
@@ -1095,10 +1246,26 @@ EN.Main = (function () {
       var isFeather = pr.kind === "pena";
       drawProjectile(pr, origin.x, origin.y, isFeather ? "#c9a227" : "#f2e05a", isFeather ? "#6b5220" : "#a08a1a");
     });
+    if (projLayer) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx);
+    }
 
+    (s.enemyProjectiles || []).forEach(function (pr) {
+      if (dt && (pr.lingering || pr.kind === "chama")) EN.Particles.fx.ember(pr.x, pr.y);
+    });
+    EN.Particles.ambient(dt, origin.x, origin.y, origin.viewW, origin.viewH, ambientMood(s));
+    EN.Particles.draw(ctx, origin.x, origin.y, 1);
+
+    var fxLayer = pixelated && s.fx.length > 0;
+    if (fxLayer) ctx = EN.PixelLayer.begin(origin);
     s.fx.forEach(function (f) {
       drawFx(f, origin.x, origin.y);
     });
+    if (fxLayer) {
+      ctx = screenCtx;
+      EN.PixelLayer.end(ctx);
+    }
 
     // trilha guia: fica ACIMA do chão e ABAIXO da atmosfera, então a
     // noite escurece ela junto com o resto em vez de deixá-la boiando
@@ -1108,9 +1275,16 @@ EN.Main = (function () {
       if (!EN.State.data.progress.despertarSeen) {
         EN.World.drawDespertarBeacon(ctx, origin.x, origin.y, performance.now() / 1000);
       }
-      EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt);
+      EN.World.drawAtmosphere(ctx, s.meta.dayT, origin.x, origin.y, origin.viewW, origin.viewH, dt, dynamicLights(s, 70));
     } else if (s.isMine) {
-      drawMineDarkness(ctx, s, origin);
+      if (EN.Lighting && EN.Particles.getQuality() !== "low") {
+        EN.Lighting.render(ctx, {
+          darkness: 1, maxAlpha: 0.84, rgb: [8, 6, 10], lights: dynamicLights(s, 250),
+          camX: origin.x, camY: origin.y, viewW: origin.viewW, viewH: origin.viewH, t: performance.now() / 1000,
+        });
+      } else {
+        drawMineDarkness(ctx, s, origin);
+      }
     } else if (s.isBrejo) {
       // o Brejo é sempre noite: névoa fria por cima e uma vinheta mais
       // aberta que a da mina (é céu aberto, não galeria)
@@ -1472,6 +1646,8 @@ EN.Main = (function () {
 
   return {
     boot: boot,
+    applyGraphics: applyGraphics,
+    graphicsLevel: graphicsLevel,
     setSession: setSession,
     restoreMainSession: restoreMainSession,
     confirmClassFromArena: confirmClassFromArena,

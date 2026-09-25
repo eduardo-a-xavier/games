@@ -35,7 +35,11 @@ jobs:
         run: find prototype/web/src -name '*.js' -print0 | xargs -0 -n1 node --check
 
       - name: Testar save e pipeline de assets
+        # o teste de precache confere que todo arquivo do service worker
+        # existe no disco — inclusive as cópias web dos sprites, que são
+        # geradas; por isso a preparação vem antes
         run: |
+          python3 prototype/web/prepare_web_assets.py
           node --test prototype/web/tests/*.test.js
           python3 -m unittest discover -s prototype/web/tests -p 'test_*.py'
 

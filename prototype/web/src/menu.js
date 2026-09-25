@@ -47,7 +47,7 @@ EN.Menu = (function () {
     if (!root) return;
     ["menu-close", "attr-pts", "attr-rows", "derived-rows", "quest-list", "bestiary-list",
      "menu-portrait", "menu-name", "menu-class", "menu-level", "menu-xp-fill", "menu-xp-text",
-     "btn-menu", "menu-dot", "opt-mute", "opt-fullscreen", "opt-reset",
+     "btn-menu", "menu-dot", "opt-mute", "opt-fullscreen", "opt-reset", "opt-graphics", "opt-graphics-desc",
      "pet-card", "pet-level", "pet-body"].forEach(function (id) {
       els[id] = document.getElementById(id);
     });
@@ -482,8 +482,30 @@ EN.Menu = (function () {
       EN.State.data.settings.muted = m;
       EN.State.persist();
       var hudBtn = document.getElementById("btn-mute");
-      if (hudBtn) hudBtn.textContent = m ? "🔇" : "🔊";
+      if (hudBtn) EN.Icons.setMute(m);
       syncMute();
+    });
+
+    // qualidade gráfica: Automático -> Alto -> Baixo
+    var GFX = {
+      auto: ["Automático", "Automático: reduz sozinho se o aparelho engasgar"],
+      alto: ["Alto", "Luz, partículas e pixel nítido completos"],
+      baixo: ["Baixo", "Para aparelhos modestos: menos efeitos e resolução menor"],
+    };
+    function syncGraphics() {
+      var g = EN.State.data.settings.graficos || "auto";
+      if (!els["opt-graphics"]) return;
+      els["opt-graphics"].textContent = GFX[g][0];
+      els["opt-graphics-desc"].textContent = GFX[g][1];
+    }
+    syncGraphics();
+    tap(els["opt-graphics"], function () {
+      var order = ["auto", "alto", "baixo"];
+      var s = EN.State.data.settings;
+      s.graficos = order[(order.indexOf(s.graficos || "auto") + 1) % order.length];
+      EN.State.persist();
+      if (EN.Main && EN.Main.applyGraphics) EN.Main.applyGraphics();
+      syncGraphics();
     });
 
     tap(els["opt-fullscreen"], function () {

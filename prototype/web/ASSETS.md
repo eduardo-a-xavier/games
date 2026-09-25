@@ -97,9 +97,13 @@ mesmo passo automaticamente e o Gradle copia as fontes direto para o APK.
   sprite e retrato próprios (o retrato aparece na caixa de diálogo, hoje
   substituído por emoji).
 
-## Cenário (`src/world.js`, `src/arena.js`)
+## Cenário (`src/pixelWorld.js`, `src/world.js`, `src/arena.js`)
 
-- Fundo do Sítio inteiro é gerado por código (grama speckled, caminho de
+- **O Sítio agora é pixel art** (`src/pixelWorld.js`), pintado em 1/3 da
+  resolução e ampliado 3× sem interpolação, só com a paleta canônica. O
+  desenho vetorial antigo abaixo continua em `world.js#legacyBake` como
+  reserva (`?mundo=antigo`).
+- Texto original — fundo do Sítio inteiro é gerado por código (grama speckled, caminho de
   terra com jitter, casa, plantação, árvores, pedras, flores, tufos de
   grama). Formato alvo para versão final: tileset 16×16px conforme
   Direção de Arte do GDD (`docs/GDD.md`, Seção 58).
@@ -109,7 +113,10 @@ mesmo passo automaticamente e o Gradle copia as fontes direto para o APK.
 
 ## HUD / ícones
 
-- Ícones de habilidade/UI usam emoji Unicode (❤️⚡✦🔒💬✋🎁🧺🚪🔍🌀 etc.)
+- **Ícones pixel próprios** (`src/icons.js`, 28 ícones 12×12) já substituem os
+  emojis do HUD, dos botões de ação e das habilidades das três classes. O que
+  ainda não tem desenho continua em emoji (lista em `EMOJI` no arquivo).
+- Texto original — ícones de habilidade/UI usam emoji Unicode (❤️⚡✦🔒💬✋🎁🧺🚪🔍🌀 etc.)
   em vez de ícones desenhados — renderiza de forma consistente em
   iOS/Android sem exigir spritesheet de UI agora, mas o ideal para
   lançamento é substituir por ícones vetoriais/pixel art próprios com a

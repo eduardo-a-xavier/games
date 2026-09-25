@@ -276,7 +276,7 @@ EN.Controls = (function () {
           if (EN.Player.useHeal(ctx.player)) {
           learned("curou");
             EN.Audio.play("heal");
-            if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+            if (ctx.spawnFx) ctx.spawnFx("heal", { x: ctx.player.x, y: ctx.player.y });
             if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
           } else if (ctx.toast && ctx.player.healCharges <= 0) {
             ctx.toast("Sem preparos de cura.");
@@ -521,7 +521,7 @@ EN.Controls = (function () {
         if (EN.Player.useHeal(ctx.player)) {
           learned("curou");
           EN.Audio.play("heal");
-          if (ctx.spawnFx) ctx.spawnFx("hit", { x: ctx.player.x, y: ctx.player.y });
+          if (ctx.spawnFx) ctx.spawnFx("heal", { x: ctx.player.x, y: ctx.player.y });
           if (ctx.toast) ctx.toast("Você bebeu um preparo de ervas.");
         } else if (ctx.toast && ctx.player.healCharges <= 0) {
           ctx.toast("Sem preparos de cura.");
@@ -598,12 +598,12 @@ EN.Controls = (function () {
       els["btn-skill1"].classList.remove("locked");
       els["btn-skill1"].classList.add("has-accent");
       els["btn-skill1"].style.setProperty("--accent", CLASS_ACCENT[p.classId] || "var(--ipe-dim)");
-      els["icon-skill1"].textContent = ab1.icon;
+      EN.Icons.apply(els["icon-skill1"], ab1.icon);
       setCooldownRing("cd-skill1", p.cd.skill1 / ab1.cooldown);
     } else {
       els["btn-skill1"].classList.add("locked");
       els["btn-skill1"].classList.remove("has-accent");
-      els["icon-skill1"].textContent = "🔒";
+      EN.Icons.apply(els["icon-skill1"], "🔒");
     }
     // habilidade 2 = talento escolhido no nível 5 (GDD Seção 11)
     var ab2 = p.skill2Def;
@@ -611,12 +611,12 @@ EN.Controls = (function () {
       els["btn-skill2"].classList.remove("locked");
       els["btn-skill2"].classList.add("has-accent");
       els["btn-skill2"].style.setProperty("--accent", CLASS_ACCENT[p.classId] || "var(--ipe-dim)");
-      els["icon-skill2"].textContent = ab2.icon;
+      EN.Icons.apply(els["icon-skill2"], ab2.icon);
       setCooldownRing("cd-skill2", p.cd.skill2 / ab2.cooldown);
     } else {
       els["btn-skill2"].classList.add("locked");
       els["btn-skill2"].classList.remove("has-accent");
-      els["icon-skill2"].textContent = "🔒";
+      EN.Icons.apply(els["icon-skill2"], "🔒");
     }
 
     if (p.charging) {
@@ -646,7 +646,7 @@ EN.Controls = (function () {
     var cbtn = els["btn-context"];
     if (target) {
       cbtn.classList.add("visible");
-      els["icon-context"].textContent = target.icon;
+      EN.Icons.apply(els["icon-context"], target.icon);
     } else {
       cbtn.classList.remove("visible");
     }

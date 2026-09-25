@@ -52,6 +52,14 @@ tasks.register("copyGame", Copy) {
     exclude "dist/**"
     exclude "**/*.py"
     exclude "tests/**"
+    exclude "tools/**"
+    // cópias geradas por prepare_web_assets.py (as mesmas do .gitignore):
+    // a fonte é /assets, copiada logo abaixo. Sem este exclude, rodar o
+    // prepare antes do build (como a CI e o README fazem) duplicava as
+    // entradas e o Copy falhava.
+    exclude "assets/player/*_down.png", "assets/player/*_left.png"
+    exclude "assets/player/*_right.png", "assets/player/*_up.png"
+    exclude "assets/player/defeat.png", "assets/npcs/*.png"
   }
   into layout.buildDirectory.dir("gameAssets/www")
 

@@ -34,6 +34,7 @@ EN.State = (function () {
       },
       settings: {
         muted: false,
+        graficos: "auto", // "auto" | "alto" | "baixo" — ver main.js#applyGraphics
       },
       world: {
         x: 300,
@@ -137,6 +138,7 @@ EN.State = (function () {
     normalized.profile.name = typeof normalized.profile.name === "string" ? normalized.profile.name.slice(0, 16) : "";
     normalized.profile.created = !!normalized.profile.created;
     normalized.settings.muted = !!normalized.settings.muted;
+    if (["auto", "alto", "baixo"].indexOf(normalized.settings.graficos) < 0) normalized.settings.graficos = "auto";
 
     normalized.progress.level = Math.floor(finiteNumber(normalized.progress.level, 1, 1));
     normalized.progress.xp = Math.floor(finiteNumber(normalized.progress.xp, 0, 0));
